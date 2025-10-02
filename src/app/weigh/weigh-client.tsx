@@ -9,9 +9,9 @@ import HomeButton from "../../components/HomeButton";
 type Recipe = any;
 
 export default function WeighClient() {
-  const params = useSearchParams();
   const router = useRouter();
-  const ids = (params.get("ids") || "").split(",").filter(Boolean);
+  const sp = useSearchParams();
+  const ids = (sp.get("ids") || "").split(",").filter(Boolean);
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,14 +20,15 @@ export default function WeighClient() {
     (async () => {
       setLoading(true);
       await ensureAnonAuth();
-      const list: any[] = [];
+      const arr: Recipe[] = [];
       for (const id of ids) {
         const snap = await getDoc(doc(db, "recipes", id));
-        if (snap.exists()) list.push({ id, ...(snap.data() as any) });
+        if (snap.exists()) arr.push({ id, ...(snap.data() as any) });
       }
-      setRecipes(list);
+      setRecipes(arr);
       setLoading(false);
     })();
+    // ids כ־string כדי לא לשבור תלות
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.join(",")]);
 
@@ -41,7 +42,6 @@ export default function WeighClient() {
         {recipes.map((r) => (
           <div key={r.id} className="bg-white rounded-2xl shadow p-4">
             <div className="text-xl font-bold mb-2">{r.title}</div>
-
             {(r.ingredients || []).map((g: any, gi: number) => (
               <div key={gi} className="mb-3">
                 {g.groupName ? (
