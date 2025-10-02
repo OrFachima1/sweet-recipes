@@ -4,6 +4,7 @@ import LoginForm from "@/components/LoginForm";
 import { useUser, useRole, logout } from "@/lib/auth";
 import HomeContent from "./HomeContent";
 
+
 export default function Page() {
   const { user, loading } = useUser();
   const { role, displayName } = useRole(user?.uid); // ← הוסף displayName

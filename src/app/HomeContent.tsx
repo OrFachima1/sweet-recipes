@@ -20,6 +20,7 @@ import { useIngredientDict } from "@/hooks/useIngredientDict";
 import { useCategoryDict } from "@/hooks/useCategoryDict";
 import { useUnitDict } from "@/hooks/useUnitDict";
 import { logout } from "@/lib/auth";
+import InstallPrompt from "../components/InstallPrompt";
 
 // ===== Types =====
 type Ingredient = { id: string; name: string; qty: string; unit: string };
@@ -432,7 +433,7 @@ export default function HomeContent({
           className="w-[280px] md:w-[380px] lg:w-[460px] h-auto object-contain"
         />
       </section>
-
+        <InstallPrompt />
       {/* חיפוש + הוספת מתכון */}
       <section className="px-4 flex flex-col items-center relative">
         <input
