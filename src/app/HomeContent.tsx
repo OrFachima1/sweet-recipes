@@ -398,13 +398,15 @@ export default function HomeContent({
     <div className="min-h-screen" dir="rtl" lang="he">
       {/* ► פס עליון: שלום + התנתקות */}
         <header className="relative px-4 pt-4">
-  {/* כפתור התנתקות – שמאל למעלה של המסך */}
+<div className="flex items-center">
   <button
     onClick={logout}
-    className="fixed left-4 top-4 z-40 px-4 py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
+    className="mr-auto px-4 py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
   >
     התנתקות
   </button>
+</div>
+
 
   {/* הברכה – ימין, בתוך קונטיינר העמוד */}
   <div className="max-w-5xl mx-auto text-right">

@@ -7,6 +7,7 @@ import HomeButton from "../../../components/HomeButton";
 import FloatingCalculator from "../../../components/FloatingCalculator";
 import NoSleep from "nosleep.js";
 import { useUser, useRole } from "../../../lib/auth";
+import ScaleControl from "../../../components/ScaleControl";
 
 
 // ---- Utilities: שמירה לוקאלית ----
@@ -235,9 +236,8 @@ export default function RecipePage() {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --- Scaling state ---
 // --- Scaling state ---
-const [scale, setScale] = useState<number>(1);
+const [scale, setScale] = useState(1);
 
 // --- Work Mode (שומר מסך דולק) ---
 const [workMode, setWorkMode] = useState(false);
@@ -402,47 +402,8 @@ function setAllChecked(val: boolean) {
             />
             מצב עבודה 
           </label>
-          {/* בקר סקיילינג (ימין) */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">כפול</span>
+          <ScaleControl value={scale} onChange={setScale} />
 
-            <input
-              type="number"
-              step={0.1}
-              min={0.1}
-              dir="ltr"
-              value={scale}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setScale(!Number.isFinite(v) || v < 0 ? 1 : v);
-              }}
-              className="w-20 rounded-xl border bg-white px-3 py-2 text-left"
-              title="מקדם הכפלה"
-            />
-
-            <div className="flex gap-1">
-              {[0.5, 2, 3].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setScale(v)}
-                  className={`px-2 py-1 rounded-lg border text-sm ${
-                    scale === v ? "bg-pink-100 border-pink-300" : "bg-white"
-                  }`}
-                >
-                  {v}×
-                </button>
-              ))}
-              <button
-                onClick={() => setScale(1)}
-                className={`px-2 py-1 rounded-lg border text-sm ${
-                  scale === 1 ? "bg-pink-100 border-pink-300" : "bg-white"
-                }`}
-                title="איפוס"
-              >
-                איפוס
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="text-sm text-gray-600">{data.category}</div>
@@ -469,9 +430,8 @@ function setAllChecked(val: boolean) {
         {/* חשוב לטאצ' – גלילה חלקה */}
         <ul className="space-y-2 select-none" style={{ touchAction: "pan-y" }}>
           {(g.items || []).map((it: any) => {
-            const html = formatRich(
-              [it.name, [it.qty, it.unit].filter(Boolean).join(" ")].filter(Boolean).join(" — ")
-            );
+            const html = formatRich(lineWithScale(it, scale));
+
             const isChecked = !!checked[it.id];
 
             return (
