@@ -14,7 +14,7 @@ interface MonthViewProps {
   onNext: () => void;
   onToday: () => void;
   monthLabel: string;
-  onAddClient: () => void; // 👈 חדש
+  onAddClient?: () => void; // 👈 Optional - רק למנהלים
 }
 
 export default function MonthView({
@@ -36,7 +36,7 @@ export default function MonthView({
 
   const monthName = viewDate.toLocaleDateString('he-IL', { month: 'long' });
   const year = viewDate.getFullYear();
-
+/*
   // תמיכה במקלדת
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,20 +81,22 @@ export default function MonthView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedDayKey, setSelectedDayKey, setViewDate, onOpenDayModal]);
-
+*/
   return (
     <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
       {/* Header אדום בהיר */}
       <div className="bg-red-100 px-6 py-6">
         <div className="flex items-center justify-between mb-3">
-          {/* כפתור הוסף לקוח - צד שמאל */}
-          <button
-            onClick={onAddClient}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
-          >
-            <span className="text-xl leading-none">＋</span>
-            <span>הוסף לקוח</span>
-          </button>
+          {/* כפתור הוסף לקוח - מוצג רק אם onAddClient קיים (מנהל) */}
+          {onAddClient && (
+            <button
+              onClick={onAddClient}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
+            >
+              <span className="text-xl leading-none">＋</span>
+              <span>הוסף לקוח</span>
+            </button>
+          )}
           
           <button
             onClick={onToday}

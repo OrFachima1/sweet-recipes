@@ -14,7 +14,7 @@ interface WeekViewProps {
   onNextWeek: () => void;
   onToday: () => void;
   monthLabel: string;
-  onAddClient: () => void; // 👈 חדש
+  onAddClient?: () => void; // 👈 Optional - רק למנהלים
 }
 
 export default function WeekView({
@@ -97,14 +97,16 @@ export default function WeekView({
       {/* Header אדום בהיר - תצוגת חודש */}
       <div className="bg-red-100 px-6 py-6">
         <div className="flex items-center justify-between mb-2">
-          {/* כפתור הוסף לקוח - צד שמאל */}
-          <button
-            onClick={onAddClient}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
-          >
-            <span className="text-xl leading-none">＋</span>
-            <span>הוסף לקוח</span>
-          </button>
+          {/* כפתור הוסף לקוח - מוצג רק אם onAddClient קיים (מנהל) */}
+          {onAddClient && (
+            <button
+              onClick={onAddClient}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
+            >
+              <span className="text-xl leading-none">＋</span>
+              <span>הוסף לקוח</span>
+            </button>
+          )}
           
           <button
             onClick={onToday}

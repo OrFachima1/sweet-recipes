@@ -6,10 +6,10 @@ interface DayModalProps {
   dayKey: string;
   onClose: () => void;
   daysMap: Map<string, any[]>;
-  deleteOrder: (id: string) => void;
-  editOrderItem: (orderId: string, idx: number, patch: any) => void;
-  removeItemFromOrder: (orderId: string, idx: number) => void;
-  onAddItem: (orderId: string) => void;
+  deleteOrder?: (id: string) => void; // 👈 Optional - רק למנהלים
+  editOrderItem?: (orderId: string, idx: number, patch: any) => void; // 👈 Optional
+  removeItemFromOrder?: (orderId: string, idx: number) => void; // 👈 Optional
+  onAddItem?: (orderId: string) => void; // 👈 Optional
   noteOpen: Record<string, boolean>;
   toggleNote: (orderId: string, idx: number) => void;
 }
@@ -52,7 +52,7 @@ export default function DayModal({
           </button>
         </div>
         
-        {/* Body */}
+        {/* Body - מעביר את כל ה-callbacks כמו שהם (optional) */}
         <div className="flex-1 overflow-hidden">
           <DayOrdersList
             dayKey={dayKey}

@@ -2,6 +2,17 @@
 import React, { useState } from "react";
 import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/categoryMapping";
 
+interface DayOrdersListProps {
+  dayKey: string;
+  daysMap: Map<string, any[]>;
+  deleteOrder?: (orderId: string) => void; // 👈 Optional - רק למנהלים
+  editOrderItem?: (orderId: string, idx: number, patch: any) => void; // 👈 Optional
+  removeItemFromOrder?: (orderId: string, idx: number) => void; // 👈 Optional
+  onAddItem?: (orderId: string) => void; // 👈 Optional
+  noteOpen: Record<string, boolean>;
+  toggleNote: (orderId: string, idx: number) => void;
+}
+
 export default function DayOrdersList({
   dayKey,
   daysMap,
@@ -11,9 +22,15 @@ export default function DayOrdersList({
   onAddItem,
   noteOpen,
   toggleNote,
-}: any) {
+}: DayOrdersListProps) {
   const orders = daysMap.get(dayKey) || [];
   const [completionState, setCompletionState] = useState<Record<string, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
+  
+  // בדיקה אם יש הרשאות עריכה
+  const canEdit = !!editOrderItem;
+  const canDelete = !!deleteOrder;
+  const canRemoveItems = !!removeItemFromOrder;
+  const canAddItems = !!onAddItem;
   
   const getItemKey = (orderId: string, itemIdx: number) => `${orderId}:${itemIdx}`;
   
@@ -73,12 +90,15 @@ export default function DayOrdersList({
                     {o.status}
                   </span>
                 )}
-                <button 
-                  onClick={() => deleteOrder(o.__id!)} 
-                  className="text-red-600 hover:text-red-800 text-base font-medium px-3 py-1 rounded hover:bg-white/50 transition-colors"
-                >
-                  מחק
-                </button>
+                {/* כפתור מחק - רק למנהלים */}
+                {canDelete && (
+                  <button 
+                    onClick={() => deleteOrder(o.__id!)} 
+                    className="text-red-600 hover:text-red-800 text-base font-medium px-3 py-1 rounded hover:bg-white/50 transition-colors"
+                  >
+                    מחק
+                  </button>
+                )}
               </div>
             </div>
 
@@ -90,13 +110,15 @@ export default function DayOrdersList({
                   <span className="text-sm font-normal text-gray-500">({o.items.length})</span>
                 </div>
                 
-                {/* כפתור הוסף מנה - צד שמאל */}
-                <button 
-                  onClick={() => onAddItem(o.__id!)} 
-                  className="text-base px-5 py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-medium shadow-sm"
-                >
-                  + הוסף מנה
-                </button>
+                {/* כפתור הוסף מנה - רק למנהלים */}
+                {canAddItems && (
+                  <button 
+                    onClick={() => onAddItem(o.__id!)} 
+                    className="text-base px-5 py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-medium shadow-sm"
+                  >
+                    + הוסף מנה
+                  </button>
+                )}
               </div>
               
               {/* תצוגה לרוחב - grid של קטגוריות */}
@@ -152,7 +174,7 @@ export default function DayOrdersList({
                                       title={
                                         state.status === 'pending' ? 'לא התחלנו' :
                                         state.status === 'partial' ? 'בתהליך' :
-                                        state.status === 'almost' ? 'כמעט גמור' : 'הושלם'
+                                        state.status === 'almost' ? 'כמעט במור' : 'הושלם'
                                       }
                                     >
                                       {statusIcon}
@@ -161,19 +183,25 @@ export default function DayOrdersList({
                                     {/* שם המנה והכמות */}
                                     <div className="flex-1">
                                       <span className="text-base font-semibold text-gray-900">{it.title}</span>
-                                      <span 
-                                        className="mr-2 text-lg font-bold cursor-pointer hover:text-blue-600 transition-colors"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const newQty = prompt(`כמות עבור ${it.title}:`, String(it.qty));
-                                          if (newQty && !isNaN(Number(newQty))) {
-                                            editOrderItem(o.__id!, originalIndex, { qty: Number(newQty) });
-                                          }
-                                        }}
-                                        title="לחץ לעריכת כמות"
-                                      >
-                                        × {it.qty}
-                                      </span>
+                                      {canEdit ? (
+                                        <span 
+                                          className="mr-2 text-lg font-bold cursor-pointer hover:text-blue-600 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const newQty = prompt(`כמות עבור ${it.title}:`, String(it.qty));
+                                            if (newQty && !isNaN(Number(newQty))) {
+                                              editOrderItem(o.__id!, originalIndex, { qty: Number(newQty) });
+                                            }
+                                          }}
+                                          title="לחץ לעריכת כמות"
+                                        >
+                                          × {it.qty}
+                                        </span>
+                                      ) : (
+                                        <span className="mr-2 text-lg font-bold text-gray-700">
+                                          × {it.qty}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                   
@@ -192,7 +220,7 @@ export default function DayOrdersList({
                                     </div>
                                   )}
                                   
-                                  {/* הערה למנה חלקית או כמעט גמורה */}
+                                  {/* הערה למנה חלקית או כמעט במורה */}
                                   {(state.status === 'partial' || state.status === 'almost') && (
                                     <textarea
                                       className="w-full text-sm bg-blue-50 border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
@@ -205,6 +233,7 @@ export default function DayOrdersList({
                                   
                                   {/* כפתורי פעולה */}
                                   <div className="flex gap-1 pr-9">
+                                    {/* כפתור הערה - תמיד זמין */}
                                     <button 
                                       onClick={() => toggleNote(o.__id!, originalIndex)} 
                                       className="text-gray-500 hover:text-blue-600 text-base w-6 h-6 rounded hover:bg-blue-50 flex items-center justify-center" 
@@ -212,13 +241,17 @@ export default function DayOrdersList({
                                     >
                                       📝
                                     </button>
-                                    <button 
-                                      onClick={() => removeItemFromOrder(o.__id!, originalIndex)} 
-                                      className="text-gray-500 hover:text-red-600 text-base w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center" 
-                                      title="הסר"
-                                    >
-                                      ×
-                                    </button>
+                                    
+                                    {/* כפתור הסר - רק למנהלים */}
+                                    {canRemoveItems && (
+                                      <button 
+                                        onClick={() => removeItemFromOrder(o.__id!, originalIndex)} 
+                                        className="text-gray-500 hover:text-red-600 text-base w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center" 
+                                        title="הסר"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
                                   </div>
                                   
                                   {/* הערות רגילות */}
@@ -227,9 +260,11 @@ export default function DayOrdersList({
                                       <textarea
                                         className="w-full bg-white border border-blue-300 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
                                         value={it.notes || ""}
-                                        onChange={(e) => editOrderItem(o.__id!, originalIndex, { notes: e.target.value })}
+                                        onChange={canEdit ? (e) => editOrderItem(o.__id!, originalIndex, { notes: e.target.value }) : undefined}
                                         placeholder="הערה"
                                         rows={2}
+                                        readOnly={!canEdit}
+                                        disabled={!canEdit}
                                       />
                                     </div>
                                   )}

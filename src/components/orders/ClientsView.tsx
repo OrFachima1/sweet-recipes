@@ -5,7 +5,7 @@ import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/
 
 interface ClientsViewProps {
   orders: any[];
-  onAddClient: () => void;
+  onAddClient?: () => void; // 👈 Optional - רק למנהלים
 }
 
 type TimeRange = "today" | "week" | "weekend" | "twoweeks" | "month" | "custom";
@@ -83,13 +83,17 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
       <div className="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">תצוגת לקוחות</h2>
-          <button
-            onClick={onAddClient}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
-          >
-            <span className="text-xl leading-none">＋</span>
-            <span>הוסף לקוח</span>
-          </button>
+          
+          {/* כפתור הוסף לקוח - רק למנהלים */}
+          {onAddClient && (
+            <button
+              onClick={onAddClient}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
+            >
+              <span className="text-xl leading-none">＋</span>
+              <span>הוסף לקוח</span>
+            </button>
+          )}
         </div>
 
         {/* בחירת טווח זמן */}
@@ -395,4 +399,3 @@ function ClientCard({ order }: { order: any }) {
     </div>
   );
 }
- 
