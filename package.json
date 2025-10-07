@@ -10,6 +10,7 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "dayjs": "^1.11.18",
     "firebase": "^12.3.0",
     "next": "15.5.4",
     "nosleep.js": "^0.12.0",
