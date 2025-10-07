@@ -14,7 +14,7 @@ interface WeekViewProps {
   onNextWeek: () => void;
   onToday: () => void;
   monthLabel: string;
-  onAddClient?: () => void; // 👈 Optional - רק למנהלים
+  onAddClient?: () => void;
 }
 
 export default function WeekView({
@@ -37,29 +37,28 @@ export default function WeekView({
   }, [viewDate]);
 
   const headers = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+  const headersShort = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
   const monthName = viewDate.toLocaleDateString('he-IL', { month: 'long' });
   const year = viewDate.getFullYear();
 
-  // חישוב מספר השבוע בחודש
   const firstDayOfMonth = startOfMonth(viewDate);
   const firstWeekStart = startOfWeek(firstDayOfMonth, 0);
   const currentWeekStart = startOfWeek(viewDate, 0);
   const weekNumber = Math.floor((currentWeekStart.getTime() - firstWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
 
-  // תמיכה במקלדת
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const currentDate = new Date(selectedDayKey);
       
       switch(e.key) {
-        case 'ArrowLeft': // שמאל = קדימה (בגלל RTL)
+        case 'ArrowLeft':
           e.preventDefault();
           const nextDay = addDays(currentDate, 1);
           setSelectedDayKey(fmtYMD(nextDay));
           setViewDate(nextDay);
           break;
           
-        case 'ArrowRight': // ימין = אחורה (בגלל RTL)
+        case 'ArrowRight':
           e.preventDefault();
           const prevDay = addDays(currentDate, -1);
           setSelectedDayKey(fmtYMD(prevDay));
@@ -92,77 +91,72 @@ export default function WeekView({
   }, [selectedDayKey, setSelectedDayKey, setViewDate, onOpenDayModal]);
 
   return (
-    <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
+    <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
       
-      {/* Header אדום בהיר - תצוגת חודש */}
-      <div className="bg-red-100 px-6 py-6">
+      {/* Header - responsive */}
+      <div className="bg-red-100 px-3 py-3 md:px-6 md:py-6">
         <div className="flex items-center justify-between mb-2">
-          {/* כפתור הוסף לקוח - מוצג רק אם onAddClient קיים (מנהל) */}
           {onAddClient && (
             <button
               onClick={onAddClient}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
+              className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-4 md:py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-base font-medium"
             >
-              <span className="text-xl leading-none">＋</span>
-              <span>הוסף לקוח</span>
+              <span className="text-base md:text-xl leading-none">＋</span>
+              <span className="hidden sm:inline">הוסף לקוח</span>
             </button>
           )}
           
           <button
             onClick={onToday}
-            className="text-xs px-4 py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
+            className="text-[10px] md:text-xs px-2 md:px-4 py-1 md:py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
           >
             היום
           </button>
         </div>
         
-        {/* חודש ושנה - ללא חיצים */}
+        {/* חודש ושנה */}
         <div className="text-center">
-          <div className="text-5xl font-bold text-gray-900">
+          <div className="text-3xl md:text-5xl font-bold text-gray-900">
             {monthName}
           </div>
-          <div className="text-lg font-medium text-gray-700 mt-1">
+          <div className="text-sm md:text-lg font-medium text-gray-700 mt-0.5 md:mt-1">
             {year}
           </div>
         </div>
       </div>
 
-      {/* חלק אדום בהיר נוסף - ניווט שבועות */}
-      <div className="bg-red-200 px-6 py-4 border-t-2 border-red-300/50">
-        <div className="flex items-center justify-center gap-6">
-          {/* חץ שבוע קודם */}
+      {/* ניווט שבועות - responsive */}
+      <div className="bg-red-200 px-3 py-2 md:px-6 md:py-4 border-t-2 border-red-300/50">
+        <div className="flex items-center justify-center gap-3 md:gap-6">
           <button
             onClick={onPrevWeek}
-            className="w-9 h-9 rounded-full bg-white/40 hover:bg-white/60 transition-all flex items-center justify-center text-2xl text-gray-900"
+            className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-white/40 hover:bg-white/60 transition-all flex items-center justify-center text-xl md:text-2xl text-gray-900"
           >
             ‹
           </button>
 
-          {/* מספר שבוע */}
-          <div className="text-center min-w-[180px]">
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="text-center min-w-[140px] md:min-w-[180px]">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
               שבוע {weekNumber}
             </div>
-            <div className="text-xs font-medium text-gray-700 mt-1">
+            <div className="text-[10px] md:text-xs font-medium text-gray-700 mt-0.5 md:mt-1">
               {weekDays[0].getDate()}-{weekDays[6].getDate()} {monthName}
             </div>
-            {/* מונה הזמנות */}
-            <div className="text-xs px-3 py-1 rounded-full bg-white/60 text-gray-700 font-medium inline-block mt-1">
-              {weekDays.reduce((sum, day) => sum + (daysMap.get(fmtYMD(day))?.length || 0), 0)} הזמנות השבוע
+            <div className="text-[10px] md:text-xs px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-white/60 text-gray-700 font-medium inline-block mt-0.5 md:mt-1">
+              {weekDays.reduce((sum, day) => sum + (daysMap.get(fmtYMD(day))?.length || 0), 0)} הזמנות
             </div>
           </div>
 
-          {/* חץ שבוע הבא */}
           <button
             onClick={onNextWeek}
-            className="w-9 h-9 rounded-full bg-white/40 hover:bg-white/60 transition-all flex items-center justify-center text-2xl text-gray-900"
+            className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-white/40 hover:bg-white/60 transition-all flex items-center justify-center text-xl md:text-2xl text-gray-900"
           >
             ›
           </button>
         </div>
       </div>
 
-      {/* כותרת ימים מעוצבת */}
+      {/* כותרת ימים - responsive */}
       <div className="relative bg-gradient-to-b from-amber-50 via-orange-50 to-red-50">
         <div className="absolute inset-0 opacity-30" style={{
           backgroundImage: `repeating-linear-gradient(
@@ -174,33 +168,34 @@ export default function WeekView({
           )`
         }} />
         
-        <div className="relative grid grid-cols-7 text-sm font-bold">
+        <div className="relative grid grid-cols-7 text-[10px] md:text-sm font-bold">
           {headers.map((d, idx) => {
             const isWeekend = idx === 5 || idx === 6;
             return (
               <div
                 key={d}
                 className={`
-                  relative px-2 py-4 text-center
+                  relative px-1 py-2 md:px-2 md:py-4 text-center
                   ${isWeekend ? 'bg-gradient-to-b from-gray-100/80 to-gray-200/80' : ''}
                 `}
               >
                 <div className="relative inline-block">
                   <span className={`relative z-10 ${isWeekend ? 'text-gray-600' : 'text-gray-800'}`}>
-                    {d}
+                    <span className="hidden md:inline">{d}</span>
+                    <span className="md:hidden">{headersShort[idx]}</span>
                   </span>
                   <div className={`
-                    absolute -bottom-2 left-1/2 -translate-x-1/2 h-1 rounded-full
+                    absolute -bottom-1 md:-bottom-2 left-1/2 -translate-x-1/2 h-0.5 md:h-1 rounded-full
                     ${isWeekend 
-                      ? 'w-12 bg-gradient-to-r from-transparent via-gray-400 to-transparent' 
-                      : 'w-16 bg-gradient-to-r from-transparent via-orange-400 to-transparent'
+                      ? 'w-6 md:w-12 bg-gradient-to-r from-transparent via-gray-400 to-transparent' 
+                      : 'w-8 md:w-16 bg-gradient-to-r from-transparent via-orange-400 to-transparent'
                     }
                   `} />
                   {!isWeekend && (
-                    <>
+                    <div className="hidden md:block">
                       <div className="absolute -bottom-3 left-0 w-1 h-1 rounded-full bg-orange-400 animate-pulse" />
                       <div className="absolute -bottom-3 right-0 w-1 h-1 rounded-full bg-orange-400 animate-pulse" />
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -208,12 +203,12 @@ export default function WeekView({
           })}
         </div>
         
-        <div className="h-1 bg-gradient-to-r from-red-300 via-orange-300 to-red-300" />
+        <div className="h-0.5 md:h-1 bg-gradient-to-r from-red-300 via-orange-300 to-red-300" />
       </div>
 
-      {/* עמודות השבוע */}
-      <div className="p-2 bg-gradient-to-br from-white to-gray-50">
-        <div className="grid grid-cols-7 gap-1">
+      {/* עמודות השבוע - responsive */}
+      <div className="p-1 md:p-2 bg-gradient-to-br from-white to-gray-50">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
           {weekDays.map((d, idx) => {
             const key = fmtYMD(d);
             const list = daysMap.get(key) || [];
@@ -230,62 +225,95 @@ export default function WeekView({
                   setViewDate(d);
                 }}
                 className={`
-                  relative min-h-40 rounded-lg text-left p-2 border transition-all cursor-pointer
+                  relative min-h-24 md:min-h-40 rounded md:rounded-lg text-left p-1 md:p-2 border transition-all cursor-pointer
                   ${isWeekend 
                     ? 'bg-gray-50 border-gray-200 hover:bg-gray-100' 
                     : 'bg-white border-gray-200 hover:bg-orange-50/30'
                   }
-                  ${isToday ? 'ring-2 ring-red-400 shadow-lg' : ''}
-                  ${isSelected ? 'ring-2 ring-blue-400' : ''}
+                  ${isToday ? 'ring-1 md:ring-2 ring-red-400 shadow-md md:shadow-lg' : ''}
+                  ${isSelected ? 'ring-1 md:ring-2 ring-blue-400' : ''}
                 `}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-0.5 md:mb-1">
                   <div
                     className={`
-                      text-sm font-bold rounded-full w-7 h-7 flex items-center justify-center
-                      ${isToday ? 'bg-red-400 text-white shadow-md' : 'text-gray-700'}
+                      text-[10px] md:text-sm font-bold rounded-full w-5 h-5 md:w-7 md:h-7 flex items-center justify-center
+                      ${isToday ? 'bg-red-400 text-white shadow-sm md:shadow-md' : 'text-gray-700'}
                     `}
                   >
                     {d.getDate()}
                   </div>
                   {list.length > 0 && (
                     <button
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-[8px] md:text-[10px] text-blue-600 hover:text-blue-800 font-medium px-0.5 md:px-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenDayModal(key);
                       }}
                     >
-                      פתח
+                      <span className="hidden sm:inline">פתח</span>
+                      <span className="sm:hidden">↗</span>
                     </button>
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  {list.slice(0, 6).map((o: any) => (
-                    <button
-                      key={o.__id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenDayModal(key);
-                      }}
-                      className="truncate text-[10px] w-full text-left px-2 py-1 rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                      title={o.clientName}
-                    >
-                      {o.clientName}
-                    </button>
-                  ))}
-                  {list.length > 6 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenDayModal(key);
-                      }}
-                      className="text-[10px] text-gray-500 hover:text-gray-700"
-                    >
-                      +{list.length - 6} נוספות
-                    </button>
-                  )}
+                {/* תצוגת הזמנות - responsive */}
+                <div className="space-y-0.5 md:space-y-1">
+                  {/* מובייל: 3 ראשונות */}
+                  <div className="block md:hidden">
+                    {list.slice(0, 3).map((o: any) => (
+                      <button
+                        key={o.__id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDayModal(key);
+                        }}
+                        className="truncate text-[9px] w-full text-left px-1 py-0.5 rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
+                        title={o.clientName}
+                      >
+                        {o.clientName}
+                      </button>
+                    ))}
+                    {list.length > 3 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDayModal(key);
+                        }}
+                        className="text-[8px] text-gray-500 hover:text-gray-700 px-1"
+                      >
+                        +{list.length - 3}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* טאבלט ומעלה: 6 ראשונות */}
+                  <div className="hidden md:block">
+                    {list.slice(0, 6).map((o: any) => (
+                      <button
+                        key={o.__id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDayModal(key);
+                        }}
+                        className="truncate text-[10px] w-full text-left px-2 py-1 rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                        title={o.clientName}
+                      >
+                        {o.clientName}
+                      </button>
+                    ))}
+                    {list.length > 6 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenDayModal(key);
+                        }}
+                        className="text-[10px] text-gray-500 hover:text-gray-700"
+                      >
+                        +{list.length - 6} נוספות
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
