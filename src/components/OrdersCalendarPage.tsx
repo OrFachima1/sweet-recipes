@@ -520,7 +520,6 @@ const setViewDateStable = useCallback((date: Date) => {
   mappingObj: Record<string, string>,
   skipUnknownCheck: boolean = false
 ) => {
-  alert("🚀 doIngest התחיל!"); 
     if (!isManager) {
       alert("אין לך הרשאה לבצע פעולה זו");
       return;
@@ -606,9 +605,7 @@ if (!skipUnknownCheck) {
 
     const withNotes = filtered.map(o => normalizeImportantNotes(o));
     const merged = [...orders, ...withNotes];
-alert(`📦 עומד לקרוא ל-persist עם ${merged.length} הזמנות`);
   await persist(merged);
-  alert("✅ persist הסתיים!");
     const missing = withNotes
       .filter(o => !o.eventDate)
       .map(o => ({ id: o.__id!, name: o.clientName, date: fmtYMD(new Date()) }));
