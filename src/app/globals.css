@@ -13,6 +13,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* כפתורי ורוד */
+.theme-rose .btn-primary { background: #e11d48; color:#fff; }
+.theme-rose .btn-primary:hover { background:#be123c; }
+.theme-rose .card { background: rgba(251, 113, 133, 0.08); border:1px solid rgba(244, 114, 182, 0.5); }
+.theme-rose .chip { background:#ffe4e6; color:#9f1239; }
+
 /* נועל את אותם צבעים גם במצב כהה */
 @media (prefers-color-scheme: dark) {
   :root {

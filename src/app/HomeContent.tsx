@@ -405,6 +405,14 @@ export default function HomeContent({
   >
     התנתקות
   </button>
+  {/* כפתור מעקב הזמנות */}
+          <button
+            onClick={() => router.push('/orders')}
+            className="px-4 py-2 rounded-xl bg-emerald-500 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center gap-2"
+          >
+            <span className="text-lg">📋</span>
+            <span>למעקב הזמנות</span>
+          </button>
 </div>
 
 
