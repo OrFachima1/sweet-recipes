@@ -252,53 +252,98 @@ export default function OrdersCalendarPage({
 
   // ===== Persistence helper (now saves to Firestore) =====
   const persist = async (next: IngestJsonOrder[]) => {
-    if (!user || !isManager) {
-      log.warn("Cannot persist - no auth or not manager");
+     debugger;
+  if (!user || !isManager) {
+    console.log("❌ Cannot persist - no auth or not manager");
+    log.warn("Cannot persist - no auth or not manager");
+    return;
+  }
+  
+  console.log("🚀 persist() START");
+  console.log("📦 Orders to persist:", next.length);
+  console.log("📦 First order sample:", next[0]);
+  
+  log.group("persist()");
+  log.on("Saving orders to Firestore", { count: next.length });
+  
+  try {
+    const batch = writeBatch(db);
+    
+    // סינון הזמנות בלי __id
+    const validOrders = next.filter(o => o.__id);
+    console.log("✅ Valid orders (with __id):", validOrders.length);
+    
+    if (validOrders.length === 0) {
+      console.warn("⚠️ No valid orders to save!");
       return;
     }
     
-    log.group("persist()");
-    log.on("Saving orders to Firestore", { count: next.length });
+    // Delete removed orders
+    const currentIds = new Set(validOrders.map(o => o.__id));
+    const deletedIds = orders
+      .filter(o => o.__id && !currentIds.has(o.__id))
+      .map(o => o.__id!);
     
-    try {
-      const batch = writeBatch(db);
-      
-      // Delete removed orders
-      const currentIds = new Set(next.map(o => o.__id));
-      const deletedIds = orders.filter(o => !currentIds.has(o.__id)).map(o => o.__id);
-      
-      for (const id of deletedIds) {
-        batch.delete(doc(db, "orders", id!));
-      }
-      
-      // Update/create orders
-      for (const order of next) {
-        const orderDoc = doc(db, "orders", order.__id!);
-        batch.set(orderDoc, {
-          orderId: order.orderId,
-          clientName: order.clientName,
-          eventDate: order.eventDate,
-          status: order.status,
-          items: order.items,
-          orderNotes: order.orderNotes,
-          totalSum: order.totalSum,
-          currency: order.currency,
-          source: order.source,
-          meta: order.meta,
-          createdAt: serverTimestamp(),
-        });
-      }
-      
-      await batch.commit();
-      log.on("Batch write completed");
-      
-    } catch (e) {
-      log.err("Failed to persist", e);
-      alert("שגיאה בשמירה ל-Firebase");
+    console.log("🗑️ Orders to delete:", deletedIds.length);
+    
+    for (const id of deletedIds) {
+      console.log(`🗑️ Deleting: ${id}`);
+      batch.delete(doc(db, "orders", id));
     }
     
-    log.groupEnd();
-  };
+    // Update/create orders
+    console.log("💾 Starting to prepare orders for batch...");
+    for (let i = 0; i < validOrders.length; i++) {
+      const order = validOrders[i];
+      console.log(`📝 Processing order ${i + 1}/${validOrders.length}: ${order.__id}`);
+      
+      const orderDoc = doc(db, "orders", order.__id!);
+      
+      // נקה undefined ← null
+      const cleanData: any = {
+        orderId: order.orderId ?? null,
+        clientName: order.clientName ?? null,
+        eventDate: order.eventDate ?? null,
+        status: order.status ?? "new",
+        items: (order.items || []).map(item => ({
+          title: item.title ?? null,
+          qty: typeof item.qty === 'number' ? item.qty : 1,
+          unit: item.unit ?? null,
+          notes: item.notes ?? null,
+        })),
+        orderNotes: order.orderNotes ?? null,
+        totalSum: typeof order.totalSum === 'number' ? order.totalSum : null,
+        currency: order.currency ?? null,
+        source: order.source ?? null,
+        meta: order.meta ?? null,
+        createdAt: serverTimestamp(),
+      };
+      
+      if (i === 0) {
+        console.log("📋 First order clean data:", JSON.stringify(cleanData, null, 2));
+      }
+      
+      batch.set(orderDoc, cleanData);
+    }
+    
+    console.log("⏳ Committing batch to Firestore...");
+    await batch.commit();
+    console.log("✅✅✅ Batch committed successfully!");
+    log.on("Batch write completed");
+    
+  } catch (e: any) {
+    console.error("❌❌❌ PERSIST FAILED!");
+    console.error("Error object:", e);
+    console.error("Error name:", e?.name);
+    console.error("Error message:", e?.message);
+    console.error("Error code:", e?.code);
+    console.error("Error stack:", e?.stack);
+    log.err("Failed to persist", e);
+    alert(`שגיאה בשמירה ל-Firebase: ${e?.message || e?.code || 'Unknown error'}`);
+  }
+  
+  log.groupEnd();
+};
 
   // ===== Derived =====
   const daysMap = useMemo(() => {
@@ -471,10 +516,11 @@ const setViewDateStable = useCallback((date: Date) => {
     }
   };
 
-  const doIngest = async (
-    mappingObj: Record<string, string>,
-    skipUnknownCheck: boolean = false
-  ) => {
+ const doIngest = async (
+  mappingObj: Record<string, string>,
+  skipUnknownCheck: boolean = false
+) => {
+  alert("🚀 doIngest התחיל!"); 
     if (!isManager) {
       alert("אין לך הרשאה לבצע פעולה זו");
       return;
@@ -552,8 +598,9 @@ const setViewDateStable = useCallback((date: Date) => {
 
     const withNotes = filtered.map(o => normalizeImportantNotes(o));
     const merged = [...orders, ...withNotes];
-    await persist(merged);
-
+alert(`📦 עומד לקרוא ל-persist עם ${merged.length} הזמנות`);
+  await persist(merged);
+  alert("✅ persist הסתיים!");
     const missing = withNotes
       .filter(o => !o.eventDate)
       .map(o => ({ id: o.__id!, name: o.clientName, date: fmtYMD(new Date()) }));
