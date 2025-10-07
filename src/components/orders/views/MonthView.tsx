@@ -81,6 +81,16 @@ export default function MonthView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedDayKey, setSelectedDayKey, setViewDate, onOpenDayModal]);
+const totalOrdersInMonth = useMemo(() => {
+  const keysInMonth = new Set(
+    monthGrid.cells
+      .filter(c => c.date && c.inMonth)
+      .map(c => fmtYMD(c.date!))
+  );
+  let sum = 0;
+  keysInMonth.forEach(k => { sum += (daysMap.get(k)?.length || 0); });
+  return sum;
+}, [monthGrid, daysMap]);
 
   return (
     <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
@@ -122,8 +132,9 @@ export default function MonthView({
               {year}
             </div>
             <div className="text-[10px] md:text-sm px-2 md:px-4 py-0.5 md:py-1 rounded-full bg-white/60 text-gray-700 font-medium inline-block mt-1 md:mt-2">
-              {Array.from(daysMap.values()).reduce((sum, orders) => sum + orders.length, 0)} הזמנות
+              {totalOrdersInMonth} הזמנות
             </div>
+
           </div>
 
           <button
