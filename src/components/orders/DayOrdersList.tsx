@@ -5,10 +5,10 @@ import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/
 interface DayOrdersListProps {
   dayKey: string;
   daysMap: Map<string, any[]>;
-  deleteOrder?: (orderId: string) => void; // 👈 Optional - רק למנהלים
-  editOrderItem?: (orderId: string, idx: number, patch: any) => void; // 👈 Optional
-  removeItemFromOrder?: (orderId: string, idx: number) => void; // 👈 Optional
-  onAddItem?: (orderId: string) => void; // 👈 Optional
+  deleteOrder?: (orderId: string) => void;
+  editOrderItem?: (orderId: string, idx: number, patch: any) => void;
+  removeItemFromOrder?: (orderId: string, idx: number) => void;
+  onAddItem?: (orderId: string) => void;
   noteOpen: Record<string, boolean>;
   toggleNote: (orderId: string, idx: number) => void;
 }
@@ -26,7 +26,6 @@ export default function DayOrdersList({
   const orders = daysMap.get(dayKey) || [];
   const [completionState, setCompletionState] = useState<Record<string, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
   
-  // בדיקה אם יש הרשאות עריכה
   const canEdit = !!editOrderItem;
   const canDelete = !!deleteOrder;
   const canRemoveItems = !!removeItemFromOrder;
@@ -82,19 +81,18 @@ export default function DayOrdersList({
         return (
           <div key={o.__id} className="rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
             {/* Header */}
-            <div className="bg-red-100 px-4 py-3 flex items-center justify-between">
-              <div className="font-bold text-gray-900 text-2xl truncate">{o.clientName}</div>
+            <div className="bg-red-100 px-4 py-2 flex items-center justify-between">
+              <div className="font-bold text-gray-900 text-xl truncate">{o.clientName}</div>
               <div className="flex items-center gap-2">
                 {o.status && (
-                  <span className="text-sm px-3 py-1 rounded-full bg-white/60 text-gray-700 font-medium">
+                  <span className="text-xs px-2 py-1 rounded-full bg-white/60 text-gray-700 font-medium">
                     {o.status}
                   </span>
                 )}
-                {/* כפתור מחק - רק למנהלים */}
                 {canDelete && (
                   <button 
                     onClick={() => deleteOrder(o.__id!)} 
-                    className="text-red-600 hover:text-red-800 text-base font-medium px-3 py-1 rounded hover:bg-white/50 transition-colors"
+                    className="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
                   >
                     מחק
                   </button>
@@ -103,26 +101,24 @@ export default function DayOrdersList({
             </div>
 
             {/* Body */}
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-base font-bold text-gray-700 flex items-center gap-2">
-                  <span>פריטים</span>
-                  <span className="text-sm font-normal text-gray-500">({o.items.length})</span>
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-bold text-gray-700">
+                  פריטים ({o.items.length})
                 </div>
                 
-                {/* כפתור הוסף מנה - רק למנהלים */}
                 {canAddItems && (
                   <button 
                     onClick={() => onAddItem(o.__id!)} 
-                    className="text-base px-5 py-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-medium shadow-sm"
+                    className="text-sm px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600"
                   >
                     + הוסף מנה
                   </button>
                 )}
               </div>
               
-              {/* תצוגה לרוחב - grid של קטגוריות */}
-              <div className="grid grid-cols-4 gap-2">
+              {/* תצוגת קבוצות קטגוריה */}
+              <div className="space-y-2">
                 {CATEGORY_ORDER.map(category => {
                   const categoryItems = groupedItems[category];
                   if (!categoryItems || categoryItems.length === 0) return null;
@@ -130,149 +126,140 @@ export default function DayOrdersList({
                   const categoryColor = getCategoryColor(category);
                   
                   return (
-                    <div key={category} className="rounded-lg overflow-hidden border-2 flex flex-col" style={{ borderColor: categoryColor }}>
-                      {/* כותרת קטגוריה */}
+                    <div key={category} className="flex gap-2">
+                      {/* תג קטגוריה מצד ימין */}
                       <div 
-                        className="px-2 py-2 text-center text-sm font-bold text-gray-700"
-                        style={{ backgroundColor: categoryColor }}
+                        className="flex-shrink-0 w-20 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700 px-2 py-1"
+                        style={{ 
+                          backgroundColor: categoryColor,
+                          writingMode: categoryItems.length > 5 ? 'vertical-rl' : 'horizontal-tb',
+                          textOrientation: categoryItems.length > 5 ? 'mixed' : 'initial'
+                        }}
                       >
                         {category}
                       </div>
                       
-                      {/* רשימת פריטים */}
-                      <div className="flex-1 overflow-auto" style={{ backgroundColor: `${categoryColor}15` }}>
-                        <ul className="divide-y divide-gray-200">
-                          {categoryItems.map((it: any) => {
-                            const originalIndex = o.items.indexOf(it);
-                            const state = getCompletionState(o.__id, originalIndex);
-                            const totalQty = Number(it.qty) || 1;
-                            
-                            // צבעי סטטוס
-                            let statusColor = '#9CA3AF'; // אפור
-                            let statusIcon = '○';
-                            if (state.status === 'done') {
-                              statusColor = '#10B981'; // ירוק
-                              statusIcon = '✓';
-                            } else if (state.status === 'almost') {
-                              statusColor = '#3B82F6'; // כחול
-                              statusIcon = '≈';
-                            } else if (state.status === 'partial') {
-                              statusColor = '#F59E0B'; // כתום
-                              statusIcon = '◐';
-                            }
-                            
-                            return (
-                              <li key={originalIndex} className="p-2">
-                                <div className="space-y-1">
-                                  {/* שורה ראשונה: שם + כמות */}
-                                  <div className="flex items-center gap-2">
-                                    {/* כפתור סטטוס */}
-                                    <button
-                                      onClick={() => cycleCompletionStatus(o.__id, originalIndex, totalQty)}
-                                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-sm transition-all hover:scale-110 flex-shrink-0"
-                                      style={{ backgroundColor: statusColor }}
-                                      title={
-                                        state.status === 'pending' ? 'לא התחלנו' :
-                                        state.status === 'partial' ? 'בתהליך' :
-                                        state.status === 'almost' ? 'כמעט במור' : 'הושלם'
-                                      }
+                      {/* רשימת מנות */}
+                      <div className="flex-1 space-y-1">
+                        {categoryItems.map((it: any) => {
+                          const originalIndex = o.items.indexOf(it);
+                          const state = getCompletionState(o.__id, originalIndex);
+                          const totalQty = Number(it.qty) || 1;
+                          
+                          let statusColor = '#9CA3AF';
+                          let statusIcon = '○';
+                          if (state.status === 'done') {
+                            statusColor = '#10B981';
+                            statusIcon = '✓';
+                          } else if (state.status === 'almost') {
+                            statusColor = '#3B82F6';
+                            statusIcon = '≈';
+                          } else if (state.status === 'partial') {
+                            statusColor = '#F59E0B';
+                            statusIcon = '◐';
+                          }
+                          
+                          return (
+                            <div 
+                              key={originalIndex} 
+                              className="rounded-lg p-2 border"
+                              style={{ 
+                                backgroundColor: `${categoryColor}15`,
+                                borderColor: categoryColor
+                              }}
+                            >
+                              {/* שורה ראשונה: סטטוס + שם + כמות + כפתורים */}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => cycleCompletionStatus(o.__id, originalIndex, totalQty)}
+                                  className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0"
+                                  style={{ backgroundColor: statusColor }}
+                                >
+                                  {statusIcon}
+                                </button>
+                                
+                                <div className="flex-1 flex items-center gap-1">
+                                  <span className="text-sm font-semibold text-gray-900">{it.title}</span>
+                                  {canEdit ? (
+                                    <span 
+                                      className="text-base font-bold cursor-pointer hover:text-blue-600"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newQty = prompt(`כמות עבור ${it.title}:`, String(it.qty));
+                                        if (newQty && !isNaN(Number(newQty))) {
+                                          editOrderItem(o.__id!, originalIndex, { qty: Number(newQty) });
+                                        }
+                                      }}
                                     >
-                                      {statusIcon}
-                                    </button>
-                                    
-                                    {/* שם המנה והכמות */}
-                                    <div className="flex-1">
-                                      <span className="text-base font-semibold text-gray-900">{it.title}</span>
-                                      {canEdit ? (
-                                        <span 
-                                          className="mr-2 text-lg font-bold cursor-pointer hover:text-blue-600 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const newQty = prompt(`כמות עבור ${it.title}:`, String(it.qty));
-                                            if (newQty && !isNaN(Number(newQty))) {
-                                              editOrderItem(o.__id!, originalIndex, { qty: Number(newQty) });
-                                            }
-                                          }}
-                                          title="לחץ לעריכת כמות"
-                                        >
-                                          × {it.qty}
-                                        </span>
-                                      ) : (
-                                        <span className="mr-2 text-lg font-bold text-gray-700">
-                                          × {it.qty}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* שורה שנייה: התקדמות אם חלקי */}
-                                  {(state.status === 'partial' || state.status === 'almost') && (
-                                    <div className="flex items-center gap-1 pr-9">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max={totalQty}
-                                        className="w-12 text-center bg-white border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                        value={state.completed}
-                                        onChange={(e) => updateCompletedQty(o.__id, originalIndex, Number(e.target.value) || 0, totalQty)}
-                                      />
-                                      <span className="text-sm text-gray-600">/ {totalQty}</span>
-                                    </div>
-                                  )}
-                                  
-                                  {/* הערה למנה חלקית או כמעט במורה */}
-                                  {(state.status === 'partial' || state.status === 'almost') && (
-                                    <textarea
-                                      className="w-full text-sm bg-blue-50 border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
-                                      placeholder={state.status === 'almost' ? "מה חסר?" : "הערה"}
-                                      rows={2}
-                                      value={state.missingNote}
-                                      onChange={(e) => updateMissingNote(o.__id, originalIndex, e.target.value)}
-                                    />
-                                  )}
-                                  
-                                  {/* כפתורי פעולה */}
-                                  <div className="flex gap-1 pr-9">
-                                    {/* כפתור הערה - תמיד זמין */}
-                                    <button 
-                                      onClick={() => toggleNote(o.__id!, originalIndex)} 
-                                      className="text-gray-500 hover:text-blue-600 text-base w-6 h-6 rounded hover:bg-blue-50 flex items-center justify-center" 
-                                      title="הערה"
-                                    >
-                                      📝
-                                    </button>
-                                    
-                                    {/* כפתור הסר - רק למנהלים */}
-                                    {canRemoveItems && (
-                                      <button 
-                                        onClick={() => removeItemFromOrder(o.__id!, originalIndex)} 
-                                        className="text-gray-500 hover:text-red-600 text-base w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center" 
-                                        title="הסר"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </div>
-                                  
-                                  {/* הערות רגילות */}
-                                  {noteOpen[`${o.__id}:${originalIndex}`] && (
-                                    <div className="mt-1 rounded border border-blue-200 p-2 bg-blue-50">
-                                      <textarea
-                                        className="w-full bg-white border border-blue-300 rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
-                                        value={it.notes || ""}
-                                        onChange={canEdit ? (e) => editOrderItem(o.__id!, originalIndex, { notes: e.target.value }) : undefined}
-                                        placeholder="הערה"
-                                        rows={2}
-                                        readOnly={!canEdit}
-                                        disabled={!canEdit}
-                                      />
-                                    </div>
+                                      ×{it.qty}
+                                    </span>
+                                  ) : (
+                                    <span className="text-base font-bold text-gray-700">
+                                      ×{it.qty}
+                                    </span>
                                   )}
                                 </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                                
+                                {/* כפתורי פעולה */}
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <button 
+                                    onClick={() => toggleNote(o.__id!, originalIndex)} 
+                                    className="text-gray-500 hover:text-blue-600 w-5 h-5 flex items-center justify-center text-sm"
+                                  >
+                                    📝
+                                  </button>
+                                  
+                                  {canRemoveItems && (
+                                    <button 
+                                      onClick={() => removeItemFromOrder(o.__id!, originalIndex)} 
+                                      className="text-gray-500 hover:text-red-600 w-5 h-5 flex items-center justify-center font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* התקדמות אם חלקי */}
+                              {(state.status === 'partial' || state.status === 'almost') && (
+                                <div className="flex items-center gap-1 mt-1 mr-8">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={totalQty}
+                                    className="w-10 text-center bg-white border border-gray-300 rounded px-1 py-0.5 text-xs"
+                                    value={state.completed}
+                                    onChange={(e) => updateCompletedQty(o.__id, originalIndex, Number(e.target.value) || 0, totalQty)}
+                                  />
+                                  <span className="text-xs text-gray-600">/ {totalQty}</span>
+                                </div>
+                              )}
+                              
+                              {/* הערה למנה חלקית */}
+                              {(state.status === 'partial' || state.status === 'almost') && (
+                                <textarea
+                                  className="w-full text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1 mt-1 mr-8"
+                                  placeholder={state.status === 'almost' ? "מה חסר?" : "הערה"}
+                                  rows={1}
+                                  value={state.missingNote}
+                                  onChange={(e) => updateMissingNote(o.__id, originalIndex, e.target.value)}
+                                />
+                              )}
+                              
+                              {/* הערות רגילות */}
+                              {noteOpen[`${o.__id}:${originalIndex}`] && (
+                                <textarea
+                                  className="w-full bg-white border border-blue-300 rounded p-2 text-xs mt-1 mr-8"
+                                  value={it.notes || ""}
+                                  onChange={canEdit ? (e) => editOrderItem(o.__id!, originalIndex, { notes: e.target.value }) : undefined}
+                                  placeholder="הערה"
+                                  rows={2}
+                                  readOnly={!canEdit}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
