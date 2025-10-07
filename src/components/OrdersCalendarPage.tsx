@@ -665,13 +665,6 @@ if (!skipUnknownCheck) {
           שלום, {displayName || user?.email}
           {isManager && <span className="mr-2 text-pink-600 font-bold">(מנהל)</span>}
         </div>
-        <button
-          onClick={toggleDebug}
-          className={`text-xs px-2 py-1 rounded border ${debugOn ? "bg-green-100 border-green-300 text-green-800" : "bg-gray-50 border-gray-200 text-gray-600"}`}
-          title="Toggle console debug"
-        >
-          דיבוג: {debugOn ? "פעיל" : "כבוי"}
-        </button>
       </div>
 
       {/* מתג תצוגות */}
