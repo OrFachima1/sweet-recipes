@@ -557,27 +557,35 @@ const setViewDateStable = useCallback((date: Date) => {
 
     console.log("🔍 2️⃣ אחרי NORMALIZE:", normalized.length);
 
-    // 2) Apply mapping
-    if (Object.keys(mappingObj).length) {
-      normalized = applyMappingOnOrders(normalized, mappingObj);
-      console.log("🔍 3️⃣ אחרי MAPPING");
-    }
+    // 2) Apply existing mapping FIRST (מה-state)
+console.log("🔍 2.5️⃣ מיפוי קיים מה-state:", mapping);
+if (Object.keys(mapping).length > 0) {
+  console.log("✅ מחיל מיפוי קיים לפני בדיקה");
+  normalized = applyMappingOnOrders(normalized, mapping);
+}
 
-    // 3) Check unknowns
-    if (!skipUnknownCheck) {
-      const stillUnknown = getUnknownTitles(normalized, menuOptions, ignored);
-      console.log("🔍 4️⃣ unknowns:", stillUnknown);
+// 2.1) Apply new mapping if provided (מה-parameter)
+if (Object.keys(mappingObj).length) {
+  console.log("✅ מחיל מיפוי נוסף מהפרמטר");
+  normalized = applyMappingOnOrders(normalized, mappingObj);
+}
 
-      if (stillUnknown.length > 0) {
-        console.log("🎯 פותח חלונית מיפוי!");
-        ingestBufferRef.current = normalized as any;
-        setUnknowns(stillUnknown);
-        setMapping({});
-        setMapOpen(true);
-        log.groupEnd();
-        return;
-      }
-    }
+// 3) Check unknowns
+if (!skipUnknownCheck) {
+  const stillUnknown = getUnknownTitles(normalized, menuOptions, ignored);
+  console.log("🔍 4️⃣ unknowns אחרי מיפוי קיים:", stillUnknown);
+
+  if (stillUnknown.length > 0) {
+    console.log("🎯 יש unknowns - פותח חלונית מיפוי");
+    ingestBufferRef.current = normalized as any;
+    setUnknowns(stillUnknown);
+    // ❌ לא לאפס! setMapping({});  
+    // ✅ שומר את המיפוי הקיים כבר יש לו מה-state
+    setMapOpen(true);
+    log.groupEnd();
+    return;
+  }
+}
 
     // 4) Filter by menu
     const menuSet = new Set(menuOptions);
