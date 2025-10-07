@@ -235,10 +235,10 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
           </div>
         </div>
       ) : (
-        /* תצוגת לקוחות - grid של עמודות */
-        <div className="grid grid-cols-4 gap-4">
+        /* תצוגת לקוחות - responsive grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredOrders.length === 0 ? (
-            <div className="col-span-4 text-center py-12 text-gray-400">
+            <div className="col-span-full text-center py-12 text-gray-400">
               אין הזמנות בתקופה זו
             </div>
           ) : (
