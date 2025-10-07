@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { fmtYMD, addDays } from "@/utils/orders";
 import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/categoryMapping";
+import { useOrderTracking } from "./tracking/OrderTrackingContext";
 
 interface ClientsViewProps {
   orders: any[];
@@ -16,7 +17,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
   const [customStart, setCustomStart] = useState<string>(fmtYMD(new Date()));
   const [customEnd, setCustomEnd] = useState<string>(fmtYMD(addDays(new Date(), 7)));
 
-  // חישוב טווח התאריכים
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
     let start = new Date(today);
@@ -47,7 +47,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
     return { startDate: start, endDate: end };
   }, [timeRange, customStart, customEnd]);
 
-  // סינון הזמנות לפי טווח
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (!order.eventDate) return false;
@@ -56,7 +55,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
     }).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
   }, [orders, startDate, endDate]);
 
-  // מצב מיקוד - סיכום מנות
   const itemsSummary = useMemo(() => {
     const summary: Record<string, number> = {};
     
@@ -70,7 +68,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
     return summary;
   }, [filteredOrders]);
 
-  // קיבוץ לפי קטגוריה
   const itemsByCategory = useMemo(() => {
     const items = Object.entries(itemsSummary).map(([title, qty]) => ({ title, qty }));
     return groupItemsByCategory(items);
@@ -204,7 +201,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
         <div className="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 mb-4">סיכום מנות</h3>
           
-          {/* שונה ל-2 עמודות */}
           <div className="grid grid-cols-2 gap-3">
             {CATEGORY_ORDER.map(category => {
               const categoryItems = itemsByCategory[category];
@@ -252,12 +248,23 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
   );
 }
 
-// קומפוננטת כרטיס לקוח - תצוגה קומפקטית
+// קומפוננטת כרטיס לקוח - מסונכרן עם מערכת המעקב
 function ClientCard({ order }: { order: any }) {
-  const [completionState, setCompletionState] = useState<Record<number, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
+  let tracking;
+  try {
+    tracking = useOrderTracking();
+  } catch {
+    tracking = null;
+  }
+
+  // Fallback למצב מקומי אם אין tracking
+  const [localState, setLocalState] = useState<Record<number, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
   
   const getCompletionState = (itemIdx: number) => {
-    return completionState[itemIdx] || { completed: 0, status: 'pending', missingNote: '' };
+    if (tracking) {
+      return tracking.getItemState(order.__id, itemIdx);
+    }
+    return localState[itemIdx] || { completed: 0, status: 'pending', missingNote: '' };
   };
   
   const cycleCompletionStatus = (itemIdx: number, totalQty: number) => {
@@ -274,28 +281,76 @@ function ClientCard({ order }: { order: any }) {
       newState = { completed: 0, status: 'pending' as const, missingNote: '' };
     }
     
-    setCompletionState(prev => ({ ...prev, [itemIdx]: newState }));
+    if (tracking) {
+      tracking.updateItemState(order.__id, itemIdx, newState);
+    } else {
+      setLocalState(prev => ({ ...prev, [itemIdx]: newState }));
+    }
   };
   
   const updateCompletedQty = (itemIdx: number, completed: number, totalQty: number) => {
     const status = completed === 0 ? 'pending' : completed === totalQty ? 'done' : 'partial';
-    setCompletionState(prev => ({ ...prev, [itemIdx]: { ...prev[itemIdx], completed, status } }));
+    
+    if (tracking) {
+      tracking.updateItemState(order.__id, itemIdx, { completed, status });
+    } else {
+      setLocalState(prev => ({ ...prev, [itemIdx]: { ...prev[itemIdx], completed, status } }));
+    }
   };
   
   const updateMissingNote = (itemIdx: number, note: string) => {
-    setCompletionState(prev => ({ ...prev, [itemIdx]: { ...prev[itemIdx], missingNote: note } }));
+    if (tracking) {
+      tracking.updateItemState(order.__id, itemIdx, { missingNote: note });
+    } else {
+      setLocalState(prev => ({ ...prev, [itemIdx]: { ...prev[itemIdx], missingNote: note } }));
+    }
+  };
+
+  const handleSaveCard = async () => {
+    if (tracking) {
+      await tracking.saveOrderChanges(order.__id, order.clientName, order.items);
+      alert('✅ השינויים נשמרו');
+    }
   };
 
   const groupedItems = groupItemsByCategory(order.items);
+  const orderHistory = tracking ? tracking.getOrderHistory(order.__id) : [];
+  const [showHistory, setShowHistory] = useState(false);
   
   return (
     <div className="rounded-xl border-2 border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
       {/* Header */}
       <div className="bg-red-100 px-3 py-2 flex-shrink-0">
-        <h4 className="text-base font-bold text-gray-900 truncate" title={order.clientName}>
-          {order.clientName}
-        </h4>
-        <p className="text-xs text-gray-700 mt-0.5">
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="text-base font-bold text-gray-900 truncate" title={order.clientName}>
+            {order.clientName}
+          </h4>
+          
+          {/* כפתורי פעולה */}
+          {tracking && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleSaveCard}
+                className="text-green-600 hover:text-green-800 text-xs font-medium"
+                title="שמור"
+              >
+                💾
+              </button>
+              
+              {orderHistory.length > 0 && (
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                  title="היסטוריה"
+                >
+                  📜 {orderHistory.length}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        
+        <p className="text-xs text-gray-700">
           {new Date(order.eventDate).toLocaleDateString('he-IL', {
             weekday: 'short',
             day: 'numeric',
@@ -308,8 +363,32 @@ function ClientCard({ order }: { order: any }) {
           </span>
         )}
       </div>
+
+      {/* היסטוריה */}
+      {tracking && showHistory && orderHistory.length > 0 && (
+        <div className="bg-blue-50 px-2 py-2 border-b border-blue-200 max-h-32 overflow-y-auto">
+          <div className="space-y-1">
+            {orderHistory.slice(0, 3).map(log => (
+              <div key={log.id} className="text-xs bg-white rounded px-2 py-1 border border-blue-200">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="font-bold text-blue-700">👤 {log.userName}</span>
+                  <span className="text-gray-500">
+                    {log.timestamp.toLocaleString('he-IL', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className="text-gray-700">{log.changes?.length || 0} שינויים</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
-      {/* Body - תצוגה קומפקטית */}
+      {/* Body */}
       <div className="flex-1 overflow-auto p-2">
         <div className="space-y-1.5">
           {CATEGORY_ORDER.map(category => {
@@ -320,7 +399,6 @@ function ClientCard({ order }: { order: any }) {
             
             return (
               <div key={category} className="flex gap-1.5">
-                {/* תג קטגוריה מצד ימין */}
                 <div 
                   className="flex-shrink-0 w-14 rounded-md flex items-center justify-center text-xs font-bold text-gray-700 px-1 py-0.5"
                   style={{ 
@@ -332,7 +410,6 @@ function ClientCard({ order }: { order: any }) {
                   {category}
                 </div>
                 
-                {/* רשימת מנות */}
                 <div className="flex-1 space-y-0.5">
                   {categoryItems.map((item: any) => {
                     const originalIndex = order.items.indexOf(item);
@@ -361,7 +438,6 @@ function ClientCard({ order }: { order: any }) {
                           borderColor: categoryColor
                         }}
                       >
-                        {/* שורה ראשונה */}
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => cycleCompletionStatus(originalIndex, totalQty)}
@@ -380,7 +456,6 @@ function ClientCard({ order }: { order: any }) {
                           </span>
                         </div>
                         
-                        {/* התקדמות אם חלקי */}
                         {(state.status === 'partial' || state.status === 'almost') && (
                           <>
                             <div className="flex items-center gap-1 mt-1 mr-6">

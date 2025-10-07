@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/categoryMapping";
+import { useOrderTracking } from "./tracking/OrderTrackingContext";
 
 interface DayOrdersListProps {
   dayKey: string;
@@ -9,8 +10,8 @@ interface DayOrdersListProps {
   editOrderItem?: (orderId: string, idx: number, patch: any) => void;
   removeItemFromOrder?: (orderId: string, idx: number) => void;
   onAddItem?: (orderId: string) => void;
-  noteOpen: Record<string, boolean>;
-  toggleNote: (orderId: string, idx: number) => void;
+  noteOpen?: Record<string, boolean>;
+  toggleNote?: (orderId: string, idx: number) => void;
 }
 
 export default function DayOrdersList({
@@ -20,27 +21,39 @@ export default function DayOrdersList({
   editOrderItem,
   removeItemFromOrder,
   onAddItem,
-  noteOpen,
-  toggleNote,
+  noteOpen: externalNoteOpen,
+  toggleNote: externalToggleNote,
 }: DayOrdersListProps) {
   const orders = daysMap.get(dayKey) || [];
-  const [completionState, setCompletionState] = useState<Record<string, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
+  
+  let tracking;
+  try {
+    tracking = useOrderTracking();
+  } catch {
+    tracking = null;
+  }
+
+  const [localCompletionState, setLocalCompletionState] = useState<Record<string, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
+  const [localNoteOpen, setLocalNoteOpen] = useState<Record<string, boolean>>({});
+  const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
   
   const canEdit = !!editOrderItem;
   const canDelete = !!deleteOrder;
   const canRemoveItems = !!removeItemFromOrder;
   const canAddItems = !!onAddItem;
-  
+
   const getItemKey = (orderId: string, itemIdx: number) => `${orderId}:${itemIdx}`;
   
-  const getCompletionState = (orderId: string, itemIdx: number) => {
+  const getItemState = (orderId: string, itemIdx: number) => {
+    if (tracking) {
+      return tracking.getItemState(orderId, itemIdx);
+    }
     const key = getItemKey(orderId, itemIdx);
-    return completionState[key] || { completed: 0, status: 'pending', missingNote: '' };
+    return localCompletionState[key] || { completed: 0, status: 'pending' as const, missingNote: '' };
   };
-  
+
   const cycleCompletionStatus = (orderId: string, itemIdx: number, totalQty: number) => {
-    const key = getItemKey(orderId, itemIdx);
-    const current = getCompletionState(orderId, itemIdx);
+    const current = getItemState(orderId, itemIdx);
     
     let newState;
     if (current.status === 'pending') {
@@ -53,18 +66,70 @@ export default function DayOrdersList({
       newState = { completed: 0, status: 'pending' as const, missingNote: '' };
     }
     
-    setCompletionState(prev => ({ ...prev, [key]: newState }));
+    if (tracking) {
+      tracking.updateItemState(orderId, itemIdx, newState);
+    } else {
+      const key = getItemKey(orderId, itemIdx);
+      setLocalCompletionState(prev => ({ ...prev, [key]: newState }));
+    }
   };
   
   const updateCompletedQty = (orderId: string, itemIdx: number, completed: number, totalQty: number) => {
-    const key = getItemKey(orderId, itemIdx);
     const status = completed === 0 ? 'pending' : completed === totalQty ? 'done' : 'partial';
-    setCompletionState(prev => ({ ...prev, [key]: { ...prev[key], completed, status } }));
+    
+    if (tracking) {
+      tracking.updateItemState(orderId, itemIdx, { completed, status });
+    } else {
+      const key = getItemKey(orderId, itemIdx);
+      setLocalCompletionState(prev => ({ ...prev, [key]: { ...prev[key], completed, status } }));
+    }
   };
   
   const updateMissingNote = (orderId: string, itemIdx: number, note: string) => {
+    if (tracking) {
+      tracking.updateItemState(orderId, itemIdx, { missingNote: note });
+    } else {
+      const key = getItemKey(orderId, itemIdx);
+      setLocalCompletionState(prev => ({ ...prev, [key]: { ...prev[key], missingNote: note } }));
+    }
+  };
+
+  const handleToggleNote = (orderId: string, itemIdx: number) => {
+    if (externalToggleNote) {
+      externalToggleNote(orderId, itemIdx);
+    } else if (tracking) {
+      tracking.toggleNote(orderId, itemIdx);
+    } else {
+      const key = getItemKey(orderId, itemIdx);
+      setLocalNoteOpen(prev => ({ ...prev, [key]: !prev[key] }));
+    }
+  };
+
+  const handleNoteChange = (orderId: string, itemIdx: number, note: string) => {
+    if (tracking) {
+      tracking.updateItemNote(orderId, itemIdx, note);
+    }
+    if (editOrderItem) {
+      editOrderItem(orderId, itemIdx, { notes: note });
+    }
+  };
+
+  const isNoteOpen = (orderId: string, itemIdx: number) => {
     const key = getItemKey(orderId, itemIdx);
-    setCompletionState(prev => ({ ...prev, [key]: { ...prev[key], missingNote: note } }));
+    if (externalNoteOpen) {
+      return externalNoteOpen[key] || false;
+    } else if (tracking) {
+      return tracking.noteStates[key] || false;
+    } else {
+      return localNoteOpen[key] || false;
+    }
+  };
+
+  const handleSaveOrder = (order: any) => {
+    if (tracking) {
+      tracking.saveOrderChanges(order.__id, order.clientName, order.items);
+      alert(`✅ השינויים נשמרו`);
+    }
   };
   
   return (
@@ -77,6 +142,7 @@ export default function DayOrdersList({
       
       {orders.map((o: any) => {
         const groupedItems = groupItemsByCategory(o.items);
+        const orderHistory = tracking ? tracking.getOrderHistory(o.__id) : [];
         
         return (
           <div key={o.__id} className="rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -89,16 +155,145 @@ export default function DayOrdersList({
                     {o.status}
                   </span>
                 )}
+                
+                {tracking && (
+                  <>
+                    <button
+                      onClick={() => handleSaveOrder(o)}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50 flex items-center gap-1"
+                      title="שמור שינויים"
+                    >
+                      💾 <span className="hidden sm:inline">שמור</span>
+                    </button>
+                    
+                    {orderHistory.length > 0 && (
+                      <button
+                        onClick={() => setShowHistory(prev => ({ ...prev, [o.__id]: !prev[o.__id] }))}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
+                        title="היסטוריית שינויים"
+                      >
+                        📜 {orderHistory.length}
+                      </button>
+                    )}
+                  </>
+                )}
+                
                 {canDelete && (
                   <button 
-                    onClick={() => deleteOrder(o.__id!)} 
+                    onClick={() => {
+                      if (confirm(`האם למחוק את ההזמנה של ${o.clientName}?`)) {
+                        deleteOrder(o.__id!);
+                      }
+                    }}
                     className="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
                   >
-                    מחק
+                    🗑️
                   </button>
                 )}
               </div>
             </div>
+
+            {/* היסטוריית שינויים - קומפקטית */}
+            {tracking && showHistory[o.__id] && orderHistory.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-3 border-b-2 border-blue-200">
+                <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <span>📜</span>
+                  <span>היסטוריית שינויים</span>
+                  <span className="text-xs text-gray-600">({orderHistory.length})</span>
+                </h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {orderHistory.map(log => {
+                    // קיבוץ שינויים לפי פריט
+                    const itemChangesMap = new Map<number, {
+                      title: string;
+                      status?: { old: string; new: string };
+                      completed?: { old: number; new: number };
+                      missingNote?: string;
+                      note?: boolean;
+                    }>();
+
+                    log.changes?.forEach(change => {
+                      if (!itemChangesMap.has(change.itemIndex)) {
+                        itemChangesMap.set(change.itemIndex, { title: change.itemTitle });
+                      }
+                      const item = itemChangesMap.get(change.itemIndex)!;
+                      
+                      if (change.type === 'status') {
+                        item.status = { old: change.oldValue, new: change.newValue };
+                      } else if (change.type === 'completed') {
+                        item.completed = { old: change.oldValue, new: change.newValue };
+                      } else if (change.type === 'missingNote') {
+                        item.missingNote = change.newValue;
+                      } else if (change.type === 'note') {
+                        item.note = true;
+                      }
+                    });
+
+                    return (
+                      <div key={log.id} className="bg-white rounded-lg px-3 py-2 border border-blue-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-blue-700 text-sm">👤 {log.userName}</span>
+                          <span className="text-xs text-gray-500">
+                            {log.timestamp.toLocaleString('he-IL', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        
+                        {itemChangesMap.size > 0 && (
+                          <div className="space-y-1">
+                            {Array.from(itemChangesMap.entries()).map(([idx, item]) => {
+                              const statusEmoji: Record<string, string> = {
+                                pending: '○',
+                                partial: '◐',
+                                almost: '≈',
+                                done: '✓'
+                              };
+                              
+                              // בניית שורה אחת לפריט
+                              const parts: string[] = [];
+                              
+                              // סטטוס עם חיצים הפוכים
+                              if (item.status) {
+                                parts.push(`${statusEmoji[item.status.new]} → ${statusEmoji[item.status.old]}`);
+                              }
+                              
+                              // כמות - הנוכחי מול הכולל
+                              if (item.completed && item.status) {
+                                // מוצאים את הכמות הכוללת מהפריטים המקוריים
+                                const originalItem = o.items[idx];
+                                const totalQty = originalItem?.qty || item.completed.new;
+                                parts.push(`(${item.completed.new}/${totalQty})`);
+                              }
+                              
+                              // הערת חסר
+                              if (item.missingNote) {
+                                parts.push(`"${item.missingNote}"`);
+                              }
+                              
+                              // הערה רגילה
+                              if (item.note) {
+                                parts.push('💬');
+                              }
+                              
+                              return (
+                                <div key={idx} className="text-xs text-gray-700 py-0.5">
+                                  <span className="font-semibold">{item.title}:</span>{' '}
+                                  <span>{parts.join(' | ')}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Body */}
             <div className="p-3">
@@ -127,7 +322,6 @@ export default function DayOrdersList({
                   
                   return (
                     <div key={category} className="flex gap-2">
-                      {/* תג קטגוריה מצד ימין */}
                       <div 
                         className="flex-shrink-0 w-20 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700 px-2 py-1"
                         style={{ 
@@ -139,11 +333,10 @@ export default function DayOrdersList({
                         {category}
                       </div>
                       
-                      {/* רשימת מנות */}
                       <div className="flex-1 space-y-1">
                         {categoryItems.map((it: any) => {
                           const originalIndex = o.items.indexOf(it);
-                          const state = getCompletionState(o.__id, originalIndex);
+                          const state = getItemState(o.__id, originalIndex);
                           const totalQty = Number(it.qty) || 1;
                           
                           let statusColor = '#9CA3AF';
@@ -168,7 +361,6 @@ export default function DayOrdersList({
                                 borderColor: categoryColor
                               }}
                             >
-                              {/* שורה ראשונה: סטטוס + שם + כמות + כפתורים */}
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => cycleCompletionStatus(o.__id, originalIndex, totalQty)}
@@ -200,10 +392,9 @@ export default function DayOrdersList({
                                   )}
                                 </div>
                                 
-                                {/* כפתורי פעולה */}
                                 <div className="flex gap-1 flex-shrink-0">
                                   <button 
-                                    onClick={() => toggleNote(o.__id!, originalIndex)} 
+                                    onClick={() => handleToggleNote(o.__id!, originalIndex)} 
                                     className={`w-5 h-5 flex items-center justify-center text-sm rounded transition-all ${
                                       it.notes && it.notes.trim() 
                                         ? 'bg-blue-500 text-white hover:bg-blue-600' 
@@ -216,7 +407,11 @@ export default function DayOrdersList({
                                   
                                   {canRemoveItems && (
                                     <button 
-                                      onClick={() => removeItemFromOrder(o.__id!, originalIndex)} 
+                                      onClick={() => {
+                                        if (confirm(`האם להסיר את ${it.title}?`)) {
+                                          removeItemFromOrder(o.__id!, originalIndex);
+                                        }
+                                      }}
                                       className="text-gray-500 hover:text-red-600 w-5 h-5 flex items-center justify-center font-bold"
                                     >
                                       ×
@@ -225,7 +420,6 @@ export default function DayOrdersList({
                                 </div>
                               </div>
                               
-                              {/* התקדמות אם חלקי */}
                               {(state.status === 'partial' || state.status === 'almost') && (
                                 <div className="flex items-center gap-1 mt-1 mr-8">
                                   <input
@@ -240,7 +434,6 @@ export default function DayOrdersList({
                                 </div>
                               )}
                               
-                              {/* הערה למנה חלקית */}
                               {(state.status === 'partial' || state.status === 'almost') && (
                                 <textarea
                                   className="w-full text-xs bg-blue-50 border border-blue-300 rounded px-2 py-1 mt-1 mr-8"
@@ -251,12 +444,11 @@ export default function DayOrdersList({
                                 />
                               )}
                               
-                              {/* הערות רגילות */}
-                              {noteOpen[`${o.__id}:${originalIndex}`] && (
+                              {isNoteOpen(o.__id, originalIndex) && (
                                 <textarea
                                   className="w-full bg-white border border-blue-300 rounded p-2 text-xs mt-1 mr-8"
                                   value={it.notes || ""}
-                                  onChange={canEdit ? (e) => editOrderItem(o.__id!, originalIndex, { notes: e.target.value }) : undefined}
+                                  onChange={canEdit ? (e) => handleNoteChange(o.__id!, originalIndex, e.target.value) : undefined}
                                   placeholder="הערה"
                                   rows={2}
                                   readOnly={!canEdit}

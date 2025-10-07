@@ -1,17 +1,18 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import DayOrdersList from "@/components/orders/DayOrdersList";
+import { useOrderTracking } from "@/components/orders/tracking/OrderTrackingContext";
 
 interface DayModalProps {
   dayKey: string;
   onClose: () => void;
   daysMap: Map<string, any[]>;
-  deleteOrder?: (id: string) => void; // 👈 Optional - רק למנהלים
-  editOrderItem?: (orderId: string, idx: number, patch: any) => void; // 👈 Optional
-  removeItemFromOrder?: (orderId: string, idx: number) => void; // 👈 Optional
-  onAddItem?: (orderId: string) => void; // 👈 Optional
-  noteOpen: Record<string, boolean>;
-  toggleNote: (orderId: string, idx: number) => void;
+  deleteOrder?: (id: string) => void;
+  editOrderItem?: (orderId: string, idx: number, patch: any) => void;
+  removeItemFromOrder?: (orderId: string, idx: number) => void;
+  onAddItem?: (orderId: string) => void;
+  noteOpen?: Record<string, boolean>;
+  toggleNote?: (orderId: string, idx: number) => void;
 }
 
 export default function DayModal({
@@ -25,10 +26,39 @@ export default function DayModal({
   noteOpen,
   toggleNote,
 }: DayModalProps) {
+  let tracking;
+  try {
+    tracking = useOrderTracking();
+  } catch {
+    tracking = null;
+  }
+
+  // שמירה אוטומטית לכל ההזמנות כשסוגרים
+  const handleClose = () => {
+    if (tracking) {
+      const orders = daysMap.get(dayKey) || [];
+      orders.forEach(order => {
+        tracking.saveOrderChanges(order.__id, order.clientName, order.items);
+      });
+    }
+    onClose();
+  };
+
+  // שמירה גם כש-ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [dayKey, daysMap, tracking]);
+
   return (
     <div
       className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="bg-white w-full max-w-7xl h-[90vh] rounded-2xl overflow-hidden border-4 border-gray-200 shadow-2xl flex flex-col"
@@ -45,14 +75,15 @@ export default function DayModal({
             })}
           </div>
           <button 
-            onClick={onClose} 
+            onClick={handleClose} 
             className="text-gray-600 hover:text-gray-900 text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/50 transition-colors"
+            title="סגור ושמור (ESC)"
           >
             ✕
           </button>
         </div>
         
-        {/* Body - מעביר את כל ה-callbacks כמו שהם (optional) */}
+        {/* Body */}
         <div className="flex-1 overflow-hidden">
           <DayOrdersList
             dayKey={dayKey}
@@ -65,6 +96,13 @@ export default function DayModal({
             toggleNote={toggleNote}
           />
         </div>
+
+        {/* Footer - אינדיקטור */}
+        {tracking && (
+          <div className="px-6 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center">
+            💡 השינויים יישמרו אוטומטית כשתסגור את החלון
+          </div>
+        )}
       </div>
     </div>
   );
