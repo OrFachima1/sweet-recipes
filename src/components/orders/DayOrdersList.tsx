@@ -204,9 +204,14 @@ export default function DayOrdersList({
                                 <div className="flex gap-1 flex-shrink-0">
                                   <button 
                                     onClick={() => toggleNote(o.__id!, originalIndex)} 
-                                    className="text-gray-500 hover:text-blue-600 w-5 h-5 flex items-center justify-center text-sm"
+                                    className={`w-5 h-5 flex items-center justify-center text-sm rounded transition-all ${
+                                      it.notes && it.notes.trim() 
+                                        ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                                        : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                                    }`}
+                                    title={it.notes && it.notes.trim() ? 'יש הערה - לחץ לצפייה' : 'הוסף הערה'}
                                   >
-                                    📝
+                                    {it.notes && it.notes.trim() ? '💬' : '📝'}
                                   </button>
                                   
                                   {canRemoveItems && (

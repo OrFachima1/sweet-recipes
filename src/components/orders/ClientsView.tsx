@@ -5,7 +5,7 @@ import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/
 
 interface ClientsViewProps {
   orders: any[];
-  onAddClient?: () => void; // 👈 Optional - רק למנהלים
+  onAddClient?: () => void;
 }
 
 type TimeRange = "today" | "week" | "weekend" | "twoweeks" | "month" | "custom";
@@ -29,7 +29,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
         end = addDays(today, 7);
         break;
       case "weekend":
-        // למצוא את השבת הקרובה
         const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
         end = addDays(today, daysUntilSaturday);
         break;
@@ -84,7 +83,6 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">תצוגת לקוחות</h2>
           
-          {/* כפתור הוסף לקוח - רק למנהלים */}
           {onAddClient && (
             <button
               onClick={onAddClient}
@@ -206,7 +204,8 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
         <div className="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 mb-4">סיכום מנות</h3>
           
-          <div className="grid grid-cols-3 gap-3">
+          {/* שונה ל-2 עמודות */}
+          <div className="grid grid-cols-2 gap-3">
             {CATEGORY_ORDER.map(category => {
               const categoryItems = itemsByCategory[category];
               if (!categoryItems || categoryItems.length === 0) return null;
@@ -253,7 +252,7 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
   );
 }
 
-// קומפוננטת כרטיס לקוח
+// קומפוננטת כרטיס לקוח - תצוגה קומפקטית
 function ClientCard({ order }: { order: any }) {
   const [completionState, setCompletionState] = useState<Record<number, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
   
@@ -292,11 +291,11 @@ function ClientCard({ order }: { order: any }) {
   return (
     <div className="rounded-xl border-2 border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
       {/* Header */}
-      <div className="bg-red-100 px-3 py-3 flex-shrink-0">
+      <div className="bg-red-100 px-3 py-2 flex-shrink-0">
         <h4 className="text-base font-bold text-gray-900 truncate" title={order.clientName}>
           {order.clientName}
         </h4>
-        <p className="text-xs text-gray-700 mt-1">
+        <p className="text-xs text-gray-700 mt-0.5">
           {new Date(order.eventDate).toLocaleDateString('he-IL', {
             weekday: 'short',
             day: 'numeric',
@@ -310,91 +309,109 @@ function ClientCard({ order }: { order: any }) {
         )}
       </div>
       
-      {/* Body - מנות */}
-      <div className="flex-1 overflow-auto p-2 space-y-2">
-        {CATEGORY_ORDER.map(category => {
-          const categoryItems = groupedItems[category];
-          if (!categoryItems || categoryItems.length === 0) return null;
-          
-          const categoryColor = getCategoryColor(category);
-          
-          return (
-            <div key={category} className="rounded-lg overflow-hidden border" style={{ borderColor: categoryColor }}>
-              <div 
-                className="px-2 py-1 text-center text-xs font-bold text-gray-700"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {category}
-              </div>
-              
-              <div className="divide-y divide-gray-200" style={{ backgroundColor: `${categoryColor}15` }}>
-                {categoryItems.map((item: any, idx: number) => {
-                  const originalIndex = order.items.indexOf(item);
-                  const state = getCompletionState(originalIndex);
-                  const totalQty = Number(item.qty) || 1;
-                  
-                  let statusColor = '#9CA3AF';
-                  let statusIcon = '○';
-                  if (state.status === 'done') {
-                    statusColor = '#10B981';
-                    statusIcon = '✓';
-                  } else if (state.status === 'almost') {
-                    statusColor = '#3B82F6';
-                    statusIcon = '≈';
-                  } else if (state.status === 'partial') {
-                    statusColor = '#F59E0B';
-                    statusIcon = '◐';
-                  }
-                  
-                  return (
-                    <div key={originalIndex} className="p-2 space-y-1">
-                      <div className="flex items-start gap-1">
-                        <button
-                          onClick={() => cycleCompletionStatus(originalIndex, totalQty)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-white text-xs transition-all hover:scale-110 flex-shrink-0 mt-0.5"
-                          style={{ backgroundColor: statusColor }}
-                        >
-                          {statusIcon}
-                        </button>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium text-gray-900 leading-tight">
-                            {item.title}
-                            <span className="mr-1 font-bold text-gray-700">× {item.qty}</span>
+      {/* Body - תצוגה קומפקטית */}
+      <div className="flex-1 overflow-auto p-2">
+        <div className="space-y-1.5">
+          {CATEGORY_ORDER.map(category => {
+            const categoryItems = groupedItems[category];
+            if (!categoryItems || categoryItems.length === 0) return null;
+            
+            const categoryColor = getCategoryColor(category);
+            
+            return (
+              <div key={category} className="flex gap-1.5">
+                {/* תג קטגוריה מצד ימין */}
+                <div 
+                  className="flex-shrink-0 w-14 rounded-md flex items-center justify-center text-xs font-bold text-gray-700 px-1 py-0.5"
+                  style={{ 
+                    backgroundColor: categoryColor,
+                    writingMode: categoryItems.length > 4 ? 'vertical-rl' : 'horizontal-tb',
+                    textOrientation: categoryItems.length > 4 ? 'mixed' : 'initial'
+                  }}
+                >
+                  {category}
+                </div>
+                
+                {/* רשימת מנות */}
+                <div className="flex-1 space-y-0.5">
+                  {categoryItems.map((item: any) => {
+                    const originalIndex = order.items.indexOf(item);
+                    const state = getCompletionState(originalIndex);
+                    const totalQty = Number(item.qty) || 1;
+                    
+                    let statusColor = '#9CA3AF';
+                    let statusIcon = '○';
+                    if (state.status === 'done') {
+                      statusColor = '#10B981';
+                      statusIcon = '✓';
+                    } else if (state.status === 'almost') {
+                      statusColor = '#3B82F6';
+                      statusIcon = '≈';
+                    } else if (state.status === 'partial') {
+                      statusColor = '#F59E0B';
+                      statusIcon = '◐';
+                    }
+                    
+                    return (
+                      <div 
+                        key={originalIndex} 
+                        className="rounded-md p-1.5 border"
+                        style={{ 
+                          backgroundColor: `${categoryColor}15`,
+                          borderColor: categoryColor
+                        }}
+                      >
+                        {/* שורה ראשונה */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => cycleCompletionStatus(originalIndex, totalQty)}
+                            className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0"
+                            style={{ backgroundColor: statusColor }}
+                          >
+                            {statusIcon}
+                          </button>
+                          
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-semibold text-gray-900 truncate block">{item.title}</span>
                           </div>
                           
-                          {(state.status === 'partial' || state.status === 'almost') && (
-                            <>
-                              <div className="flex items-center gap-1 mt-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={totalQty}
-                                  className="w-10 text-center bg-white border border-gray-300 rounded px-1 text-xs"
-                                  value={state.completed}
-                                  onChange={(e) => updateCompletedQty(originalIndex, Number(e.target.value) || 0, totalQty)}
-                                />
-                                <span className="text-xs text-gray-600">/ {totalQty}</span>
-                              </div>
-                              
-                              <textarea
-                                className="w-full text-xs bg-blue-50 border border-blue-300 rounded px-1 py-0.5 mt-1 resize-none"
-                                placeholder={state.status === 'almost' ? "מה חסר?" : "הערה"}
-                                rows={2}
-                                value={state.missingNote}
-                                onChange={(e) => updateMissingNote(originalIndex, e.target.value)}
-                              />
-                            </>
-                          )}
+                          <span className="text-sm font-bold text-gray-700 flex-shrink-0">
+                            ×{item.qty}
+                          </span>
                         </div>
+                        
+                        {/* התקדמות אם חלקי */}
+                        {(state.status === 'partial' || state.status === 'almost') && (
+                          <>
+                            <div className="flex items-center gap-1 mt-1 mr-6">
+                              <input
+                                type="number"
+                                min="0"
+                                max={totalQty}
+                                className="w-8 text-center bg-white border border-gray-300 rounded px-0.5 py-0.5 text-xs"
+                                value={state.completed}
+                                onChange={(e) => updateCompletedQty(originalIndex, Number(e.target.value) || 0, totalQty)}
+                              />
+                              <span className="text-xs text-gray-600">/ {totalQty}</span>
+                            </div>
+                            
+                            <textarea
+                              className="w-full text-xs bg-blue-50 border border-blue-300 rounded px-1 py-0.5 mt-1 mr-6 resize-none"
+                              placeholder={state.status === 'almost' ? "מה חסר?" : "הערה"}
+                              rows={1}
+                              value={state.missingNote}
+                              onChange={(e) => updateMissingNote(originalIndex, e.target.value)}
+                            />
+                          </>
+                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
