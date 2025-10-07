@@ -36,7 +36,7 @@ export default function MonthView({
 
   const monthName = viewDate.toLocaleDateString('he-IL', { month: 'long' });
   const year = viewDate.getFullYear();
-/*
+
   // תמיכה במקלדת
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,7 +81,7 @@ export default function MonthView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedDayKey, setSelectedDayKey, setViewDate, onOpenDayModal]);
-*/
+
   return (
     <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
       {/* Header אדום בהיר */}

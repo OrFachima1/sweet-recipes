@@ -691,8 +691,8 @@ if (!skipUnknownCheck) {
             <MonthView
               viewDate={viewDate}
               selectedDayKey={selectedDayKey}
-              setSelectedDayKey={setSelectedDayKeyStable}
-              setViewDate={setViewDateStable}
+              setSelectedDayKey={setSelectedDayKey}
+              setViewDate={setViewDate}
               daysMap={daysMap}
               todayKey={today}
               onOpenDayModal={(key: string) => { setDayModalKey(key); }}
@@ -708,8 +708,8 @@ if (!skipUnknownCheck) {
             <WeekView
               viewDate={viewDate}
               selectedDayKey={selectedDayKey}
-              setSelectedDayKey={setSelectedDayKeyStable}
-              setViewDate={setViewDateStable}
+              setSelectedDayKey={setSelectedDayKey}
+              setViewDate={setViewDate}
               daysMap={daysMap}
               todayKey={today}
               onOpenDayModal={(key: string) => { setDayModalKey(key); }}
