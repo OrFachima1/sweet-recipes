@@ -398,34 +398,33 @@ export default function HomeContent({
     <div className="min-h-screen" dir="rtl" lang="he">
       {/* ► פס עליון: שלום + התנתקות */}
 <header className="px-4 pt-4">
-  <div className="max-w-5xl mx-auto">
-    <div className="flex items-start justify-between gap-4 flex-wrap">
-      {/* ברכה — ימין */}
-      <div className="text-right">
-        <div className="font-extrabold leading-none text-4xl md:text-5xl lg:text-6xl">
-          שלום, {displayName || user.email || "עובד/ת"}
-        </div>
-      </div>
-
-      {/* כפתורים — שמאל (RTL ⇒ items-end) */}
-      <div className="flex flex-col items-end gap-3 shrink-0">
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
-        >
-          התנתקות
-        </button>
-
-        <button
-          onClick={() => router.push('/orders')}
-          className="px-4 py-2 rounded-xl bg-emerald-500 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center gap-2"
-        >
-          <span className="text-lg">📋</span>
-          <span>למעקב הזמנות</span>
-        </button>
-      </div>
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+  {/* ברכה — למעלה במובייל, גמישה מדסקטופ ומעלה */}
+  <div className="text-right">
+    <div className="font-extrabold leading-none text-3xl sm:text-5xl lg:text-6xl">
+      שלום, {displayName || user.email || "עובד/ת"}
     </div>
   </div>
+
+  {/* כפתורים — מתחת במובייל, בשמאל ב-RTL; חוזר לצד שמאל בשורה בדסקטופ */}
+  <div className="flex flex-col items-end gap-2 sm:items-end sm:flex-none">
+    <button
+      onClick={logout}
+      className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
+    >
+      התנתקות
+    </button>
+
+    <button
+      onClick={() => router.push('/orders')}
+      className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-emerald-500 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center gap-2"
+    >
+      <span className="text-lg">📋</span>
+      <span>למעקב הזמנות</span>
+    </button>
+  </div>
+</div>
+
 </header>
 
 
