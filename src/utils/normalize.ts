@@ -1,14 +1,21 @@
 // src/utils/normalize.ts
 import { IngestJsonOrder } from '@/types/orders';
 
-// דוגמה לפונקציית נרמול הערות "חשובות". אפשר לעדן ע"פ הלוגיקה שלך
+const normNotes = (x: unknown): string | undefined => {
+  if (x == null) return undefined;
+  const s = Array.isArray(x) ? x.map(v => String(v)).join(' ') : String(x);
+  const t = s.replace(/\s+/g, ' ').trim();
+  return t || undefined;
+};
+
+// נרמול הערות "חשובות" לפריטים ולהזמנה עצמה
 export function normalizeImportantNotes(order: IngestJsonOrder): IngestJsonOrder {
-  // החלת נרמול על פריטי ההזמנה והערות כלליות — פעם אחת בלבד במהלך ה-ingest
-  const items = (order.items || []).map(it => {
-    let n = it.notes?.trim();
-    // כאן אפשר להוסיף הלוגיקה שלך לזיהוי/מיזוג הערות
-    return { ...it, notes: n };
-  });
-  const notes = order.notes?.trim();
+  const items = (order.items ?? []).map(it => ({
+    ...it,
+    notes: normNotes((it as any).notes),
+  }));
+
+  const notes = normNotes((order as any).notes);
+
   return { ...order, items, notes };
 }
