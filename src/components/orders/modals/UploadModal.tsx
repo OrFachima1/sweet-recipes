@@ -76,10 +76,10 @@ useEffect(() => {
   };
 }, [files, apiBase]);
 
-  const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = e.target.files ? Array.from(e.target.files) : [];
-    setFiles(newFiles);
-  };
+ const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const newFiles = e.target.files ? Array.from(e.target.files) : [];
+  setFiles(prev => [...prev, ...newFiles]);  // ✅ מוסיף במקום להחליף
+};
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -98,16 +98,16 @@ useEffect(() => {
     e.stopPropagation();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+ const handleDrop = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      (f) => f.type === "application/pdf"
-    );
-    setFiles(droppedFiles);
-  };
+  const droppedFiles = Array.from(e.dataTransfer.files).filter(
+    (f) => f.type === "application/pdf"
+  );
+  setFiles(prev => [...prev, ...droppedFiles]);  // ✅ מוסיף במקום להחליף
+};
 
   const removeFile = (index: number) => {
     setFiles(files.filter((_, i) => i !== index));
