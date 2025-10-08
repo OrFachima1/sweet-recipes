@@ -24,15 +24,12 @@ function similarity(s1: string, s2: string): number {
   const str1 = s1.toLowerCase().trim();
   const str2 = s2.toLowerCase().trim();
   
-  // אם זהים - 100%
   if (str1 === str2) return 1;
   
-  // אם אחד מכיל את השני - דמיון גבוה
   if (str1.includes(str2) || str2.includes(str1)) {
     return 0.8;
   }
   
-  // Levenshtein distance
   const matrix: number[][] = [];
   
   for (let i = 0; i <= str2.length; i++) {
@@ -73,7 +70,6 @@ function getTopSuggestions(unknown: string, menu: string[], n: number = 3): stri
   
   scored.sort((a, b) => b.score - a.score);
   
-  // רק אם יש דמיון מעל 0.4
   return scored
     .filter(s => s.score > 0.4)
     .slice(0, n)
@@ -94,6 +90,9 @@ export default function MappingModal({
   orders,
   persist
 }: MappingModalProps) {
+  // ✅ State לעקוב אחרי פריטים שהמשתמש לחץ "התעלם" (רק ויזואלי)
+  const [visuallyIgnored, setVisuallyIgnored] = useState<Set<string>>(new Set());
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -104,7 +103,7 @@ export default function MappingModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-l from-orange-500 to-red-500 px-6 py-5 flex items-center justify-between flex-shrink-0">
+        <div className="bg-gradient-to-l from-purple-500 to-pink-500 px-6 py-5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🔍</span>
             <div>
@@ -128,11 +127,13 @@ export default function MappingModal({
               unknown={u}
               menu={menuOptions}
               value={mapping[u] || ""}
+              isVisuallyIgnored={visuallyIgnored.has(u)}
               onPick={(to) => {
                 const newMapping = { ...mapping, [u]: to };
                 setMapping(newMapping);
               }}
               onIgnore={(name) => {
+                setVisuallyIgnored(prev => new Set(prev).add(name));
                 const newIgnored = Array.from(new Set([...ignored, name]));
                 setIgnored(newIgnored);
               }}
@@ -140,6 +141,13 @@ export default function MappingModal({
                 const newMapping = { ...mapping };
                 delete newMapping[name];
                 setMapping(newMapping);
+              }}
+              onUndoIgnore={(name) => {
+                setVisuallyIgnored(prev => {
+                  const next = new Set(prev);
+                  next.delete(name);
+                  return next;
+                });
               }}
             />
           ))}
@@ -157,7 +165,7 @@ export default function MappingModal({
             ביטול
           </button>
           <button
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-orange-500 to-red-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-purple-500 to-pink-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
             onClick={async () => {
               console.log("🔹 1️⃣ התחלת שמירה והמשך");
               
@@ -219,22 +227,25 @@ function UnknownMapperRow({
   unknown,
   menu,
   value,
+  isVisuallyIgnored,
   onPick,
   onIgnore,
-  onClearMapping
+  onClearMapping,
+  onUndoIgnore
 }: {
   unknown: string;
   menu: string[];
   value: string;
+  isVisuallyIgnored: boolean;
   onPick: (name: string) => void;
   onIgnore: (name: string) => void;
   onClearMapping: (name: string) => void;
+  onUndoIgnore: (name: string) => void;
 }) {
   const [q, setQ] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isEditing, setIsEditing] = useState(!value);
 
-  // חישוב המלצות אוטומטיות
   const suggestions = useMemo(() => {
     return getTopSuggestions(unknown, menu, 3);
   }, [unknown, menu]);
@@ -288,8 +299,33 @@ function UnknownMapperRow({
     }
   };
 
+  // ✅ אם בהתעלם - הצג מצב מיוחד
+  if (isVisuallyIgnored) {
+    return (
+      <div className="border-2 border-gray-300 rounded-2xl p-4 bg-gray-50 hover:shadow-md transition-all animate-in fade-in duration-200">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl flex-shrink-0">🚫</span>
+          <div className="flex-1">
+            <div className="text-xs text-gray-500 mb-1">פריט בהתעלמות:</div>
+            <div className="font-bold text-gray-600 text-lg break-words line-through">{unknown}</div>
+            <div className="mt-2 text-sm text-gray-500">
+              הפריט לא יופיע בהזמנות הסופיות
+            </div>
+          </div>
+          <button
+            onClick={() => onUndoIgnore(unknown)}
+            className="px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all flex items-center gap-1 text-sm"
+          >
+            <span>↩️</span>
+            <span>בטל</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="border-2 border-orange-200 rounded-2xl p-4 bg-gradient-to-l from-orange-50 to-red-50 hover:shadow-md transition-all">
+    <div className="border-2 border-purple-200 rounded-2xl p-4 bg-gradient-to-l from-purple-50 to-pink-50 hover:shadow-md transition-all">
       {/* פריט לא מזוהה */}
       <div className="flex items-start gap-3 mb-3">
         <span className="text-2xl flex-shrink-0">❓</span>
@@ -301,7 +337,7 @@ function UnknownMapperRow({
 
       {/* אם יש ערך נבחר - הצג אותו */}
       {value && !isEditing ? (
-        <div className="bg-white rounded-xl p-4 border-2 border-green-300">
+        <div className="bg-white rounded-xl p-4 border-2 border-green-300 animate-in slide-in-from-top duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-2xl">✅</span>
@@ -312,7 +348,7 @@ function UnknownMapperRow({
             </div>
             <button
               onClick={() => setIsEditing(true)}
-              className="px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all flex items-center gap-1 text-sm"
+              className="px-3 py-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium transition-all flex items-center gap-1 text-sm"
             >
               <span>✏️</span>
               <span>ערוך</span>
@@ -333,7 +369,7 @@ function UnknownMapperRow({
                   <button
                     key={suggestion}
                     onClick={() => handlePick(suggestion)}
-                    className="text-right px-4 py-3 rounded-xl bg-white border-2 border-orange-300 hover:border-orange-500 hover:bg-orange-50 transition-all font-medium text-gray-800 hover:shadow-md"
+                    className="text-right px-4 py-3 rounded-xl bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 transition-all font-medium text-gray-800 hover:shadow-md"
                   >
                     {suggestion}
                   </button>
@@ -353,11 +389,11 @@ function UnknownMapperRow({
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="הקלד לחיפוש..."
-              className="w-full border-2 border-orange-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              className="w-full border-2 border-purple-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
 
             {q.trim() && (
-              <div className="space-y-1 max-h-48 overflow-y-auto border-2 border-orange-200 rounded-xl p-2 bg-white">
+              <div className="space-y-1 max-h-48 overflow-y-auto border-2 border-purple-200 rounded-xl p-2 bg-white">
                 {filtered.length > 0 ? (
                   filtered.map((name, idx) => (
                     <button
@@ -366,8 +402,8 @@ function UnknownMapperRow({
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`w-full text-right text-sm px-3 py-2 rounded-lg transition ${
                         idx === selectedIndex 
-                          ? 'bg-orange-500 text-white font-medium' 
-                          : 'hover:bg-orange-50'
+                          ? 'bg-purple-500 text-white font-medium' 
+                          : 'hover:bg-purple-50'
                       }`}
                     >
                       {name}
