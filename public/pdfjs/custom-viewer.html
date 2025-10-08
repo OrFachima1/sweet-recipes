@@ -4,81 +4,63 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PDF.js Mini Viewer</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_viewer.css" />
+  <link rel="stylesheet" href="/pdfjs/vendor/pdf_viewer.css" />
   <style>
-    html,body { height:100%; margin:0; }
-    #viewerContainer { position:fixed; inset:0; overflow:auto; background:#fff; }
-    .pdfViewer .page { margin: 8px auto; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    html,body { height:100%; margin:0 }
+    #viewerContainer { position:fixed; inset:0; overflow:auto; background:#fff }
+    .pdfViewer .page { margin:8px auto; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,.06) }
+    #err { position:fixed; left:8px; bottom:8px; font:12px/1.4 system-ui,Segoe UI,Arial; color:#b91c1c; background:#fee2e2; padding:6px 8px; border-radius:8px; display:none; max-width:90vw; }
   </style>
 </head>
 <body>
-  <div id="viewerContainer">
-    <div id="viewer" class="pdfViewer"></div>
-  </div>
+  <div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div>
+  <div id="err"></div>
 
-  <script type="module">
-    import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
-    import { PDFViewer, EventBus, PDFFindController } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_viewer.mjs";
-    import { PDFLinkService } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_link_service.mjs";
+  <script src="/pdfjs/vendor/pdf.js"></script>
+  <script src="/pdfjs/vendor/pdf_viewer.js"></script>
+  <script>
+    (function() {
+      const showErr = (msg) => { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; };
 
-    // worker for ESM
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
+      try {
+        // הגדרת ה־worker מתוך ה־public שלך
+        window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc = "/pdfjs/vendor/pdf.worker.js";
 
-    const params = new URLSearchParams(location.search);
-    const file = params.get("file"); // יכול להיות blob: או URL
-    if (!file) {
-      document.body.innerHTML = "<p style='padding:16px;font:14px sans-serif'>Missing ?file=...</p>";
-      throw new Error("Missing file");
-    }
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const pdfjsViewer = window['pdfjs-dist/web/pdf_viewer'];
 
-    const eventBus = new EventBus();
-    const container = document.getElementById("viewerContainer");
-    const viewer = new PDFViewer({ container, eventBus, textLayerMode: 2 });
+        const params = new URLSearchParams(location.search);
+        const file = params.get("file");
+        if (!file) { showErr("Missing ?file=…"); return; }
 
-    const linkService = new PDFLinkService({ eventBus });
-    linkService.setViewer(viewer);
-    viewer.setLinkService(linkService);
+        const eventBus = new pdfjsViewer.EventBus();
+        const container = document.getElementById("viewerContainer");
+        const viewer = new pdfjsViewer.PDFViewer({ container, eventBus, textLayerMode: 2 });
 
-    const findController = new PDFFindController({ eventBus, linkService, pdfViewer: viewer });
-    viewer.setFindController(findController);
+        const linkService = new pdfjsViewer.PDFLinkService({ eventBus });
+        linkService.setViewer(viewer);
+        viewer.setLinkService(linkService);
 
-    const loadingTask = pdfjsLib.getDocument({ url: file });
-    const pdfDoc = await loadingTask.promise;
+        const findController = new pdfjsViewer.PDFFindController({ eventBus, linkService, pdfViewer: viewer });
+        viewer.setFindController(findController);
 
-    viewer.setDocument(pdfDoc);
-    linkService.setDocument(pdfDoc);
+        pdfjsLib.getDocument({ url: file }).promise.then(function(pdfDoc) {
+          viewer.setDocument(pdfDoc);
+          linkService.setDocument(pdfDoc);
 
-    // תמיכה ב-#search= מה-URL
-    const hash = new URL(location.href).hash || "";
-    const m = hash.match(/search=([^&]+)/);
-    const initial = m ? decodeURIComponent(m[1]) : "";
+          const m = (location.hash || "").match(/search=([^&]+)/);
+          const initial = m ? decodeURIComponent(m[1]) : "";
+          const doFind = (q) => q && eventBus.dispatch("find", { source: window, type: "again", query: q, caseSensitive: false, entireWord: false, highlightAll: true, findPrevious: false });
 
-    function doFind(q) {
-      if (!q) return;
-      eventBus.dispatch("find", {
-        source: window,
-        type: "again",           // מיידי
-        query: q,
-        caseSensitive: false,
-        entireWord: false,
-        highlightAll: true,
-        findPrevious: false,
-      });
-    }
+          if (initial) setTimeout(() => doFind(initial), 150);
 
-    if (initial) {
-      // עיכוב קצר אחרי render ראשוני
-      setTimeout(() => doFind(initial), 150);
-    }
-
-    // קבלת חיפוש מ-parent (ה-iframe שלך)
-    window.addEventListener("message", (e) => {
-      const d = e.data || {};
-      if (d.type === "find" && typeof d.query === "string") {
-        doFind(d.query);
-      }
-    });
+          window.addEventListener("message", (e) => {
+            const d = e.data || {};
+            if (d.type === "find" && typeof d.query === "string") doFind(d.query);
+          });
+        }).catch(function(err) { console.error(err); showErr("Failed to load PDF: " + (err && err.message ? err.message : String(err))); });
+      } catch (e) { console.error(e); showErr("Viewer error: " + (e && e.message ? e.message : String(e))); }
+    })();
   </script>
 </body>
 </html>

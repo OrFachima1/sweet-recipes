@@ -46,8 +46,9 @@ useEffect(() => {
   baseBlobRef.current = blobUrl;
 
   // נטען את viewer של PDF.js (בלי #search כאן)
- const viewer = `/pdfjs/custom-viewer.html?file=${encodeURIComponent(blobUrl)}#zoom=page-width`;
-  setPdfUrl(viewer);
+const viewer = `/pdfjs/custom-viewer.html?file=${encodeURIComponent(blobUrl)}#zoom=page-width`;
+setPdfUrl(viewer);
+
 }, [files, currentOrderIndex]);
 
 // שלח חיפוש ל-PDF.js בכל שינוי שם מגש וגם אחרי טעינת ה-iframe
