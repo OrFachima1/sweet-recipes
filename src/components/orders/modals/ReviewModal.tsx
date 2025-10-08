@@ -327,48 +327,55 @@ export default function ReviewModal({
                             </div>
                           ) : (
                             // מצב תצוגה (לא נפתחת מקלדת!)
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={isChecked || false}
-                                onChange={() => toggleCheck(idx)}
-                                className="mt-1 w-5 h-5 rounded border-2 border-gray-300"
-                              />
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked || false}
+                            onChange={() => toggleCheck(idx)}
+                            className="mt-1 w-5 h-5 rounded border-2 border-gray-300"
+                          />
 
-                              <div 
-                                className="flex-1 cursor-pointer"
-                                onClick={() => {
+                          <div 
+                            className="flex-1 cursor-pointer select-none"
+                            onClick={(e) => {
+                              // Single click - רק חיפוש
+                              setSearchTerm(item.title || "");
+                            }}
+                            onDoubleClick={(e) => {
+                              // Double click - מצב עריכה
+                              e.preventDefault();
+                              setEditingItem(key);
+                              setSearchTerm(item.title || "");
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium text-gray-800">
+                                {item.title || "ללא שם"} <span className="text-gray-500">({item.qty || 1})</span>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setEditingItem(key);
                                   setSearchTerm(item.title || "");
                                 }}
+                                className="text-xs px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center gap-1"
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="font-medium text-gray-800">
-                                    {item.title || "ללא שם"} ({item.qty || 1})
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingItem(key);
-                                      setSearchTerm(item.title || "");
-                                    }}
-                                    className="text-xs px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600"
-                                  >
-                                    ✏️ ערוך
-                                  </button>
-                                </div>
-                                {item.notes && (
-                                  <div className="text-xs text-gray-500 mt-1">💬 {item.notes}</div>
-                                )}
-                              </div>
-
-                              <button
-                                onClick={() => removeItem(idx)}
-                                className="w-8 h-8 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all flex-shrink-0"
-                              >
-                                ✕
+                                <span>✏️</span>
+                                <span>ערוך</span>
                               </button>
                             </div>
+                            {item.notes && (
+                              <div className="text-xs text-gray-500 mt-1">💬 {item.notes}</div>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => removeItem(idx)}
+                            className="w-8 h-8 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all flex-shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
                           )}
                         </div>
                       );
