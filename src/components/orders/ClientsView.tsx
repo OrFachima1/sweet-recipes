@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import { fmtYMD, addDays } from "@/utils/orders";
-import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/categoryMapping";
+import { groupItemsByCategory, getCategoryColor, getCategoryOrder} from "@/utils/categoryMapping";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
 
 interface ClientsViewProps {
@@ -202,7 +202,7 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
           <h3 className="text-lg font-bold text-gray-900 mb-4">סיכום מנות</h3>
           
           <div className="grid grid-cols-2 gap-3">
-            {CATEGORY_ORDER.map(category => {
+       {getCategoryOrder().map(category => {
               const categoryItems = itemsByCategory[category];
               if (!categoryItems || categoryItems.length === 0) return null;
               
@@ -391,7 +391,7 @@ function ClientCard({ order }: { order: any }) {
       {/* Body */}
       <div className="flex-1 overflow-auto p-2">
         <div className="space-y-1.5">
-          {CATEGORY_ORDER.map(category => {
+      {getCategoryOrder().map(category => {
             const categoryItems = groupedItems[category];
             if (!categoryItems || categoryItems.length === 0) return null;
             

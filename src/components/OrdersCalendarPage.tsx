@@ -29,6 +29,7 @@ import type {
 } from "@/types/orders";
 import ViewToggle from "@/components/orders/ViewToggle";
 import ClientsView from "@/components/orders/ClientsView";
+import { setCategoryConfig } from "@/utils/categoryMapping";
 
 // 🔥 Firebase imports
 import { useUser, useRole } from "@/lib/auth";
@@ -97,6 +98,33 @@ export default function OrdersCalendarPage({
     files: File[];
   } | null>(null);
  const [showSettings, setShowSettings] = useState(false);
+ const [categoryConfig, setCategoryConfigState] = useState<{
+  items: Record<string, { color: string; order: number }>;
+  itemMapping: Record<string, string>;
+} | null>(null);
+useEffect(() => {
+  if (!user) return;
+  
+  const categoryDoc = doc(db, "orderSettings", "categoryConfig");
+  const unsub = onSnapshot(categoryDoc, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      const config = {
+        items: data.items || {},
+        itemMapping: data.itemMapping || {}
+      };
+      
+      setCategoryConfigState(config);
+      setCategoryConfig(config); // ✅ עדכן גם את categoryMapping.ts
+      
+      console.log("📁 קטגוריות נטענו:", config);
+    } else {
+      console.warn("⚠️ אין קטגוריות ב-Firestore!");
+    }
+  });
+  
+  return () => unsub();
+}, [user]);
   // ESC to close modal
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -140,7 +168,7 @@ export default function OrdersCalendarPage({
     setDebugOn(next);
     console.info("[UI] debug ->", next);
   };
-
+  
   // 🔥 Load orders from Firestore (real-time)
   useEffect(() => {
     if (!user) return;
@@ -184,7 +212,31 @@ export default function OrdersCalendarPage({
     unsub();
   };
 }, [user]);
-
+useEffect(() => {
+  if (!user) return;
+  
+  const settingsDoc = doc(db, "orderSettings", "main");
+  const categoryDoc = doc(db, "orderSettings", "categoryConfig");
+  
+  const unsub1 = onSnapshot(settingsDoc, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      setMapping(data.mapping || {});
+      setIgnored(data.ignored || []);
+    }
+  });
+  
+  const unsub2 = onSnapshot(categoryDoc, (snap) => {
+    if (snap.exists()) {
+      setCategoryConfig(snap.data()); // ✅ זהו!
+    }
+  });
+  
+  return () => {
+    unsub1();
+    unsub2();
+  };
+}, [user]);
   // 🔥 Load mapping & ignored from Firestore
   useEffect(() => {
     if (!user) return;
@@ -943,23 +995,36 @@ const finalizeOrders = async (finalOrders: any[]) => {
   />
 )}
 {/* Settings Modal - only for managers */}
-{isManager && (
+{isManager && categoryConfig && (
   <SettingsModal
     show={showSettings}
     onClose={() => setShowSettings(false)}
+    
     menuOptions={menuOptions}
     onUpdateMenu={(newMenu) => {
       setMenuOptions(newMenu);
-      // שמור ל-localStorage או Firestore
       localStorage.setItem('menu', JSON.stringify(newMenu));
     }}
+    
     mapping={mapping}
-    onUpdateMapping={(newMapping) => {
-      updateMapping(newMapping);
-    }}
+    onUpdateMapping={updateMapping}
+    
     ignored={ignored}
-    onUpdateIgnored={(newIgnored) => {
-      updateIgnored(newIgnored);
+    onUpdateIgnored={updateIgnored}
+    
+    // ✅ העבר את הקטגוריות!
+    categories={categoryConfig}
+    
+    onUpdateCategories={async (newConfig) => {
+      try {
+        await setDoc(doc(db, "orderSettings", "categoryConfig"), newConfig);
+        setCategoryConfigState(newConfig);
+        setCategoryConfig(newConfig);
+        console.log("✅ קטגוריות נשמרו");
+      } catch (e) {
+        console.error("❌ שגיאה:", e);
+        alert("שגיאה בשמירה");
+      }
     }}
   />
 )}

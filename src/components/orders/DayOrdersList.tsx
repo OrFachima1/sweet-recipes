@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { groupItemsByCategory, getCategoryColor, CATEGORY_ORDER } from "@/utils/categoryMapping";
+import { groupItemsByCategory, getCategoryColor, getCategoryOrder} from "@/utils/categoryMapping";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
 
 interface DayOrdersListProps {
@@ -12,6 +12,10 @@ interface DayOrdersListProps {
   onAddItem?: (orderId: string) => void;
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
+   categories?: {
+    items: Record<string, { color: string; order: number }>;
+    itemMapping: Record<string, string>;
+  } | null;
 }
 
 export default function DayOrdersList({
@@ -314,7 +318,7 @@ export default function DayOrdersList({
               
               {/* תצוגת קבוצות קטגוריה */}
               <div className="space-y-2">
-                {CATEGORY_ORDER.map(category => {
+           {getCategoryOrder().map(category => {
                   const categoryItems = groupedItems[category];
                   if (!categoryItems || categoryItems.length === 0) return null;
                   
