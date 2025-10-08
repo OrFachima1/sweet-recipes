@@ -90,7 +90,7 @@ export default function MappingModal({
   orders,
   persist
 }: MappingModalProps) {
-  // ✅ State לעקוב אחרי פריטים שהמשתמש לחץ "התעלם" (רק ויזואלי)
+  // ✅ State לעקוב אחרי פריטים שהמשתמש לחץ "התעלם" (רק ויזואלי, לא נשמר עד לחיצה על "שמור")
   const [visuallyIgnored, setVisuallyIgnored] = useState<Set<string>>(new Set());
 
   return (
@@ -133,9 +133,8 @@ export default function MappingModal({
                 setMapping(newMapping);
               }}
               onIgnore={(name) => {
+                // ✅ רק עדכון ויזואלי - לא שומרים עדיין!
                 setVisuallyIgnored(prev => new Set(prev).add(name));
-                const newIgnored = Array.from(new Set([...ignored, name]));
-                setIgnored(newIgnored);
               }}
               onClearMapping={(name) => {
                 const newMapping = { ...mapping };
@@ -169,11 +168,18 @@ export default function MappingModal({
             onClick={async () => {
               console.log("🔹 1️⃣ התחלת שמירה והמשך");
               
-              const notMapped = unknowns.filter(u => !mapping[u]);
+              // ✅ כאן נוסיף את כל הפריטים שבהתעלמות ויזואלית
+              const itemsToIgnore = Array.from(visuallyIgnored);
+              console.log("🔹 פריטים להתעלם:", itemsToIgnore);
+              
+              // פריטים שלא נמפו ולא בהתעלמות ויזואלית
+              const notMapped = unknowns.filter(u => !mapping[u] && !visuallyIgnored.has(u));
               console.log("🔹 2️⃣ לא נמפו:", notMapped);
               
-              if (notMapped.length) {
-                const newIgnored = Array.from(new Set([...ignored, ...notMapped]));
+              // שמירת כל הפריטים להתעלמות
+              const allToIgnore = [...itemsToIgnore, ...notMapped];
+              if (allToIgnore.length) {
+                const newIgnored = Array.from(new Set([...ignored, ...allToIgnore]));
                 setIgnored(newIgnored);
               }
 
@@ -268,7 +274,7 @@ function UnknownMapperRow({
   };
 
   const handleIgnore = () => {
-    onIgnore(unknown);
+    onIgnore(unknown); // ✅ רק מוסיף ל-visuallyIgnored, לא שומר
     setIsEditing(false);
   };
 
@@ -309,7 +315,7 @@ function UnknownMapperRow({
             <div className="text-xs text-gray-500 mb-1">פריט בהתעלמות:</div>
             <div className="font-bold text-gray-600 text-lg break-words line-through">{unknown}</div>
             <div className="mt-2 text-sm text-gray-500">
-              הפריט לא יופיע בהזמנות הסופיות
+              הפריט לא יופיע בהזמנות הסופיות (ישמר רק לאחר לחיצה על "שמור והמשך")
             </div>
           </div>
           <button
