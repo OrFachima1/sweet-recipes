@@ -18,6 +18,7 @@ interface PreviewOrder {
   eventDate?: string | null;
   items?: any[];
   orderNotes?: string | string[] | null;
+  _fileId?: string; // ✅ זיהוי ייחודי לקובץ
 }
 
 export default function UploadModal({
@@ -36,11 +37,17 @@ export default function UploadModal({
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  
+  // ✅ מפה לעקוב אחרי קבצים שכבר פורסרו
+  const [parsedFilesMap, setParsedFilesMap] = useState<Map<string, PreviewOrder[]>>(new Map());
+  const [parsingFiles, setParsingFiles] = useState<Set<string>>(new Set());
 
   // =====================
   // Helper Functions
   // =====================
   
+  const getFileId = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+
   const normalizeDate = (dateStr: string | null | undefined): string | null => {
     if (!dateStr) return null;
     try {
@@ -59,22 +66,22 @@ export default function UploadModal({
   };
 
   const formatDateDisplay = (dateStr: string | null | undefined) => {
-  if (!dateStr) return null;
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('he-IL', { 
-      weekday: 'long', 
-      day: 'numeric', 
-      month: 'long',
-      year: 'numeric'
-    });
-  } catch {
-    return dateStr;
-  }
-};
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('he-IL', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   // =====================
-  // Parse אוטומטי כשיש קבצים
+  // Parse קבצים - רק חדשים!
   // =====================
   
   useEffect(() => {
@@ -82,37 +89,75 @@ export default function UploadModal({
       setPreviewOrders([]);
       setDateOverrides({});
       setParseError(null);
+      setParsedFilesMap(new Map());
+      setParsingFiles(new Set());
       return;
     }
 
-    let cancelled = false;
+    // מצא קבצים חדשים שעוד לא פורסרו
+    const currentFileIds = new Set(files.map(getFileId));
+    const parsedFileIds = new Set(parsedFilesMap.keys());
+    
+    const newFiles = files.filter(f => !parsedFileIds.has(getFileId(f)));
+    const deletedFileIds = Array.from(parsedFileIds).filter(id => !currentFileIds.has(id));
 
-    (async () => {
-      setParsing(true);
-      setParseError(null);
-      try {
-        const result = await ingestStrict(apiBase, files, {});
-        if (!cancelled) {
-          setPreviewOrders(result.orders || []);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
+    // מחק קבצים שהוסרו
+    if (deletedFileIds.length > 0) {
+      setParsedFilesMap(prev => {
+        const newMap = new Map(prev);
+        deletedFileIds.forEach(id => newMap.delete(id));
+        return newMap;
+      });
+    }
+
+    // Parse קבצים חדשים
+    if (newFiles.length > 0) {
+      newFiles.forEach(async (file) => {
+        const fileId = getFileId(file);
+        
+        // סמן שמתחיל parsing
+        setParsingFiles(prev => new Set(prev).add(fileId));
+        setParsing(true);
+        
+        try {
+          const result = await ingestStrict(apiBase, [file], {});
+          const orders = (result.orders || []).map(order => ({
+            ...order,
+            _fileId: fileId
+          }));
+          
+          setParsedFilesMap(prev => new Map(prev).set(fileId, orders));
+        } catch (e: any) {
           const errorMsg = typeof e?.message === 'string' 
             ? e.message 
             : JSON.stringify(e, null, 2);
           setParseError(errorMsg);
+        } finally {
+          setParsingFiles(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(fileId);
+            return newSet;
+          });
         }
-      } finally {
-        if (!cancelled) {
-          setParsing(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+      });
+    }
   }, [files, apiBase]);
+
+  // עדכן את previewOrders מה-Map
+  useEffect(() => {
+    const allOrders: PreviewOrder[] = [];
+    files.forEach(file => {
+      const fileId = getFileId(file);
+      const orders = parsedFilesMap.get(fileId);
+      if (orders) {
+        allOrders.push(...orders);
+      }
+    });
+    setPreviewOrders(allOrders);
+    
+    // עדכן parsing status
+    setParsing(parsingFiles.size > 0);
+  }, [parsedFilesMap, parsingFiles, files]);
 
   // =====================
   // File Handlers
@@ -152,6 +197,30 @@ export default function UploadModal({
   };
 
   const removeFile = (index: number) => {
+    const removedFile = files[index];
+    const fileId = getFileId(removedFile);
+    
+    // מצא את האינדקסים של ההזמנות שקשורות לקובץ הזה
+    const ordersToRemove = previewOrders
+      .map((order, idx) => order._fileId === fileId ? idx : -1)
+      .filter(idx => idx !== -1);
+    
+    // הסר את התאריכים שנבחרו להזמנות האלה
+    setDateOverrides(prev => {
+      const newOverrides: Record<number, string> = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        const idx = parseInt(key);
+        // שמור רק אם זה לא הזמנה שנמחקת
+        if (!ordersToRemove.includes(idx)) {
+          // התאם את האינדקס אם צריך
+          const removedBefore = ordersToRemove.filter(i => i < idx).length;
+          newOverrides[idx - removedBefore] = value;
+        }
+      });
+      return newOverrides;
+    });
+    
+    // הסר את הקובץ
     setFiles(files.filter((_, i) => i !== index));
   };
 
@@ -258,36 +327,39 @@ export default function UploadModal({
                 </button>
               </div>
               <div className="max-h-32 overflow-y-auto space-y-2">
-                {files.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-l from-purple-50 to-pink-50 border border-purple-200"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="text-2xl flex-shrink-0">📄</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 truncate">{file.name}</div>
-                        <div className="text-xs text-gray-500">{formatFileSize(file.size)}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeFile(idx)}
-                      className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all flex-shrink-0"
-                      title="הסר קובץ"
+                {files.map((file, idx) => {
+                  const fileId = getFileId(file);
+                  const isParsing = parsingFiles.has(fileId);
+                  const isParsed = parsedFilesMap.has(fileId);
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-l from-purple-50 to-pink-50 border border-purple-200"
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-2xl flex-shrink-0">
+                          {isParsing ? "⏳" : isParsed ? "✅" : "📄"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-800 truncate">{file.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatFileSize(file.size)}
+                            {isParsing && <span className="text-purple-600 font-medium mr-2">• מנתח...</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeFile(idx)}
+                        className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all flex-shrink-0"
+                        title="הסר קובץ"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {/* Parsing Loader */}
-          {parsing && (
-            <div className="flex items-center justify-center gap-3 p-8 rounded-2xl bg-purple-50 border-2 border-purple-200">
-              <span className="text-3xl animate-spin">⏳</span>
-              <span className="font-semibold text-purple-700">מנתח קבצים...</span>
             </div>
           )}
 
@@ -305,7 +377,7 @@ export default function UploadModal({
           )}
 
           {/* Preview Orders */}
-          {!parsing && previewOrders.length > 0 && (
+          {previewOrders.length > 0 && (
             <div className="space-y-3">
               <div className="font-bold text-gray-800 flex items-center gap-2 text-lg">
                 <span className="text-2xl">✨</span>
