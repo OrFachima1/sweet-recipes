@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy as firestoreOrderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface ManualOrderItem {
   title: string;
@@ -17,6 +17,7 @@ interface ManualOrderModalProps {
     eventDate: string;
     items: ManualOrderItem[];
     orderNotes: string;
+    clientColor?: string; // ✅ צבע אופציונלי
   }) => void;
   menuOptions: string[];
 }
@@ -26,6 +27,8 @@ interface PreviousOrder {
   eventDate: string;
   items: ManualOrderItem[];
   orderNotes?: string;
+  createdAt?: Date;
+  clientColor?: string; // ✅ צבע מההזמנה הקודמת
 }
 
 export default function ManualOrderModal({
@@ -35,6 +38,7 @@ export default function ManualOrderModal({
   menuOptions,
 }: ManualOrderModalProps) {
   const [clientName, setClientName] = useState("");
+  const [clientColor, setClientColor] = useState("#3B82F6"); // ברירת מחדל - כחול
   const [eventDate, setEventDate] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [items, setItems] = useState<ManualOrderItem[]>([
@@ -60,8 +64,8 @@ export default function ManualOrderModal({
     const loadClients = async () => {
       try {
         const ordersRef = collection(db, "orders");
-        const q = query(ordersRef, firestoreOrderBy("clientName"));
-        const snapshot = await getDocs(q);
+        // שאילתה פשוטה בלי orderBy
+        const snapshot = await getDocs(ordersRef);
         
         const clients = new Set<string>();
         snapshot.docs.forEach(doc => {
@@ -71,7 +75,9 @@ export default function ManualOrderModal({
           }
         });
         
-        setClientSuggestions(Array.from(clients).slice(0, 5));
+        // מיון בצד הלקוח
+        const sortedClients = Array.from(clients).sort().slice(0, 5);
+        setClientSuggestions(sortedClients);
       } catch (e) {
         console.error("Error loading clients:", e);
       }
@@ -90,27 +96,33 @@ export default function ManualOrderModal({
     const loadPreviousOrders = async () => {
       try {
         const ordersRef = collection(db, "orders");
+        // שאילתה פשוטה יותר - רק where בלי orderBy
         const q = query(
           ordersRef,
-          where("clientName", "==", clientName),
-          firestoreOrderBy("createdAt", "desc"),
-          limit(5)
+          where("clientName", "==", clientName)
         );
         const snapshot = await getDocs(q);
         
-        const orders: PreviousOrder[] = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            clientName: data.clientName,
-            eventDate: data.eventDate,
-            items: data.items || [],
-            orderNotes: data.orderNotes
-          };
-        });
+        // מיון בצד הלקוח במקום ב-Firestore
+        const orders: PreviousOrder[] = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              clientName: data.clientName,
+              eventDate: data.eventDate,
+              items: data.items || [],
+              orderNotes: data.orderNotes,
+              clientColor: data.clientColor, // ✅ טעינת הצבע
+              createdAt: data.createdAt?.toDate() || new Date(0)
+            };
+          })
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 5);
         
         setPreviousOrders(orders);
       } catch (e) {
         console.error("Error loading previous orders:", e);
+        setPreviousOrders([]);
       }
     };
 
@@ -203,11 +215,13 @@ export default function ManualOrderModal({
       eventDate,
       items: validItems,
       orderNotes: orderNotes.trim(),
+      clientColor: clientColor, // ✅ שליחת הצבע
     });
 
     // Reset
     setClientName("");
     setClientSearch("");
+    setClientColor("#3B82F6"); // ✅ איפוס הצבע
     setEventDate("");
     setOrderNotes("");
     setItems([{ title: "", qty: 1, notes: "" }]);
@@ -257,38 +271,52 @@ export default function ManualOrderModal({
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               שם לקוח *
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={clientSearch || clientName}
-                onChange={(e) => {
-                  setClientSearch(e.target.value);
-                  setClientName(e.target.value);
-                  setShowClientDropdown(true);
-                }}
-                onFocus={() => setShowClientDropdown(true)}
-                placeholder="הכנס שם לקוח..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
-              />
-              
-              {/* Client Dropdown */}
-              {showClientDropdown && clientSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-10">
-                  {clientSuggestions.map((client, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setClientName(client);
-                        setClientSearch("");
-                        setShowClientDropdown(false);
-                      }}
-                      className="w-full px-4 py-3 text-right hover:bg-rose-50 transition-all border-b border-gray-100 last:border-0 font-medium text-gray-800"
-                    >
-                      👤 {client}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={clientSearch || clientName}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setClientName(e.target.value);
+                    setShowClientDropdown(true);
+                  }}
+                  onFocus={() => setShowClientDropdown(true)}
+                  placeholder="הכנס שם לקוח..."
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+                />
+                
+                {/* Client Dropdown */}
+                {showClientDropdown && clientSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-10">
+                    {clientSuggestions.map((client, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setClientName(client);
+                          setClientSearch("");
+                          setShowClientDropdown(false);
+                        }}
+                        className="w-full px-4 py-3 text-right hover:bg-rose-50 transition-all border-b border-gray-100 last:border-0 font-medium text-gray-800"
+                      >
+                        👤 {client}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Color Picker */}
+              <div className="flex flex-col items-center gap-1">
+                <label className="text-xs font-medium text-gray-600">צבע</label>
+                <input
+                  type="color"
+                  value={clientColor}
+                  onChange={(e) => setClientColor(e.target.value)}
+                  className="w-16 h-[44px] rounded-xl border-2 border-gray-300 cursor-pointer"
+                  title="בחר צבע ללקוח"
+                />
+              </div>
             </div>
 
             {/* Previous Orders */}

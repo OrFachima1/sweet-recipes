@@ -13,6 +13,7 @@ export interface IngestJsonOrder {
   __id?: string;
   orderId?: string | null;
   clientName: string;
+  clientColor?: string; // ✅ הוסף את זה!
   eventDate?: string | null;
   status?: string;
   items: IngestJsonOrderItem[];

@@ -368,6 +368,8 @@ useEffect(() => {
       const cleanData: any = {
         orderId: order.orderId ?? null,
         clientName: order.clientName ?? null,
+          clientColor: order.clientColor ?? "#3B82F6", // ✅ הוסף שורה זו
+
         eventDate: order.eventDate ?? null,
         status: order.status ?? "new",
         items: (order.items || []).map(item => ({
@@ -736,6 +738,7 @@ const saveManualOrder = async (orderData: {
   eventDate: string;
   items: any[];
   orderNotes: string;
+  clientColor?: string; // ✅ הוספת צבע
 }) => {
   if (!isManager) {
     alert("אין לך הרשאה להוסיף הזמנות");
@@ -748,6 +751,7 @@ const saveManualOrder = async (orderData: {
     __id: genId(),
     orderId: null,
     clientName: orderData.clientName,
+    clientColor: orderData.clientColor || "#3B82F6", // ✅ ברירת מחדל כחול
     eventDate: orderData.eventDate,
     status: "new",
     items: orderData.items,
@@ -763,6 +767,7 @@ const saveManualOrder = async (orderData: {
     await setDoc(orderDoc, {
       orderId: newOrder.orderId,
       clientName: newOrder.clientName,
+      clientColor: newOrder.clientColor, // ✅ שמירת הצבע
       eventDate: newOrder.eventDate,
       status: newOrder.status,
       items: newOrder.items,
