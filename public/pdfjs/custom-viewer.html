@@ -7,16 +7,41 @@
   <link rel="stylesheet" href="/pdfjs/vendor/pdf_viewer.css" />
   <style>
     html,body { height:100%; margin:0 }
-    #viewerContainer { position:fixed; inset:0; overflow:auto; background:#fff }
+    #viewerContainer { position:fixed; inset:0; overflow:auto; background:#fff; touch-action: pan-x pan-y; }
     .pdfViewer .page { margin:8px auto; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,.06) }
-    #err { position:fixed; left:8px; bottom:8px; font:12px/1.4 system-ui,Segoe UI,Arial; color:#b91c1c; background:#fee2e2; padding:6px 8px; border-radius:8px; display:none; max-width:90vw; }
+
+    /* Toolbar (Zoom controls) */
+    .toolbar {
+      position: fixed; right: 12px; top: 12px; display: flex; gap: 8px;
+      background: rgba(255,255,255,.92); border: 1px solid #e5e7eb; border-radius: 12px;
+      padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.08); z-index: 10;
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    }
+    .toolbar button {
+      min-width: 44px; height: 36px; border: 1px solid #e5e7eb; border-radius: 10px;
+      background: #fff; font: 600 14px system-ui, Segoe UI, Arial; cursor: pointer;
+    }
+    .toolbar button:active { transform: scale(.98); }
+
+    #err {
+      position:fixed; left:8px; bottom:8px; font:12px/1.4 system-ui,Segoe UI,Arial;
+      color:#b91c1c; background:#fee2e2; padding:6px 8px; border-radius:8px; display:none; max-width:90vw;
+    }
   </style>
 </head>
 <body>
   <div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div>
+
+  <!-- Zoom toolbar -->
+  <div id="toolbar" class="toolbar">
+    <button id="zoomOut" title="Zoom Out">−</button>
+    <button id="zoomReset" title="Reset">100%</button>
+    <button id="zoomIn"  title="Zoom In">+</button>
+  </div>
+
   <div id="err"></div>
 
-  <!-- UMD builds served מקומית מ-public/pdfjs/vendor -->
+  <!-- UMD builds served locally from /public/pdfjs/vendor -->
   <script src="/pdfjs/vendor/pdf.js"></script>
   <script src="/pdfjs/vendor/pdf_viewer.js"></script>
 
@@ -25,19 +50,14 @@
       const showErr = (msg) => { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; };
 
       try {
-        // ספריות מ-UMD הגלובלי
-        const pdfjsLib     = window['pdfjs-dist/build/pdf'];
-        const pdfjsViewer  = window['pdfjs-dist/web/pdf_viewer'];
-
-        // הגדרת ה-worker מקומי
+        const pdfjsLib    = window['pdfjs-dist/build/pdf'];
+        const pdfjsViewer = window['pdfjs-dist/web/pdf_viewer'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/vendor/pdf.worker.js";
 
-        // קבלת ה-file מה-URL (יכול להיות blob:)
         const params = new URLSearchParams(location.search);
         const file = params.get("file");
         if (!file) { showErr("Missing ?file=…"); return; }
 
-        // אובייקטים של viewer
         const eventBus    = new pdfjsViewer.EventBus();
         const linkService = new pdfjsViewer.PDFLinkService({ eventBus });
 
@@ -45,42 +65,142 @@
         const viewer = new pdfjsViewer.PDFViewer({
           container,
           eventBus,
-          linkService,      // ← חשוב: העברה בקונסטרקטור (אין setLinkService ב-UMD הזה)
+          linkService,
           textLayerMode: 2, // נדרש להדגשות
         });
-
-        // חיבורים
         linkService.setViewer(viewer);
 
-        const findController = new pdfjsViewer.PDFFindController({
-          eventBus,
-          linkService,
-          pdfViewer: viewer,
-        });
+        const findController = new pdfjsViewer.PDFFindController({ eventBus, linkService, pdfViewer: viewer });
         if (typeof viewer.setFindController === "function") {
           viewer.setFindController(findController);
         } else {
-          // fallback נדיר בגרסאות מסוימות
-          viewer.findController = findController;
+          viewer.findController = findController; // fallback נדיר
         }
 
-        // טעינת ה-PDF
+        // ===== Zoom helpers =====
+        const MIN_SCALE = 0.5, MAX_SCALE = 3.0, STEP = 0.1;
+        const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+        function updateZoomLabel() {
+          const btn = document.getElementById("zoomReset");
+          const pct = Math.round((viewer.currentScale || 1) * 100);
+          if (btn) btn.textContent = pct + "%";
+        }
+
+        function setScaleAt(newScale, clientX, clientY) {
+          newScale = clamp(newScale, MIN_SCALE, MAX_SCALE);
+          const rect = container.getBoundingClientRect();
+          const preW = container.scrollWidth, preH = container.scrollHeight;
+
+          const px = (container.scrollLeft + (clientX - rect.left)) / Math.max(1, preW);
+          const py = (container.scrollTop  + (clientY - rect.top )) / Math.max(1, preH);
+
+          viewer.currentScale = newScale;
+          updateZoomLabel();
+
+          requestAnimationFrame(() => {
+            const postW = container.scrollWidth, postH = container.scrollHeight;
+            container.scrollLeft = px * postW - (clientX - rect.left);
+            container.scrollTop  = py * postH - (clientY - rect.top);
+          });
+        }
+
+        function setScale(newScale) {
+          const rect = container.getBoundingClientRect();
+          setScaleAt(newScale, rect.left + container.clientWidth/2, rect.top + container.clientHeight/2);
+        }
+        function zoomIn()  { setScale((viewer.currentScale || 1) + STEP); }
+        function zoomOut() { setScale((viewer.currentScale || 1) - STEP); }
+        function zoomReset(){ setScale(1); }
+
+        // Toolbar buttons
+        document.getElementById("zoomIn")  ?.addEventListener("click", zoomIn);
+        document.getElementById("zoomOut") ?.addEventListener("click", zoomOut);
+        document.getElementById("zoomReset")?.addEventListener("click", zoomReset);
+
+        // Keyboard: Ctrl/Cmd + (+ / - / 0)
+        window.addEventListener("keydown", (e) => {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomIn(); }
+          if (e.key === "-") { e.preventDefault(); zoomOut(); }
+          if (e.key === "0") { e.preventDefault(); zoomReset(); }
+        });
+
+        // Wheel zoom with Ctrl/Cmd (כולל trackpad pinch במק)
+        container.addEventListener("wheel", (e) => {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.05 : 0.95;
+          const newScale = (viewer.currentScale || 1) * factor;
+          setScaleAt(newScale, e.clientX, e.clientY);
+        }, { passive: false });
+
+        // Pinch zoom (מובייל, שתי אצבעות)
+        let pinchStartDist = null, pinchStartScale = 1, pinchMid = { x: 0, y: 0 };
+
+        container.addEventListener("touchstart", (e) => {
+          if (e.touches.length === 2) {
+            const [t1, t2] = e.touches;
+            const dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
+            pinchStartDist = Math.hypot(dx, dy);
+            pinchStartScale = viewer.currentScale || 1;
+            pinchMid = { x: (t1.clientX + t2.clientX)/2, y: (t1.clientY + t2.clientY)/2 };
+          } else {
+            pinchStartDist = null;
+          }
+        }, { passive: true });
+
+        container.addEventListener("touchmove", (e) => {
+          if (e.touches.length === 2 && pinchStartDist) {
+            e.preventDefault(); // נטרל זום דפדפן ברירת מחדל
+            const [t1, t2] = e.touches;
+            const dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
+            const dist = Math.hypot(dx, dy);
+            const scale = clamp(pinchStartScale * (dist / pinchStartDist), MIN_SCALE, MAX_SCALE);
+            setScaleAt(scale, pinchMid.x, pinchMid.y);
+          }
+        }, { passive: false });
+
+        container.addEventListener("touchend", () => {
+          if (pinchStartDist && event.touches?.length < 2) pinchStartDist = null;
+        });
+
+        // Double-tap (אצבע אחת) לזום-אין סביב נקודת הטאפ
+        let prevTapTime = 0, prevTapX = 0, prevTapY = 0;
+        container.addEventListener("touchend", (e) => {
+          if (e.touches.length > 0 || e.changedTouches.length === 0) return;
+          const t = e.changedTouches[0];
+          const now = Date.now();
+          const dt = now - prevTapTime;
+          const dist = Math.hypot(t.clientX - prevTapX, t.clientY - prevTapY);
+
+          if (dt < 300 && dist < 30) {
+            // Double-tap detected → zoom in at tap point
+            const newScale = (viewer.currentScale || 1) * 1.5;
+            setScaleAt(newScale, t.clientX, t.clientY);
+            prevTapTime = 0; // reset
+          } else {
+            prevTapTime = now;
+            prevTapX = t.clientX; prevTapY = t.clientY;
+          }
+        }, { passive: true });
+
+        // ===== Load PDF =====
         pdfjsLib.getDocument({ url: file }).promise.then(function (pdfDoc) {
           viewer.setDocument(pdfDoc);
           linkService.setDocument(pdfDoc);
+          updateZoomLabel();
 
-          // תמיכה ב-#search= בטען הראשוני
+          // תמיכה ב-#search= בטעינה ראשונה
           const m = (location.hash || "").match(/search=([^&]+)/);
           const initial = m ? decodeURIComponent(m[1]) : "";
           const doFind = (q) => q && eventBus.dispatch("find", {
             source: window, type: "again", query: q,
-            caseSensitive: false, entireWord: false,
-            highlightAll: true, findPrevious: false,
+            caseSensitive: false, entireWord: false, highlightAll: true, findPrevious: false,
           });
-
           if (initial) setTimeout(() => doFind(initial), 150);
 
-          // קבלת חיפוש מה-parent (iframe)
+          // חיפוש חי מה-parent (iframe)
           window.addEventListener("message", (e) => {
             const d = e.data || {};
             if (d.type === "find" && typeof d.query === "string") doFind(d.query);
