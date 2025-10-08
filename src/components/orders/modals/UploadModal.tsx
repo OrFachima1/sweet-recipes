@@ -303,7 +303,7 @@ export default function UploadModal({
 
                   {/* Arrow */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-purple-500 font-bold">לחץ להמשך →</span>
+                    <span className="text-purple-500 font-bold">לחץ להמשך ←</span>
                   </div>
                 </div>
 
@@ -356,7 +356,7 @@ export default function UploadModal({
 
                   {/* Arrow */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-rose-500 font-bold">לחץ להמשך →</span>
+                    <span className="text-rose-500 font-bold">לחץ להמשך ←</span>
                   </div>
                 </div>
 

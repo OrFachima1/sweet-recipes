@@ -1070,10 +1070,23 @@ const saveManualOrder = async (orderData: {
     onClose={() => setShowSettings(false)}
     
     menuOptions={menuOptions}
-    onUpdateMenu={(newMenu) => {
-      setMenuOptions(newMenu);
-      localStorage.setItem('menu', JSON.stringify(newMenu));
-    }}
+    onUpdateMenu={async (newMenu) => {
+  try {
+    // שמור ל-Firebase
+    await setDoc(doc(db, "orderSettings", "menu"), {
+      items: newMenu,
+      updatedAt: serverTimestamp(),
+    });
+    
+    // עדכן state מקומי
+    setMenuOptions(newMenu);
+    
+    console.log("✅ תפריט נשמר ל-Firebase");
+  } catch (e) {
+    console.error("❌ שגיאה בשמירת תפריט:", e);
+    alert("שגיאה בשמירה");
+  }
+}}
     
     mapping={mapping}
     onUpdateMapping={updateMapping}
