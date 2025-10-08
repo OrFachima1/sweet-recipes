@@ -22,18 +22,33 @@ export default function ReviewModal({
   const [searchTerm, setSearchTerm] = useState("");
 
   // PDF URL
-  const pdfUrl = files[currentOrderIndex] 
-    ? URL.createObjectURL(files[currentOrderIndex]) 
-    : null;
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
 
   const currentOrder = editedOrders[currentOrderIndex];
 
-  // ניקוי URL כשסוגרים
-  useEffect(() => {
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
+// עדכון PDF URL כשמחליפים הזמנה או מנה
+useEffect(() => {
+  if (files[currentOrderIndex]) {
+    const baseUrl = URL.createObjectURL(files[currentOrderIndex]);
+    // אם יש מונח חיפוש - הוסף אותו ל-URL
+    const urlWithSearch = searchTerm 
+      ? `${baseUrl}#search=${encodeURIComponent(searchTerm)}`
+      : baseUrl;
+    setPdfUrl(urlWithSearch);
+  }
+}, [files, currentOrderIndex, searchTerm]);
+
+// ניקוי URL כשסוגרים
+useEffect(() => {
+  return () => {
+    if (pdfUrl) {
+      const baseUrl = pdfUrl.split('#')[0];
+      URL.revokeObjectURL(baseUrl);
+    }
+  };
+}, [currentOrderIndex]);
+
 
   if (!show) return null;
 
@@ -180,7 +195,7 @@ export default function ReviewModal({
                       <label className="text-xs text-gray-600 mb-1 block">תאריך אירוע</label>
                       <input
                         type="date"
-                        value={currentOrder.eventDate || ""}
+                        value={currentOrder.eventDate ? new Date(currentOrder.eventDate).toISOString().split('T')[0] : ""}
                         onChange={(e) => updateOrder("eventDate", e.target.value)}
                         className="w-full px-3 py-2 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none"
                       />
@@ -224,14 +239,21 @@ export default function ReviewModal({
                             />
 
                             <div className="flex-1 space-y-2">
-                              <input
-                                type="text"
-                                value={item.title || ""}
-                                onChange={(e) => updateItem(idx, "title", e.target.value)}
-                                placeholder="שם המנה"
-                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
-                                onFocus={(e) => setSearchTerm(e.target.value)}
-                              />
+                             <input
+                              type="text"
+                              value={item.title || ""}
+                              onChange={(e) => updateItem(idx, "title", e.target.value)}
+                              onFocus={(e) => {
+                                // כשמתמקדים במנה - מחפשים אותה ב-PDF
+                                setSearchTerm(e.target.value);
+                              }}
+                              onBlur={() => {
+                                // כשעוזבים - מנקים חיפוש
+                                setTimeout(() => setSearchTerm(""), 100);
+                              }}
+                              placeholder="שם המנה"
+                              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
+                            />
                               
                               <div className="flex gap-2">
                                 <input
