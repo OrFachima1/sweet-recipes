@@ -190,6 +190,7 @@ useEffect(() => {
           __id: d.id,
           orderId: data.orderId,
           clientName: data.clientName,
+          clientColor: data.clientColor ?? "#3B82F6",
           eventDate: data.eventDate,
           status: data.status,
           items: data.items || [],
@@ -423,7 +424,7 @@ useEffect(() => {
   }
   console.log("🗺️ daysMap recalculated, orders:", orders.length);
   return m;
-}, [orders.length]); // 🔧 שינוי כאן - רק אורך המערך
+}, [orders]); // 🔧 שינוי כאן - רק אורך המערך
 
   const dayKey = selectedDayKey;
   const todayKey = fmtYMD(new Date());
