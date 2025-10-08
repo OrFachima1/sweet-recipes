@@ -5,21 +5,81 @@ import { buildCleanMapping, applyMappingGlobally } from "@/utils/orders";
 interface MappingModalProps {
   unknowns: string[];
   mapping: Record<string, string>;
-  setMapping: (mapping: Record<string, string>) => void; // 👈 עודכן לקבל פונקציה ישירה
+  setMapping: (mapping: Record<string, string>) => void;
   menuOptions: string[];
-  ignored: string[]; // 👈 הוספנו - צריך לדעת מה כבר ignored
-  setIgnored: (ignored: string[]) => void; // 👈 עודכן לקבל פונקציה ישירה
+  ignored: string[];
+  setIgnored: (ignored: string[]) => void;
   onClose: () => void;
   onIngest: (mappingObj: Record<string, string>) => Promise<void>;
   hasPendingFiles: () => boolean;
   ingestBufferRef: React.MutableRefObject<any>;
   orders: any[];
-  persist: (next: any[]) => Promise<void>; // 👈 עודכן ל-async
+  persist: (next: any[]) => Promise<void>;
 }
 
 /**
- * מיפוי פריטים לא מוכרים למנות מתוך תפריט
+ * חישוב דמיון בין שני strings (Levenshtein distance)
  */
+function similarity(s1: string, s2: string): number {
+  const str1 = s1.toLowerCase().trim();
+  const str2 = s2.toLowerCase().trim();
+  
+  // אם זהים - 100%
+  if (str1 === str2) return 1;
+  
+  // אם אחד מכיל את השני - דמיון גבוה
+  if (str1.includes(str2) || str2.includes(str1)) {
+    return 0.8;
+  }
+  
+  // Levenshtein distance
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  const distance = matrix[str2.length][str1.length];
+  const maxLen = Math.max(str1.length, str2.length);
+  return 1 - (distance / maxLen);
+}
+
+/**
+ * מציאת top N suggestions
+ */
+function getTopSuggestions(unknown: string, menu: string[], n: number = 3): string[] {
+  const scored = menu.map(item => ({
+    item,
+    score: similarity(unknown, item)
+  }));
+  
+  scored.sort((a, b) => b.score - a.score);
+  
+  // רק אם יש דמיון מעל 0.4
+  return scored
+    .filter(s => s.score > 0.4)
+    .slice(0, n)
+    .map(s => s.item);
+}
+
 export default function MappingModal({
   unknowns,
   mapping,
@@ -34,22 +94,34 @@ export default function MappingModal({
   orders,
   persist
 }: MappingModalProps) {
-
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white w-full sm:max-w-xl rounded-2xl border border-sky-200 shadow-xl"
+        className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 border-b border-sky-200 flex items-center justify-between">
-          <div className="font-semibold text-sky-800">מיפוי פריטים לא מוכרים</div>
-          <button onClick={onClose} className="text-sky-600 hover:text-sky-800">✕</button>
+        {/* Header */}
+        <div className="bg-gradient-to-l from-orange-500 to-red-500 px-6 py-5 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🔍</span>
+            <div>
+              <div className="font-bold text-white text-xl">מיפוי פריטים לא מוכרים</div>
+              <div className="text-white/80 text-sm">נמצאו {unknowns.length} פריטים שדורשים התאמה</div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-all flex items-center justify-center text-white text-xl"
+          >
+            ✕
+          </button>
         </div>
 
-        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        {/* Content */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {unknowns.map((u) => (
             <UnknownMapperRow
               key={u}
@@ -57,90 +129,83 @@ export default function MappingModal({
               menu={menuOptions}
               value={mapping[u] || ""}
               onPick={(to) => {
-                // עדכון מיפוי - ישמר ל-Firestore דרך setMapping
                 const newMapping = { ...mapping, [u]: to };
                 setMapping(newMapping);
               }}
               onIgnore={(name) => {
-                // הוספה ל-ignored - ישמר ל-Firestore דרך setIgnored
                 const newIgnored = Array.from(new Set([...ignored, name]));
                 setIgnored(newIgnored);
               }}
+              onClearMapping={(name) => {
+                const newMapping = { ...mapping };
+                delete newMapping[name];
+                setMapping(newMapping);
+              }}
             />
           ))}
+        </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            {/* כפתור ביטול */}
-            <button
-              className="px-3 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50"
-              onClick={() => {
-                onClose();
-                // מנקים את המאגר הזמני
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0">
+          <button
+            className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all"
+            onClick={() => {
+              onClose();
+              ingestBufferRef.current = null;
+            }}
+          >
+            ביטול
+          </button>
+          <button
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-orange-500 to-red-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+            onClick={async () => {
+              console.log("🔹 1️⃣ התחלת שמירה והמשך");
+              
+              const notMapped = unknowns.filter(u => !mapping[u]);
+              console.log("🔹 2️⃣ לא נמפו:", notMapped);
+              
+              if (notMapped.length) {
+                const newIgnored = Array.from(new Set([...ignored, ...notMapped]));
+                setIgnored(newIgnored);
+              }
+
+              const explicitIgnored = Object.keys(mapping).filter(k => mapping[k] === '');
+              console.log("🔹 3️⃣ הוסיפו באופן מפורש:", explicitIgnored);
+              
+              if (explicitIgnored.length) {
+                const newIgnored = Array.from(new Set([...ignored, ...explicitIgnored]));
+                setIgnored(newIgnored);
+              }
+
+              const clean = buildCleanMapping(mapping, menuOptions);
+              console.log("🔹 4️⃣ מיפוי מנוקה:", clean);
+
+              if (Object.keys(clean).length > 0) {
+                const mergedMap = { ...mapping, ...clean };
+                setMapping(mergedMap);
+                console.log("🔹 5️⃣ מיפוי משולב נשמר:", mergedMap);
+              }
+
+              onClose();
+
+              console.log("🔹 6️⃣ מתחיל להחיל מיפוי...");
+              if (hasPendingFiles()) {
+                console.log("🔹 7️⃣ יש קבצים - מריץ ingest מחדש");
+                await onIngest(clean);
+              } else {
+                console.log("🔹 7️⃣ אין קבצים - מעדכן מאגר זמני");
+                const buf = ingestBufferRef.current || [];
+                const mappedBuf = applyMappingGlobally(buf, clean);
+                const mappedOrders = applyMappingGlobally(orders, clean);
+                await persist([...mappedOrders, ...mappedBuf]);
                 ingestBufferRef.current = null;
-              }}
-            >
-              ביטול
-            </button>
-
-            {/* כפתור שמירה והמשך */}
-            <button
-              className="px-3 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700"
-              onClick={async () => {
-                console.log("🔹 1️⃣ התחלת שמירה והמשך");
-                
-                // 1) כל מה שלא נמפה --> ignored
-                const notMapped = unknowns.filter(u => !mapping[u]);
-                console.log("🔹 2️⃣ לא נמפו:", notMapped);
-                
-                if (notMapped.length) {
-                  // מוסיף ל-ignored (ישמר ל-Firestore)
-                  const newIgnored = Array.from(new Set([...ignored, ...notMapped]));
-                  setIgnored(newIgnored);
-                }
-
-                // 2) מפורש "אל תשאל שוב" --> ignored
-                const explicitIgnored = Object.keys(mapping).filter(k => mapping[k] === '');
-                console.log("🔹 3️⃣ הוסיפו באופן מפורש:", explicitIgnored);
-                
-                if (explicitIgnored.length) {
-                  const newIgnored = Array.from(new Set([...ignored, ...explicitIgnored]));
-                  setIgnored(newIgnored);
-                }
-
-                // 3) ניקוי המיפוי
-                const clean = buildCleanMapping(mapping, menuOptions);
-                console.log("🔹 4️⃣ מיפוי מנוקה:", clean);
-
-                // 4) שמירה (יישמר ל-Firestore דרך setMapping)
-                if (Object.keys(clean).length > 0) {
-                  const mergedMap = { ...mapping, ...clean };
-                  setMapping(mergedMap);
-                  console.log("🔹 5️⃣ מיפוי משולב נשמר:", mergedMap);
-                }
-
-                onClose();
-
-                // 5) החלת המיפוי
-                console.log("🔹 6️⃣ מתחיל להחיל מיפוי...");
-                if (hasPendingFiles()) {
-                  // יש קבצים חדשים - נריץ ingest מחדש עם המיפוי
-                  console.log("🔹 7️⃣ יש קבצים - מריץ ingest מחדש");
-                  await onIngest(clean);
-                } else {
-                  // אין קבצים - נעדכן את המאגר הזמני
-                  console.log("🔹 7️⃣ אין קבצים - מעדכן מאגר זמני");
-                  const buf = ingestBufferRef.current || [];
-                  const mappedBuf = applyMappingGlobally(buf, clean);
-                  const mappedOrders = applyMappingGlobally(orders, clean);
-                  await persist([...mappedOrders, ...mappedBuf]);
-                  ingestBufferRef.current = null;
-                  console.log("🔹 8️⃣ הזמנות עודכנו ונשמרו");
-                }
-              }}
-            >
-              שמור מיפוי והמשך
-            </button>
-          </div>
+                console.log("🔹 8️⃣ הזמנות עודכנו ונשמרו");
+              }
+            }}
+          >
+            <span>🚀</span>
+            <span>שמור והמשך</span>
+          </button>
         </div>
       </div>
     </div>
@@ -155,20 +220,28 @@ function UnknownMapperRow({
   menu,
   value,
   onPick,
-  onIgnore
+  onIgnore,
+  onClearMapping
 }: {
   unknown: string;
   menu: string[];
   value: string;
   onPick: (name: string) => void;
   onIgnore: (name: string) => void;
+  onClearMapping: (name: string) => void;
 }) {
   const [q, setQ] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isEditing, setIsEditing] = useState(!value);
+
+  // חישוב המלצות אוטומטיות
+  const suggestions = useMemo(() => {
+    return getTopSuggestions(unknown, menu, 3);
+  }, [unknown, menu]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return menu.slice(0, 50);
+    if (!s) return [];
     return menu.filter(m => m.toLowerCase().includes(s)).slice(0, 50);
   }, [menu, q]);
 
@@ -180,6 +253,12 @@ function UnknownMapperRow({
     onPick(name);
     setQ('');
     setSelectedIndex(0);
+    setIsEditing(false);
+  };
+
+  const handleIgnore = () => {
+    onIgnore(unknown);
+    setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -204,63 +283,113 @@ function UnknownMapperRow({
         e.preventDefault();
         setQ('');
         setSelectedIndex(0);
+        if (value) setIsEditing(false);
         break;
     }
   };
 
   return (
-    <div className="border rounded-lg p-3 bg-white">
-      <div className="text-xs text-gray-500 mb-1">לא מזוהה</div>
-      <div className="font-medium mb-2 break-words text-sky-900">{unknown}</div>
-
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="חיפוש בתפריט…"
-        className="w-full border border-sky-200 rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-      />
-
-      {q.trim() && (
-        <div className="space-y-1 max-h-40 overflow-y-auto border border-sky-200 rounded-md p-2 mb-2">
-          {filtered.length > 0 ? (
-            filtered.map((name, idx) => (
-              <button
-                key={name}
-                onClick={() => handlePick(name)}
-                onMouseEnter={() => setSelectedIndex(idx)}
-                className={`w-full text-left text-sm px-2 py-1 rounded transition ${
-                  idx === selectedIndex 
-                    ? 'bg-sky-500 text-white' 
-                    : value === name 
-                    ? 'bg-sky-100 font-medium hover:bg-sky-200' 
-                    : 'hover:bg-sky-50'
-                }`}
-              >
-                {name}
-              </button>
-            ))
-          ) : (
-            <div className="text-xs text-sky-500 py-2">לא נמצאו תוצאות</div>
-          )}
+    <div className="border-2 border-orange-200 rounded-2xl p-4 bg-gradient-to-l from-orange-50 to-red-50 hover:shadow-md transition-all">
+      {/* פריט לא מזוהה */}
+      <div className="flex items-start gap-3 mb-3">
+        <span className="text-2xl flex-shrink-0">❓</span>
+        <div className="flex-1">
+          <div className="text-xs text-gray-500 mb-1">פריט לא מזוהה:</div>
+          <div className="font-bold text-gray-800 text-lg break-words">{unknown}</div>
         </div>
-      )}
-
-      <div className="mt-2 flex items-center justify-between">
-        <div className="text-xs text-sky-700">
-          {value ? (
-            <>נבחר: <span className="font-semibold">{value}</span></>
-          ) : (
-            'טרם נבחר מיפוי'
-          )}
-        </div>
-        <button 
-          className="text-xs underline text-gray-500 hover:text-gray-700" 
-          onClick={() => onIgnore(unknown)}
-        >
-          אל תשאל שוב
-        </button>
       </div>
+
+      {/* אם יש ערך נבחר - הצג אותו */}
+      {value && !isEditing ? (
+        <div className="bg-white rounded-xl p-4 border-2 border-green-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">✅</span>
+              <div>
+                <div className="text-xs text-gray-500">מופה ל:</div>
+                <div className="font-bold text-green-700">{value}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all flex items-center gap-1 text-sm"
+            >
+              <span>✏️</span>
+              <span>ערוך</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* המלצות אוטומטיות */}
+          {suggestions.length > 0 && (
+            <div className="mb-3">
+              <div className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <span>💡</span>
+                <span>האם התכוונת ל:</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => handlePick(suggestion)}
+                    className="text-right px-4 py-3 rounded-xl bg-white border-2 border-orange-300 hover:border-orange-500 hover:bg-orange-50 transition-all font-medium text-gray-800 hover:shadow-md"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* חיפוש ידני */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <span>🔎</span>
+              <span>או חפש בתפריט:</span>
+            </div>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="הקלד לחיפוש..."
+              className="w-full border-2 border-orange-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
+
+            {q.trim() && (
+              <div className="space-y-1 max-h-48 overflow-y-auto border-2 border-orange-200 rounded-xl p-2 bg-white">
+                {filtered.length > 0 ? (
+                  filtered.map((name, idx) => (
+                    <button
+                      key={name}
+                      onClick={() => handlePick(name)}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`w-full text-right text-sm px-3 py-2 rounded-lg transition ${
+                        idx === selectedIndex 
+                          ? 'bg-orange-500 text-white font-medium' 
+                          : 'hover:bg-orange-50'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-xs text-gray-500 py-3 text-center">לא נמצאו תוצאות</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* כפתור התעלם */}
+          <button 
+            className="mt-3 w-full px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all flex items-center justify-center gap-2" 
+            onClick={handleIgnore}
+          >
+            <span>🚫</span>
+            <span>התעלם מפריט זה (לא יופיע בהזמנות)</span>
+          </button>
+        </>
+      )}
     </div>
   );
 }

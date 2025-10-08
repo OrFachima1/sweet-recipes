@@ -413,56 +413,18 @@ export default function UploadModal({
                             </div>
                           ) : (
                             <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
                                 <span className="text-amber-600 font-medium text-sm">⚠️ בחר תאריך:</span>
-                                
-                                {/* כפתורי קיצור */}
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const today = new Date();
-                                      updateOrderDate(idx, today.toISOString().split('T')[0]);
-                                    }}
-                                    className="px-2 py-1 text-xs rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all"
-                                  >
-                                    היום
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const tomorrow = new Date();
-                                      tomorrow.setDate(tomorrow.getDate() + 1);
-                                      updateOrderDate(idx, tomorrow.toISOString().split('T')[0]);
-                                    }}
-                                    className="px-2 py-1 text-xs rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all"
-                                  >
-                                    מחר
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const nextWeek = new Date();
-                                      nextWeek.setDate(nextWeek.getDate() + 7);
-                                      updateOrderDate(idx, nextWeek.toISOString().split('T')[0]);
-                                    }}
-                                    className="px-2 py-1 text-xs rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-all"
-                                  >
-                                    בעוד שבוע
-                                  </button>
-                                </div>
+                                <input
+                                  type="date"
+                                  className="px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none font-medium bg-white"
+                                  onChange={(e) => updateOrderDate(idx, e.target.value)}
+                                  value={dateOverrides[idx] || ""}
+                                />
                               </div>
                               
-                              {/* Date picker קלאסי */}
-                              <input
-                                type="date"
-                                className="px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none font-medium bg-white w-full"
-                                onChange={(e) => updateOrderDate(idx, e.target.value)}
-                                value={dateOverrides[idx] || ""}
-                              />
-                              
                               {dateOverrides[idx] && (
-                                <div className="text-sm text-emerald-700 font-medium">
+                                <div className="text-sm text-emerald-700 font-medium mr-6">
                                   ✓ {formatDateDisplay(dateOverrides[idx])}
                                 </div>
                               )}
