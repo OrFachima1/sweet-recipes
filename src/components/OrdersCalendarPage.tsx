@@ -632,7 +632,7 @@ setReviewData({
   orders: withNotes,
   files: files // הקבצים עדיין זמינים כאן!
 });
-setShowConfirmReview(true);
+setShowReview(true); // ישר למסך הבדיקה!
 
 // ✅ הקוד הישן יעבור לפונקציה חדשה (ראה למטה)
   };

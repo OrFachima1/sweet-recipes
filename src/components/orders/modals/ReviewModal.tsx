@@ -1,12 +1,12 @@
 "use client";
-import React, { useState, useRef, useEffect, useMemo} from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 interface ReviewModalProps {
   show: boolean;
-  orders: any[];  // ההזמנות שחולצו
-  files: File[];  // קבצי ה-PDF
+  orders: any[];
+  files: File[];
   onClose: () => void;
-  onSave: (editedOrders: any[]) => void;  // שמירה אחרי עריכה
+  onSave: (editedOrders: any[]) => void;
 }
 
 export default function ReviewModal({
@@ -20,81 +20,74 @@ export default function ReviewModal({
   const [editedOrders, setEditedOrders] = useState(orders);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingItem, setEditingItem] = useState<string | null>(null); // "orderIndex-itemIndex"
 
   // PDF URL
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  // PDF.js integration
   const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
   const baseBlobRef = useRef<string | null>(null);
 
-
   const currentOrder = editedOrders[currentOrderIndex];
 
-// יצירת/ניקוי blob URL רק כשמתחלף קובץ (לא על כל שינוי חיפוש)
-useEffect(() => {
-  // נקה blob קודם אם היה
-  if (baseBlobRef.current) {
-    try { URL.revokeObjectURL(baseBlobRef.current); } catch {}
-    baseBlobRef.current = null;
-  }
-
-  const f = files[currentOrderIndex];
-  if (!f) return;
-
-  // צור כתובת לקובץ
-  const blobUrl = URL.createObjectURL(f);
-  baseBlobRef.current = blobUrl;
-
-  // נטען את viewer של PDF.js (בלי #search כאן)
-const viewer = `/pdfjs/custom-viewer.html?v=9&file=${encodeURIComponent(blobUrl)}#zoom=page-width`;
-
-setPdfUrl(viewer);
-
-}, [files, currentOrderIndex]);
-
-// שלח חיפוש ל-PDF.js בכל שינוי שם מגש וגם אחרי טעינת ה-iframe
-useEffect(() => {
-  const term = (searchTerm || "").trim();
-  if (!term || !pdfIframeRef.current) return;
-
-  const sendFind = () => {
-    pdfIframeRef.current?.contentWindow?.postMessage({
-      type: "find",
-      query: term,
-      caseSensitive: false,
-      highlightAll: true,
-      entireWord: false,
-      findPrevious: false,
-    }, "*");
-  };
-
-  // דיליי קטן עוזר כשמחליפים קובץ
-  const t = setTimeout(sendFind, 120);
-  return () => clearTimeout(t);
-}, [searchTerm, pdfUrl]);
-
-// ניקוי URL כשסוגרים
-useEffect(() => {
-  return () => {
-    if (pdfUrl) {
-      const baseUrl = pdfUrl.split('#')[0];
-      URL.revokeObjectURL(baseUrl);
+  // יצירת/ניקוי blob URL רק כשמתחלף קובץ
+  useEffect(() => {
+    if (baseBlobRef.current) {
+      try { URL.revokeObjectURL(baseBlobRef.current); } catch {}
+      baseBlobRef.current = null;
     }
-  };
-}, [currentOrderIndex]);
 
+    const f = files[currentOrderIndex];
+    if (!f) return;
+
+    const blobUrl = URL.createObjectURL(f);
+    baseBlobRef.current = blobUrl;
+
+    const viewer = `/pdfjs/custom-viewer.html?v=9&file=${encodeURIComponent(blobUrl)}#zoom=page-width`;
+    setPdfUrl(viewer);
+  }, [files, currentOrderIndex]);
+
+  // שלח חיפוש ל-PDF.js
+  useEffect(() => {
+    const term = (searchTerm || "").trim();
+    if (!term || !pdfIframeRef.current) return;
+
+    const sendFind = () => {
+      pdfIframeRef.current?.contentWindow?.postMessage({
+        type: "find",
+        query: term,
+        caseSensitive: false,
+        highlightAll: true,
+        entireWord: false,
+        findPrevious: false,
+      }, "*");
+    };
+
+    const t = setTimeout(sendFind, 120);
+    return () => clearTimeout(t);
+  }, [searchTerm, pdfUrl]);
+
+  // ניקוי URL כשסוגרים
+  useEffect(() => {
+    return () => {
+      if (baseBlobRef.current) {
+        try { URL.revokeObjectURL(baseBlobRef.current); } catch {}
+      }
+    };
+  }, []);
 
   if (!show) return null;
 
   const goNext = () => {
     if (currentOrderIndex < editedOrders.length - 1) {
       setCurrentOrderIndex(prev => prev + 1);
+      setEditingItem(null); // סגור עריכה
     }
   };
 
   const goPrev = () => {
     if (currentOrderIndex > 0) {
       setCurrentOrderIndex(prev => prev - 1);
+      setEditingItem(null); // סגור עריכה
     }
   };
 
@@ -124,9 +117,11 @@ useEffect(() => {
 
   const addItem = () => {
     const updated = [...editedOrders];
-    const items = [...updated[currentOrderIndex].items, { title: "", qty: 1, unit: "יח'", notes: "" }];
+    const items = [...updated[currentOrderIndex].items, { title: "", qty: 1, notes: "" }];
     updated[currentOrderIndex] = { ...updated[currentOrderIndex], items };
     setEditedOrders(updated);
+    // פתח עריכה אוטומטית על הפריט החדש
+    setEditingItem(`${currentOrderIndex}-${items.length - 1}`);
   };
 
   const toggleCheck = (itemIndex: number) => {
@@ -142,7 +137,6 @@ useEffect(() => {
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      onClick={onClose}
     >
       <div
         className="bg-white w-full max-w-7xl h-[90vh] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col"
@@ -161,7 +155,6 @@ useEffect(() => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* ניווט */}
             <button
               onClick={goPrev}
               disabled={currentOrderIndex === 0}
@@ -193,7 +186,7 @@ useEffect(() => {
             {pdfUrl ? (
               <iframe
                 ref={pdfIframeRef}
-                src={pdfUrl || ""}
+                src={pdfUrl}
                 className="w-full h-full rounded-xl border-2 border-gray-300 bg-white"
                 title="PDF Preview"
                 onLoad={() => {
@@ -210,7 +203,6 @@ useEffect(() => {
                 }}
                 allow="fullscreen"
               />
-
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
@@ -244,7 +236,7 @@ useEffect(() => {
                       <label className="text-xs text-gray-600 mb-1 block">תאריך אירוע</label>
                       <input
                         type="date"
-                        value={currentOrder.eventDate ? new Date(currentOrder.eventDate).toISOString().split('T')[0] : ""}
+                        value={currentOrder.eventDate ? currentOrder.eventDate.split('T')[0] : ""}
                         onChange={(e) => updateOrder("eventDate", e.target.value)}
                         className="w-full px-3 py-2 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none"
                       />
@@ -268,6 +260,7 @@ useEffect(() => {
                     {currentOrder.items?.map((item: any, idx: number) => {
                       const key = `${currentOrderIndex}-${idx}`;
                       const isChecked = checkedItems[key];
+                      const isEditing = editingItem === key;
 
                       return (
                         <div
@@ -278,90 +271,131 @@ useEffect(() => {
                               : "bg-white border-gray-200 hover:border-blue-300"
                           }`}
                         >
-                          <div className="flex items-start gap-3">
-                            {/* Checkbox */}
-                            <input
-                              type="checkbox"
-                              checked={isChecked || false}
-                              onChange={() => toggleCheck(idx)}
-                              className="mt-1 w-5 h-5 rounded border-2 border-gray-300"
-                            />
+                          {isEditing ? (
+                            // מצב עריכה
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isChecked || false}
+                                onChange={() => toggleCheck(idx)}
+                                className="mt-1 w-5 h-5 rounded border-2 border-gray-300"
+                              />
 
-                            <div className="flex-1 space-y-2">
-                             <input
-                              type="text"
-                              value={item.title || ""}
-                              onChange={(e) => updateItem(idx, "title", e.target.value)}
-                              onFocus={(e) => {
-                                // כשמתמקדים במנה - מחפשים אותה ב-PDF
-                                setSearchTerm(e.target.value);
-                              }}
-                              
-                              placeholder="שם המנה"
-                              className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
-                            />
-                              
-                              <div className="flex gap-2">
-                                <input
-                                  type="number"
-                                  value={item.qty || 1}
-                                  onChange={(e) => updateItem(idx, "qty", parseInt(e.target.value))}
-                                  className="w-20 px-2 py-1 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
-                                />
-                                <input
-                                  type="text"
-                                  value={item.unit || "יח'"}
-                                  onChange={(e) => updateItem(idx, "unit", e.target.value)}
-                                  className="flex-1 px-2 py-1 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
-                                  placeholder="יחידה"
-                                />
-                              </div>
+                              <div className="flex-1 space-y-2">
+                                {/* שם מנה + כמות באותה שורה */}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={item.title || ""}
+                                    onChange={(e) => updateItem(idx, "title", e.target.value)}
+                                    onFocus={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="שם המנה"
+                                    className="flex-1 px-3 py-2 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none text-sm font-medium"
+                                    autoFocus
+                                  />
+                                  <input
+                                    type="number"
+                                    value={item.qty || 1}
+                                    onChange={(e) => updateItem(idx, "qty", parseInt(e.target.value))}
+                                    className="w-20 px-3 py-2 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none text-sm text-center font-medium"
+                                  />
+                                </div>
 
-                              {item.notes && (
+                                {/* הערות - תמיד מוצג */}
                                 <input
                                   type="text"
                                   value={item.notes || ""}
                                   onChange={(e) => updateItem(idx, "notes", e.target.value)}
-                                  className="w-full px-2 py-1 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-xs"
-                                  placeholder="הערות"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-blue-400 focus:outline-none text-xs"
+                                  placeholder="הערות (אופציונלי)"
                                 />
-                              )}
-                            </div>
 
-                            <button
-                              onClick={() => removeItem(idx)}
-                              className="w-8 h-8 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all flex-shrink-0"
-                            >
-                              ✕
-                            </button>
-                          </div>
+                                <button
+                                  onClick={() => setEditingItem(null)}
+                                  className="text-xs px-3 py-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium"
+                                >
+                                  ✓ סיים עריכה
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => removeItem(idx)}
+                                className="w-8 h-8 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all flex-shrink-0"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            // מצב תצוגה (לא נפתחת מקלדת!)
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isChecked || false}
+                                onChange={() => toggleCheck(idx)}
+                                className="mt-1 w-5 h-5 rounded border-2 border-gray-300"
+                              />
+
+                              <div 
+                                className="flex-1 cursor-pointer"
+                                onClick={() => {
+                                  setEditingItem(key);
+                                  setSearchTerm(item.title || "");
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="font-medium text-gray-800">
+                                    {item.title || "ללא שם"} ({item.qty || 1})
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingItem(key);
+                                      setSearchTerm(item.title || "");
+                                    }}
+                                    className="text-xs px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600"
+                                  >
+                                    ✏️ ערוך
+                                  </button>
+                                </div>
+                                {item.notes && (
+                                  <div className="text-xs text-gray-500 mt-1">💬 {item.notes}</div>
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => removeItem(idx)}
+                                className="w-8 h-8 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all flex-shrink-0"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* הערות */}
-                {currentOrder.orderNotes && (
-                  <div>
-                    <label className="text-xs text-gray-600 mb-1 block">הערות להזמנה</label>
-                    <textarea
-                      value={currentOrder.orderNotes || ""}
-                      onChange={(e) => updateOrder("orderNotes", e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none resize-none"
-                      rows={3}
-                    />
-                  </div>
-                )}
+                {/* הערות להזמנה */}
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">הערות להזמנה</label>
+                  <textarea
+                    value={currentOrder.orderNotes || ""}
+                    onChange={(e) => updateOrder("orderNotes", e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none resize-none"
+                    rows={3}
+                    placeholder="הערות כלליות להזמנה..."
+                  />
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Footer - Action Buttons */}
+        {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 flex-shrink-0">
           <div className="text-sm text-gray-600">
-            {Object.values(checkedItems).filter(Boolean).length} מתוך {currentOrder?.items?.length || 0} מנות נבדקו
+            ✓ {Object.values(checkedItems).filter(Boolean).length} מתוך {currentOrder?.items?.length || 0} מנות נבדקו
           </div>
 
           <div className="flex gap-3">
@@ -376,7 +410,7 @@ useEffect(() => {
               className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-blue-500 to-cyan-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
             >
               <span>✓</span>
-              <span>סיים ושמור ({editedOrders.length} הזמנות)</span>
+              <span>סיים ושמור ({editedOrders.length})</span>
             </button>
           </div>
         </div>
