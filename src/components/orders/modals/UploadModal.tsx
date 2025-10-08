@@ -1,5 +1,6 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { parsePreviewStrict } from "@/lib/ordersApi";
 
 interface UploadModalProps {
   show: boolean;
@@ -8,7 +9,15 @@ interface UploadModalProps {
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
   error: string | null;
   loading: boolean;
-  onRunPreview: () => Promise<void>;
+  onRunPreview: (dateOverrides?: Record<number, string>) => Promise<void>;  // ✅ עם פרמטר
+  apiBase?: string;  // ✅ ודא שיש
+}
+
+interface PreviewOrder {
+  clientName: string;
+  eventDate?: string | null;
+  items?: any[];
+  orderNotes?: string | string[] | null;  // ✅ תיקון פה
 }
 
 export default function UploadModal({
@@ -19,12 +28,53 @@ export default function UploadModal({
   error,
   loading,
   onRunPreview,
+  apiBase = "http://127.0.0.1:8000",
 }: UploadModalProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewOrders, setPreviewOrders] = useState<PreviewOrder[]>([]);
+  const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  // 🔥 Parse אוטומטי כשיש קבצים
+  useEffect(() => {
+    if (files.length === 0) {
+      setPreviewOrders([]);
+      setDateOverrides({});
+      setParseError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setParsing(true);
+      setParseError(null);
+      try {
+        const result = await parsePreviewStrict(apiBase, files);
+        if (!cancelled) {
+          setPreviewOrders(result.orders || []);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setParseError(e?.message || "שגיאה בניתוח הקבצים");
+        }
+      } finally {
+        if (!cancelled) {
+          setParsing(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files, apiBase]);
 
   const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFiles(e.target.files ? Array.from(e.target.files) : []);
+    const newFiles = e.target.files ? Array.from(e.target.files) : [];
+    setFiles(newFiles);
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -65,6 +115,35 @@ export default function UploadModal({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  const updateOrderDate = (orderIndex: number, date: string) => {
+    setDateOverrides(prev => ({ ...prev, [orderIndex]: date }));
+  };
+
+  const formatDateDisplay = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('he-IL', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleSubmit = async () => {
+    await onRunPreview(dateOverrides);
+  };
+
+  // בדיקה אם יש תאריכים חסרים
+  const hasMissingDates = previewOrders.some((order, idx) => {
+    const finalDate = dateOverrides[idx] || order.eventDate;
+    return !finalDate;
+  });
+
   if (!show) return null;
 
   return (
@@ -73,11 +152,11 @@ export default function UploadModal({
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-l from-purple-500 to-pink-500 px-6 py-5 flex items-center justify-between">
+        <div className="bg-gradient-to-l from-purple-500 to-pink-500 px-6 py-5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-3xl">📄</span>
             <div>
@@ -93,7 +172,7 @@ export default function UploadModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Hidden input */}
           <input
             ref={fileRef}
@@ -104,51 +183,61 @@ export default function UploadModal({
             onChange={onPickPdfs}
           />
 
-          {/* Drag & Drop Zone */}
-          <div
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
-            className={`
-              relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer
-              ${isDragging 
-                ? "border-purple-500 bg-purple-50 scale-[1.02]" 
-                : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
-              }
-            `}
-          >
-            <div className="text-center space-y-3">
-              <div className="text-6xl">
-                {isDragging ? "📂" : "📁"}
-              </div>
-              <div>
-                <div className="font-bold text-gray-700 text-lg">
-                  גרור קבצים לכאן
+          {/* Drag & Drop Zone - רק אם אין קבצים */}
+          {files.length === 0 && (
+            <div
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className={`
+                relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer
+                ${isDragging 
+                  ? "border-purple-500 bg-purple-50 scale-[1.02]" 
+                  : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
+                }
+              `}
+            >
+              <div className="text-center space-y-3">
+                <div className="text-6xl">
+                  {isDragging ? "📂" : "📁"}
                 </div>
-                <div className="text-gray-500 text-sm mt-1">
-                  או לחץ לבחירת קבצים ידנית
+                <div>
+                  <div className="font-bold text-gray-700 text-lg">
+                    גרור קבצים לכאן
+                  </div>
+                  <div className="text-gray-500 text-sm mt-1">
+                    או לחץ לבחירת קבצים ידנית
+                  </div>
                 </div>
-              </div>
-              <div className="text-xs text-gray-400">
-                נתמך: קבצי PDF בלבד
+                <div className="text-xs text-gray-400">
+                  נתמך: קבצי PDF בלבד
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Selected Files List */}
           {files.length > 0 && (
             <div className="space-y-2">
-              <div className="font-semibold text-gray-700 flex items-center gap-2">
-                <span className="text-lg">📋</span>
-                <span>קבצים נבחרים ({files.length})</span>
+              <div className="font-semibold text-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <span>קבצים נבחרים ({files.length})</span>
+                </div>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="text-sm px-3 py-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium transition-all"
+                >
+                  + הוסף עוד
+                </button>
               </div>
-              <div className="max-h-48 overflow-y-auto space-y-2">
+              <div className="max-h-32 overflow-y-auto space-y-2">
                 {files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-l from-purple-50 to-pink-50 border border-purple-200 animate-in slide-in-from-top duration-200"
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-l from-purple-50 to-pink-50 border border-purple-200"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-2xl flex-shrink-0">📄</span>
@@ -174,13 +263,111 @@ export default function UploadModal({
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Parsing Loader */}
+          {parsing && (
+            <div className="flex items-center justify-center gap-3 p-8 rounded-2xl bg-purple-50 border-2 border-purple-200">
+              <span className="text-3xl animate-spin">⏳</span>
+              <span className="font-semibold text-purple-700">מנתח קבצים...</span>
+            </div>
+          )}
+
+          {/* Parse Error */}
+          {parseError && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 animate-in slide-in-from-top duration-200">
+              <div className="flex items-start gap-2">
+                <span className="text-xl">⚠️</span>
+                <div className="flex-1">
+                  <div className="font-semibold text-red-800 mb-1">שגיאה בניתוח</div>
+                  <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">
+                    {parseError}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🔥 Preview Orders - רשימת לקוחות */}
+          {!parsing && previewOrders.length > 0 && (
+            <div className="space-y-3">
+              <div className="font-bold text-gray-800 flex items-center gap-2 text-lg">
+                <span className="text-2xl">✨</span>
+                <span>נמצאו {previewOrders.length} הזמנות:</span>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {previewOrders.map((order, idx) => {
+                  const finalDate = dateOverrides[idx] || order.eventDate;
+                  const needsDate = !finalDate;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`
+                        p-4 rounded-2xl border-2 transition-all
+                        ${needsDate 
+                          ? "bg-amber-50 border-amber-300 shadow-md" 
+                          : "bg-gradient-to-l from-green-50 to-emerald-50 border-emerald-200"
+                        }
+                      `}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl flex-shrink-0">
+                          {idx + 1}.
+                        </span>
+                        <div className="flex-1 space-y-2">
+                          <div className="font-bold text-gray-800 text-lg">
+                            {order.clientName}
+                          </div>
+                          
+                          {needsDate ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-600 font-medium text-sm">
+                                ⚠️ בחר תאריך:
+                              </span>
+                              <input
+                                type="date"
+                                className="px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none font-medium"
+                                onChange={(e) => updateOrderDate(idx, e.target.value)}
+                                value={dateOverrides[idx] || ""}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-emerald-700">
+                              <span className="text-lg">📅</span>
+                              <span className="font-medium">
+                                {formatDateDisplay(finalDate)}
+                              </span>
+                            </div>
+                          )}
+
+                          {order.items && order.items.length > 0 && (
+                            <div className="text-xs text-gray-500">
+                              {order.items.length} פריטים
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {hasMissingDates && (
+                <div className="p-3 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 text-sm flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span className="font-medium">יש להשלים את כל התאריכים לפני המשך</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Upload Error */}
           {error && (
             <div className="p-4 rounded-xl bg-red-50 border border-red-200 animate-in slide-in-from-top duration-200">
               <div className="flex items-start gap-2">
                 <span className="text-xl">⚠️</span>
                 <div className="flex-1">
-                  <div className="font-semibold text-red-800 mb-1">שגיאה</div>
+                  <div className="font-semibold text-red-800 mb-1">שגיאה בהעלאה</div>
                   <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">
                     {error}
                   </pre>
@@ -188,33 +375,33 @@ export default function UploadModal({
               </div>
             </div>
           )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all"
-              onClick={onClose}
-            >
-              ביטול
-            </button>
-            <button
-              disabled={!files.length || loading}
-              onClick={onRunPreview}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-purple-500 to-pink-500 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  <span>מעבד...</span>
-                </>
-              ) : (
-                <>
-                  <span>🚀</span>
-                  <span>העלה והמשך</span>
-                </>
-              )}
-            </button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0">
+          <button
+            className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all"
+            onClick={onClose}
+          >
+            ביטול
+          </button>
+          <button
+            disabled={!files.length || loading || parsing || hasMissingDates}
+            onClick={handleSubmit}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-purple-500 to-pink-500 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                <span>מעלה...</span>
+              </>
+            ) : (
+              <>
+                <span>🚀</span>
+                <span>אישור והעלה ({previewOrders.length})</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

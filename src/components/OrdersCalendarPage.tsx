@@ -493,32 +493,34 @@ const setViewDateStable = useCallback((date: Date) => {
   // ===== Upload + Preview + Mapping + Ingest =====
   const hasPendingFiles = () => files && files.length > 0;
 
-  const runPreviewThenIngest = async () => {
-    if (!isManager) {
-      alert("אין לך הרשאה להעלות קבצים");
-      return;
-    }
-    if (!files.length) return;
-    
-    setLoading(true);
-    setError(null);
-    log.group("runPreviewThenIngest()");
-    log.on("[PREVIEW] files", files.map((f: File) => ({ name: f.name, size: f.size })));
+  const runPreviewThenIngest = async (dateOverrides?: Record<number, string>) => {
+  if (!isManager) {
+    alert("אין לך הרשאה להעלות קבצים");
+    return;
+  }
+  if (!files.length) return;
+  
+  setLoading(true);
+  setError(null);
+  log.group("runPreviewThenIngest()");
+  log.on("[PREVIEW] files", files.map((f: File) => ({ name: f.name, size: f.size })));
+  log.on("[PREVIEW] dateOverrides", dateOverrides);
 
-    try {
-      await doIngest({}, false);
-    } catch (e: any) {
-      setError(e?.message || "Preview/ingest failed");
-      log.err("[INGEST] failed", e);
-    } finally {
-      setLoading(false);
-      log.groupEnd();
-    }
-  };
+  try {
+    await doIngest({}, false, dateOverrides);
+  } catch (e: any) {
+    setError(e?.message || "Preview/ingest failed");
+    log.err("[INGEST] failed", e);
+  } finally {
+    setLoading(false);
+    log.groupEnd();
+  }
+};
 
  const doIngest = async (
   mappingObj: Record<string, string>,
-  skipUnknownCheck: boolean = false
+  skipUnknownCheck: boolean = false,
+  dateOverrides?: Record<number, string>
 ) => {
     if (!isManager) {
       alert("אין לך הרשאה לבצע פעולה זו");
@@ -555,7 +557,16 @@ const setViewDateStable = useCallback((date: Date) => {
     }));
 
     console.log("🔍 2️⃣ אחרי NORMALIZE:", normalized.length);
-
+// ✅ החל את התאריכים שהמשתמש מילא
+if (dateOverrides && Object.keys(dateOverrides).length > 0) {
+  console.log("🗓️ מחיל תאריכים שהמשתמש מילא:", dateOverrides);
+  normalized = normalized.map((order, idx) => {
+    if (dateOverrides[idx]) {
+      return { ...order, eventDate: dateOverrides[idx] };
+    }
+    return order;
+  });
+}
     // 2) Apply existing mapping FIRST (מה-state)
 console.log("🔍 2.5️⃣ מיפוי קיים מה-state:", mapping);
 if (Object.keys(mapping).length > 0) {
@@ -837,7 +848,8 @@ if (!skipUnknownCheck) {
           setFiles={setFiles}
           error={error}
           loading={loading}
-          onRunPreview={runPreviewThenIngest}
+          onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}  // ✅ עדכון
+          apiBase={apiBase}  // ✅ הוספה
         />
       )}
 
