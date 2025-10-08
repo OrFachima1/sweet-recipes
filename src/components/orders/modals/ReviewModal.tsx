@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo} from "react";
 
 interface ReviewModalProps {
   show: boolean;
@@ -23,21 +23,53 @@ export default function ReviewModal({
 
   // PDF URL
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // PDF.js integration
+  const pdfIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const baseBlobRef = useRef<string | null>(null);
 
 
   const currentOrder = editedOrders[currentOrderIndex];
 
-// עדכון PDF URL כשמחליפים הזמנה או מנה
+// יצירת/ניקוי blob URL רק כשמתחלף קובץ (לא על כל שינוי חיפוש)
 useEffect(() => {
-  if (files[currentOrderIndex]) {
-    const baseUrl = URL.createObjectURL(files[currentOrderIndex]);
-    // אם יש מונח חיפוש - הוסף אותו ל-URL
-    const urlWithSearch = searchTerm 
-      ? `${baseUrl}#search=${encodeURIComponent(searchTerm)}`
-      : baseUrl;
-    setPdfUrl(urlWithSearch);
+  // נקה blob קודם אם היה
+  if (baseBlobRef.current) {
+    try { URL.revokeObjectURL(baseBlobRef.current); } catch {}
+    baseBlobRef.current = null;
   }
-}, [files, currentOrderIndex, searchTerm]);
+
+  const f = files[currentOrderIndex];
+  if (!f) return;
+
+  // צור כתובת לקובץ
+  const blobUrl = URL.createObjectURL(f);
+  baseBlobRef.current = blobUrl;
+
+  // נטען את viewer של PDF.js (בלי #search כאן)
+  const viewer = `/pdfjs/web/viewer.html?file=${encodeURIComponent(blobUrl)}#zoom=page-width`;
+  setPdfUrl(viewer);
+}, [files, currentOrderIndex]);
+
+// שלח חיפוש ל-PDF.js בכל שינוי שם מגש וגם אחרי טעינת ה-iframe
+useEffect(() => {
+  const term = (searchTerm || "").trim();
+  if (!term || !pdfIframeRef.current) return;
+
+  const sendFind = () => {
+    pdfIframeRef.current?.contentWindow?.postMessage({
+      type: "find",
+      query: term,
+      caseSensitive: false,
+      highlightAll: true,
+      entireWord: false,
+      findPrevious: false,
+    }, "*");
+  };
+
+  // דיליי קטן עוזר כשמחליפים קובץ
+  const t = setTimeout(sendFind, 120);
+  return () => clearTimeout(t);
+}, [searchTerm, pdfUrl]);
 
 // ניקוי URL כשסוגרים
 useEffect(() => {
@@ -158,10 +190,25 @@ useEffect(() => {
           <div className="w-1/2 border-l border-gray-200 bg-gray-100 p-4 overflow-auto">
             {pdfUrl ? (
               <iframe
-                src={pdfUrl}
+                ref={pdfIframeRef}
+                src={pdfUrl || ""}
                 className="w-full h-full rounded-xl border-2 border-gray-300 bg-white"
                 title="PDF Preview"
+                onLoad={() => {
+                  const term = (searchTerm || "").trim();
+                  if (!term) return;
+                  pdfIframeRef.current?.contentWindow?.postMessage({
+                    type: "find",
+                    query: term,
+                    caseSensitive: false,
+                    highlightAll: true,
+                    entireWord: false,
+                    findPrevious: false,
+                  }, "*");
+                }}
+                allow="fullscreen"
               />
+
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
@@ -247,10 +294,7 @@ useEffect(() => {
                                 // כשמתמקדים במנה - מחפשים אותה ב-PDF
                                 setSearchTerm(e.target.value);
                               }}
-                              onBlur={() => {
-                                // כשעוזבים - מנקים חיפוש
-                                setTimeout(() => setSearchTerm(""), 100);
-                              }}
+                              
                               placeholder="שם המנה"
                               className="w-full px-3 py-1.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
                             />
