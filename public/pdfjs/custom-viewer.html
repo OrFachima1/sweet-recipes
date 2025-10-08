@@ -1,0 +1,84 @@
+<!doctype html>
+<html dir="ltr" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDF.js Mini Viewer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_viewer.css" />
+  <style>
+    html,body { height:100%; margin:0; }
+    #viewerContainer { position:fixed; inset:0; overflow:auto; background:#fff; }
+    .pdfViewer .page { margin: 8px auto; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  </style>
+</head>
+<body>
+  <div id="viewerContainer">
+    <div id="viewer" class="pdfViewer"></div>
+  </div>
+
+  <script type="module">
+    import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
+    import { PDFViewer, EventBus, PDFFindController } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_viewer.mjs";
+    import { PDFLinkService } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/web/pdf_link_service.mjs";
+
+    // worker for ESM
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
+
+    const params = new URLSearchParams(location.search);
+    const file = params.get("file"); // יכול להיות blob: או URL
+    if (!file) {
+      document.body.innerHTML = "<p style='padding:16px;font:14px sans-serif'>Missing ?file=...</p>";
+      throw new Error("Missing file");
+    }
+
+    const eventBus = new EventBus();
+    const container = document.getElementById("viewerContainer");
+    const viewer = new PDFViewer({ container, eventBus, textLayerMode: 2 });
+
+    const linkService = new PDFLinkService({ eventBus });
+    linkService.setViewer(viewer);
+    viewer.setLinkService(linkService);
+
+    const findController = new PDFFindController({ eventBus, linkService, pdfViewer: viewer });
+    viewer.setFindController(findController);
+
+    const loadingTask = pdfjsLib.getDocument({ url: file });
+    const pdfDoc = await loadingTask.promise;
+
+    viewer.setDocument(pdfDoc);
+    linkService.setDocument(pdfDoc);
+
+    // תמיכה ב-#search= מה-URL
+    const hash = new URL(location.href).hash || "";
+    const m = hash.match(/search=([^&]+)/);
+    const initial = m ? decodeURIComponent(m[1]) : "";
+
+    function doFind(q) {
+      if (!q) return;
+      eventBus.dispatch("find", {
+        source: window,
+        type: "again",           // מיידי
+        query: q,
+        caseSensitive: false,
+        entireWord: false,
+        highlightAll: true,
+        findPrevious: false,
+      });
+    }
+
+    if (initial) {
+      // עיכוב קצר אחרי render ראשוני
+      setTimeout(() => doFind(initial), 150);
+    }
+
+    // קבלת חיפוש מ-parent (ה-iframe שלך)
+    window.addEventListener("message", (e) => {
+      const d = e.data || {};
+      if (d.type === "find" && typeof d.query === "string") {
+        doFind(d.query);
+      }
+    });
+  </script>
+</body>
+</html>
