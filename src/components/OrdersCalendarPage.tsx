@@ -591,7 +591,9 @@ if (!skipUnknownCheck) {
     setUnknowns(stillUnknown);
     // ❌ לא לאפס! setMapping({});  
     // ✅ שומר את המיפוי הקיים כבר יש לו מה-state
+    setShowUpload(false);  // ✅ סגור את חלונית ההעלאה
     setMapOpen(true);
+
     log.groupEnd();
     return;
   }
