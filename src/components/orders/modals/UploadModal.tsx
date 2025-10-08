@@ -300,60 +300,63 @@ useEffect(() => {
               
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {previewOrders.map((order, idx) => {
-                  const finalDate = dateOverrides[idx] || order.eventDate;
-                  const needsDate = !finalDate;
+                const finalDate = dateOverrides[idx] || order.eventDate;
+                const needsDate = !finalDate;
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`
-                        p-4 rounded-2xl border-2 transition-all
-                        ${needsDate 
-                          ? "bg-amber-50 border-amber-300 shadow-md" 
-                          : "bg-gradient-to-l from-green-50 to-emerald-50 border-emerald-200"
-                        }
-                      `}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl flex-shrink-0">
-                          {idx + 1}.
-                        </span>
-                        <div className="flex-1 space-y-2">
-                          <div className="font-bold text-gray-800 text-lg">
-                            {order.clientName}
-                          </div>
+                return (
+                  <div
+                    key={idx}
+                    className={`
+                      p-4 rounded-2xl border-2 transition-all
+                      ${needsDate 
+                        ? "bg-amber-50 border-amber-300 shadow-md" 
+                        : "bg-gradient-to-l from-green-50 to-emerald-50 border-emerald-200"
+                      }
+                    `}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl flex-shrink-0">
+                        {idx + 1}.
+                      </span>
+                      <div className="flex-1 space-y-2">
+                        <div className="font-bold text-gray-800 text-lg">
+                          {order.clientName}
+                        </div>
+                        
+                        {/* ✅ תמיד מציג date picker - ניתן לעריכה */}
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium text-sm ${needsDate ? 'text-amber-600' : 'text-emerald-700'}`}>
+                            {needsDate ? '⚠️ בחר תאריך:' : '📅 תאריך:'}
+                          </span>
+                          <input
+                            type="date"
+                            className={`px-3 py-2 rounded-lg border-2 focus:outline-none font-medium transition-all
+                              ${needsDate 
+                                ? 'border-amber-300 focus:border-amber-500 bg-white' 
+                                : 'border-emerald-300 focus:border-emerald-500 bg-white'
+                              }`}
+                            onChange={(e) => updateOrderDate(idx, e.target.value)}
+                            value={dateOverrides[idx] || order.eventDate || ""}
+                          />
                           
-                          {needsDate ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-amber-600 font-medium text-sm">
-                                ⚠️ בחר תאריך:
-                              </span>
-                              <input
-                                type="date"
-                                className="px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none font-medium"
-                                onChange={(e) => updateOrderDate(idx, e.target.value)}
-                                value={dateOverrides[idx] || ""}
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-emerald-700">
-                              <span className="text-lg">📅</span>
-                              <span className="font-medium">
-                                {formatDateDisplay(finalDate)}
-                              </span>
-                            </div>
-                          )}
-
-                          {order.items && order.items.length > 0 && (
-                            <div className="text-xs text-gray-500">
-                              {order.items.length} פריטים
-                            </div>
+                          {/* הצגת שם היום אם יש תאריך */}
+                          {finalDate && (
+                            <span className="text-sm text-gray-600 font-medium">
+                              ({formatDateDisplay(finalDate)?.split(',')[0]})
+                            </span>
                           )}
                         </div>
+
+                        {order.items && order.items.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            {order.items.length} פריטים
+                          </div>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
               </div>
 
               {hasMissingDates && (
