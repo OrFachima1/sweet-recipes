@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
-import { parsePreviewStrict, ingestStrict} from "@/lib/ordersApi";
+import { ingestStrict } from "@/lib/ordersApi";
+
 interface UploadModalProps {
   show: boolean;
   onClose: () => void;
@@ -8,15 +9,15 @@ interface UploadModalProps {
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
   error: string | null;
   loading: boolean;
-  onRunPreview: (dateOverrides?: Record<number, string>) => Promise<void>;  // ✅ עם פרמטר
-  apiBase?: string;  // ✅ ודא שיש
+  onRunPreview: (dateOverrides?: Record<number, string>) => Promise<void>;
+  apiBase?: string;
 }
 
 interface PreviewOrder {
   clientName: string;
   eventDate?: string | null;
   items?: any[];
-  orderNotes?: string | string[] | null;  // ✅ תיקון פה
+  orderNotes?: string | string[] | null;
 }
 
 export default function UploadModal({
@@ -36,50 +37,91 @@ export default function UploadModal({
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // 🔥 Parse אוטומטי כשיש קבצים
-  // 🔥 Parse אוטומטי כשיש קבצים
-useEffect(() => {
-  if (files.length === 0) {
-    setPreviewOrders([]);
-    setDateOverrides({});
-    setParseError(null);
-    return;
-  }
-
-  let cancelled = false;
-
-  (async () => {
-    setParsing(true);
-    setParseError(null);
+  // =====================
+  // Helper Functions
+  // =====================
+  
+  const normalizeDate = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr) return null;
     try {
-      // ✅ משתמשים ב-ingestStrict במקום parsePreviewStrict
-      const result = await ingestStrict(apiBase, files, {});
-      if (!cancelled) {
-        setPreviewOrders(result.orders || []);
-      }
-    } catch (e: any) {
-      if (!cancelled) {
-        const errorMsg = typeof e?.message === 'string' 
-          ? e.message 
-          : JSON.stringify(e, null, 2);
-        setParseError(errorMsg);
-      }
-    } finally {
-      if (!cancelled) {
-        setParsing(false);
-      }
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return null;
+      return date.toISOString().split('T')[0];
+    } catch {
+      return null;
     }
-  })();
-
-  return () => {
-    cancelled = true;
   };
-}, [files, apiBase]);
 
- const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const newFiles = e.target.files ? Array.from(e.target.files) : [];
-  setFiles(prev => [...prev, ...newFiles]);  // ✅ מוסיף במקום להחליף
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const formatDateDisplay = (dateStr: string | null | undefined) => {
+  if (!dateStr) return null;
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('he-IL', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch {
+    return dateStr;
+  }
 };
+
+  // =====================
+  // Parse אוטומטי כשיש קבצים
+  // =====================
+  
+  useEffect(() => {
+    if (files.length === 0) {
+      setPreviewOrders([]);
+      setDateOverrides({});
+      setParseError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setParsing(true);
+      setParseError(null);
+      try {
+        const result = await ingestStrict(apiBase, files, {});
+        if (!cancelled) {
+          setPreviewOrders(result.orders || []);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          const errorMsg = typeof e?.message === 'string' 
+            ? e.message 
+            : JSON.stringify(e, null, 2);
+          setParseError(errorMsg);
+        }
+      } finally {
+        if (!cancelled) {
+          setParsing(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files, apiBase]);
+
+  // =====================
+  // File Handlers
+  // =====================
+  
+  const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = e.target.files ? Array.from(e.target.files) : [];
+    setFiles(prev => [...prev, ...newFiles]);
+  };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -98,56 +140,42 @@ useEffect(() => {
     e.stopPropagation();
   };
 
- const handleDrop = (e: React.DragEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragging(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
 
-  const droppedFiles = Array.from(e.dataTransfer.files).filter(
-    (f) => f.type === "application/pdf"
-  );
-  setFiles(prev => [...prev, ...droppedFiles]);  // ✅ מוסיף במקום להחליף
-};
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(
+      (f) => f.type === "application/pdf"
+    );
+    setFiles(prev => [...prev, ...droppedFiles]);
+  };
 
   const removeFile = (index: number) => {
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
+  // =====================
+  // Order Date Handlers
+  // =====================
+  
   const updateOrderDate = (orderIndex: number, date: string) => {
     setDateOverrides(prev => ({ ...prev, [orderIndex]: date }));
-  };
-
-  const formatDateDisplay = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('he-IL', { 
-        weekday: 'long', 
-        day: 'numeric', 
-        month: 'long',
-        year: 'numeric'
-      });
-    } catch {
-      return dateStr;
-    }
   };
 
   const handleSubmit = async () => {
     await onRunPreview(dateOverrides);
   };
 
-  // בדיקה אם יש תאריכים חסרים
   const hasMissingDates = previewOrders.some((order, idx) => {
-    const finalDate = dateOverrides[idx] || order.eventDate;
-    return !finalDate;
+    const normalizedOriginalDate = normalizeDate(order.eventDate);
+    return !normalizedOriginalDate && !dateOverrides[idx];
   });
 
+  // =====================
+  // Render
+  // =====================
+  
   if (!show) return null;
 
   return (
@@ -176,8 +204,8 @@ useEffect(() => {
           </button>
         </div>
 
+        {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
-          {/* Hidden input */}
           <input
             ref={fileRef}
             type="file"
@@ -187,7 +215,7 @@ useEffect(() => {
             onChange={onPickPdfs}
           />
 
-          {/* Drag & Drop Zone - רק אם אין קבצים */}
+          {/* Drag & Drop Zone */}
           {files.length === 0 && (
             <div
               onDragEnter={handleDragEnter}
@@ -204,25 +232,17 @@ useEffect(() => {
               `}
             >
               <div className="text-center space-y-3">
-                <div className="text-6xl">
-                  {isDragging ? "📂" : "📁"}
-                </div>
+                <div className="text-6xl">{isDragging ? "📂" : "📁"}</div>
                 <div>
-                  <div className="font-bold text-gray-700 text-lg">
-                    גרור קבצים לכאן
-                  </div>
-                  <div className="text-gray-500 text-sm mt-1">
-                    או לחץ לבחירת קבצים ידנית
-                  </div>
+                  <div className="font-bold text-gray-700 text-lg">גרור קבצים לכאן</div>
+                  <div className="text-gray-500 text-sm mt-1">או לחץ לבחירת קבצים ידנית</div>
                 </div>
-                <div className="text-xs text-gray-400">
-                  נתמך: קבצי PDF בלבד
-                </div>
+                <div className="text-xs text-gray-400">נתמך: קבצי PDF בלבד</div>
               </div>
             </div>
           )}
 
-          {/* Selected Files List */}
+          {/* Selected Files */}
           {files.length > 0 && (
             <div className="space-y-2">
               <div className="font-semibold text-gray-700 flex items-center justify-between">
@@ -246,12 +266,8 @@ useEffect(() => {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-2xl flex-shrink-0">📄</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 truncate">
-                          {file.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatFileSize(file.size)}
-                        </div>
+                        <div className="font-medium text-gray-800 truncate">{file.name}</div>
+                        <div className="text-xs text-gray-500">{formatFileSize(file.size)}</div>
                       </div>
                     </div>
                     <button
@@ -277,20 +293,18 @@ useEffect(() => {
 
           {/* Parse Error */}
           {parseError && (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 animate-in slide-in-from-top duration-200">
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200">
               <div className="flex items-start gap-2">
                 <span className="text-xl">⚠️</span>
                 <div className="flex-1">
                   <div className="font-semibold text-red-800 mb-1">שגיאה בניתוח</div>
-                  <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">
-                    {parseError}
-                  </pre>
+                  <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">{parseError}</pre>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 🔥 Preview Orders - רשימת לקוחות */}
+          {/* Preview Orders */}
           {!parsing && previewOrders.length > 0 && (
             <div className="space-y-3">
               <div className="font-bold text-gray-800 flex items-center gap-2 text-lg">
@@ -300,63 +314,59 @@ useEffect(() => {
               
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {previewOrders.map((order, idx) => {
-                const finalDate = dateOverrides[idx] || order.eventDate;
-                const needsDate = !finalDate;
+                  const normalizedOriginalDate = normalizeDate(order.eventDate);
+                  const hasOriginalDate = !!normalizedOriginalDate;
+                  const needsDate = !hasOriginalDate && !dateOverrides[idx];
 
-                return (
-                  <div
-                    key={idx}
-                    className={`
-                      p-4 rounded-2xl border-2 transition-all
-                      ${needsDate 
-                        ? "bg-amber-50 border-amber-300 shadow-md" 
-                        : "bg-gradient-to-l from-green-50 to-emerald-50 border-emerald-200"
-                      }
-                    `}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl flex-shrink-0">
-                        {idx + 1}.
-                      </span>
-                      <div className="flex-1 space-y-2">
-                        <div className="font-bold text-gray-800 text-lg">
-                          {order.clientName}
-                        </div>
-                        
-                        {/* ✅ תמיד מציג date picker - ניתן לעריכה */}
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium text-sm ${needsDate ? 'text-amber-600' : 'text-emerald-700'}`}>
-                            {needsDate ? '⚠️ בחר תאריך:' : '📅 תאריך:'}
-                          </span>
-                          <input
-                            type="date"
-                            className={`px-3 py-2 rounded-lg border-2 focus:outline-none font-medium transition-all
-                              ${needsDate 
-                                ? 'border-amber-300 focus:border-amber-500 bg-white' 
-                                : 'border-emerald-300 focus:border-emerald-500 bg-white'
-                              }`}
-                            onChange={(e) => updateOrderDate(idx, e.target.value)}
-                            value={dateOverrides[idx] || order.eventDate || ""}
-                          />
+                  return (
+                    <div
+                      key={idx}
+                      className={`
+                        p-4 rounded-2xl border-2 transition-all
+                        ${needsDate 
+                          ? "bg-amber-50 border-amber-300 shadow-md" 
+                          : "bg-gradient-to-l from-green-50 to-emerald-50 border-emerald-200"
+                        }
+                      `}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl flex-shrink-0">{idx + 1}.</span>
+                        <div className="flex-1 space-y-2">
+                          <div className="font-bold text-gray-800 text-lg">{order.clientName}</div>
                           
-                          {/* הצגת שם היום אם יש תאריך */}
-                          {finalDate && (
-                            <span className="text-sm text-gray-600 font-medium">
-                              ({formatDateDisplay(finalDate)?.split(',')[0]})
-                            </span>
+                          {hasOriginalDate ? (
+                            <div className="flex items-center gap-2 text-emerald-700">
+                              <span className="text-lg">📅</span>
+                              <span className="font-medium">{formatDateDisplay(order.eventDate)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-amber-600 font-medium text-sm">⚠️ בחר תאריך:</span>
+                                <input
+                                  type="date"
+                                  className="px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none font-medium bg-white"
+                                  onChange={(e) => updateOrderDate(idx, e.target.value)}
+                                  value={dateOverrides[idx] || ""}
+                                />
+                              </div>
+                              
+                              {dateOverrides[idx] && (
+                                <div className="text-sm text-emerald-700 font-medium mr-6">
+                                  ✓ {formatDateDisplay(dateOverrides[idx])}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {order.items && order.items.length > 0 && (
+                            <div className="text-xs text-gray-500">{order.items.length} פריטים</div>
                           )}
                         </div>
-
-                        {order.items && order.items.length > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {order.items.length} פריטים
-                          </div>
-                        )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
 
               {hasMissingDates && (
@@ -370,14 +380,12 @@ useEffect(() => {
 
           {/* Upload Error */}
           {error && (
-            <div className="p-4 rounded-xl bg-red-50 border border-red-200 animate-in slide-in-from-top duration-200">
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200">
               <div className="flex items-start gap-2">
                 <span className="text-xl">⚠️</span>
                 <div className="flex-1">
                   <div className="font-semibold text-red-800 mb-1">שגיאה בהעלאה</div>
-                  <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">
-                    {error}
-                  </pre>
+                  <pre className="text-red-600 text-sm whitespace-pre-wrap font-mono">{error}</pre>
                 </div>
               </div>
             </div>
