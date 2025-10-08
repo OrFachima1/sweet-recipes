@@ -204,7 +204,7 @@ export default function MonthView({
 
       {/* גריד הימים - מסתיר שבתות במובייל */}
       <div className="p-1 md:p-2 bg-gradient-to-br from-white to-gray-50">
-        <div className="grid grid-cols-5 md:grid-cols-7 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-6 md:grid-cols-7 gap-0.5 md:gap-1">
           {monthGrid.cells.map((cell, idx) => {
             const key = cell.date ? fmtYMD(cell.date) : `empty-${idx}`;
             const dayOrders = cell.date ? daysMap.get(key) || [] : [];

@@ -177,7 +177,7 @@ export default function WeekView({
           )`
         }} />
         
-        <div className="relative grid grid-cols-5 md:grid-cols-7 text-[10px] md:text-sm font-bold">
+        <div className="relative grid grid-cols-6 md:grid-cols-7 text-[10px] md:text-sm font-bold">
           {headers.map((d, idx) => {
             const isWeekend =  idx === 6;
             
@@ -212,7 +212,7 @@ export default function WeekView({
 
       {/* עמודות השבוע - מסתיר שבתות במובייל */}
       <div className="p-1 md:p-2 bg-gradient-to-br from-white to-gray-50">
-        <div className="grid grid-cols-5 md:grid-cols-7 gap-0.5 md:gap-1">
+        <div className="grid grid-cols-6 md:grid-cols-7 gap-0.5 md:gap-1">
           {weekDays.map((d, idx) => {
             const key = fmtYMD(d);
             const list = daysMap.get(key) || [];
