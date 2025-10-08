@@ -398,7 +398,7 @@ export default function HomeContent({
     <div className="min-h-screen" dir="rtl" lang="he">
       {/* ► פס עליון: שלום + התנתקות */}
 <header className="px-4 pt-4">
-  <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+  <div className="flex flex-row items-start justify-between gap-3">
     {/* ברכה — בצד ימין */}
     <div className="text-right">
       <div className="font-extrabold leading-none text-3xl sm:text-5xl lg:text-6xl">
@@ -407,7 +407,7 @@ export default function HomeContent({
     </div>
 
     {/* כפתורים — בצד שמאל, אחד מתחת לשני */}
-    <div className="flex flex-col items-end gap-2 sm:items-end sm:flex-none">
+    <div className="flex flex-col items-end gap-2">
       <button
         onClick={logout}
         className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
