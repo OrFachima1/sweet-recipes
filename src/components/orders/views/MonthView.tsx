@@ -171,7 +171,7 @@ export default function MonthView({
         
         <div className="relative grid grid-cols-5 md:grid-cols-7 text-[10px] md:text-sm font-bold">
           {weeksHeader.map((d, idx) => {
-            const isWeekend = idx === 5 || idx === 6;
+            const isWeekend = idx === 6;
             
             // מסתיר שבתות במובייל
             if (isWeekend) {
