@@ -221,19 +221,25 @@ export default function UploadModal({
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
+        className={`bg-white w-full rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col transition-all ${
+          step === 'choose' ? 'max-w-4xl' : 'max-w-2xl'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-l from-purple-500 to-pink-500 px-6 py-5 flex items-center justify-between flex-shrink-0">
+        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 transition-all ${
+          step === 'choose' 
+            ? 'bg-gradient-to-l from-rose-400 via-pink-400 to-purple-400' 
+            : 'bg-gradient-to-l from-purple-500 to-pink-500'
+        }`}>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">📄</span>
+            <span className="text-3xl">{step === 'choose' ? '🎯' : '📄'}</span>
             <div>
               <div className="font-bold text-white text-xl">
-                {step === 'choose' ? 'בחר מקור הזמנה' : 'העלאת קבצי PDF'}
+                {step === 'choose' ? 'הוספת הזמנה' : 'העלאת קבצי PDF'}
               </div>
               <div className="text-white/80 text-sm">
-                {step === 'choose' ? 'PDF או הזנה ידנית' : 'גרור קבצים או לחץ לבחירה'}
+                {step === 'choose' ? 'בחר את הדרך המועדפת עליך' : 'גרור קבצים או לחץ לבחירה'}
               </div>
             </div>
           </div>
@@ -249,40 +255,122 @@ export default function UploadModal({
           </button>
         </div>
         
-        {/* בחירה בין PDF לידני */}
+        {/* בחירה בין PDF לידני - עיצוב מחודש */}
         {step === 'choose' && (
-          <div className="p-6 space-y-4">
-            <button
-              onClick={() => {
-                console.log("📄 PDF button clicked");
-                setStep('pdf');
-              }}
-              className="w-full px-5 py-3 rounded-xl bg-purple-600 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-            >
-              <span className="text-2xl">📄</span>
-              <span>העלאת PDF</span>
-            </button>
-            
-            <button
-              onClick={() => {
-                console.log("✨ Manual button clicked!");
-                console.log("onManualStart exists?", typeof onManualStart !== 'undefined');
-                
-                if (onManualStart) {
-                  console.log("🚀 Calling onManualStart...");
-                  onManualStart();
-                } else {
-                  console.error("❌ onManualStart is not defined!");
-                  alert("שגיאה: onManualStart לא הוגדר!");
-                }
-                
-                onClose();
-              }}
-              className="w-full px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-            >
-              <span className="text-2xl">✨</span>
-              <span>הוספה ידנית</span>
-            </button>
+          <div className="p-8">
+            <div className="text-center mb-8">
+              <div className="text-4xl mb-3">🎯</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">איך תרצה להוסיף הזמנה?</h3>
+              <p className="text-gray-500">בחר את הדרך הנוחה לך</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              {/* PDF Option */}
+              <button
+                onClick={() => {
+                  console.log("📄 PDF button clicked");
+                  setStep('pdf');
+                }}
+                className="group relative p-8 rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 hover:border-purple-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+              >
+                <div className="text-center space-y-4">
+                  {/* Icon */}
+                  <div className="text-6xl group-hover:scale-110 transition-transform duration-300">
+                    📄
+                  </div>
+                  
+                  {/* Title */}
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">העלאת PDF</h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      העלה קובץ הזמנה מוכן
+                      <br />
+                      <span className="text-purple-600 font-medium">מהיר ואוטומטי</span>
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-2 pt-4 border-t border-purple-200">
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                      <span className="text-green-500">✓</span>
+                      <span>זיהוי אוטומטי של פריטים</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                      <span className="text-green-500">✓</span>
+                      <span>חיסכון בזמן</span>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-purple-500 font-bold">לחץ להמשך ←</span>
+                  </div>
+                </div>
+
+                {/* Glow effect */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300 -z-10"></div>
+              </button>
+
+              {/* Manual Option */}
+              <button
+                onClick={() => {
+                  console.log("✨ Manual button clicked!");
+                  if (onManualStart) {
+                    console.log("🚀 Calling onManualStart...");
+                    onManualStart();
+                  } else {
+                    console.error("❌ onManualStart is not defined!");
+                    alert("שגיאה: onManualStart לא הוגדר!");
+                  }
+                  onClose();
+                }}
+                className="group relative p-8 rounded-2xl border-2 border-rose-200 bg-gradient-to-br from-rose-50 to-pink-50 hover:from-rose-100 hover:to-pink-100 hover:border-rose-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+              >
+                <div className="text-center space-y-4">
+                  {/* Icon */}
+                  <div className="text-6xl group-hover:scale-110 transition-transform duration-300">
+                    ✨
+                  </div>
+                  
+                  {/* Title */}
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">הוספה ידנית</h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      הקלד הזמנה חדשה
+                      <br />
+                      <span className="text-rose-600 font-medium">שליטה מלאה</span>
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-2 pt-4 border-t border-rose-200">
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                      <span className="text-green-500">✓</span>
+                      <span>אוטומט השלמה ללקוחות</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                      <span className="text-green-500">✓</span>
+                      <span>טעינת הזמנות קודמות</span>
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-rose-500 font-bold">לחץ להמשך ←</span>
+                  </div>
+                </div>
+
+                {/* Glow effect */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-rose-400 to-pink-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300 -z-10"></div>
+              </button>
+            </div>
+
+            {/* Helper text */}
+            <div className="mt-8 text-center">
+              <p className="text-xs text-gray-400">
+                💡 טיפ: אם יש לך PDF מוכן - השתמש בהעלאה אוטומטית. אחרת - הוספה ידנית תהיה מהירה ונוחה!
+              </p>
+            </div>
           </div>
         )}
 
