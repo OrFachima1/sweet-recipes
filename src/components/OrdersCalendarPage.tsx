@@ -44,7 +44,8 @@ import {
   orderBy as firestoreOrderBy,
   writeBatch,
 } from "firebase/firestore";
-
+import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
+import ReviewModal from "@/components/orders/modals/ReviewModal";
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -87,6 +88,13 @@ export default function OrdersCalendarPage({
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [selectedDayKey, setSelectedDayKey] = useState<string>(fmtYMD(new Date()));
   const [dayModalKey, setDayModalKey] = useState<string | null>(null);
+  // ===== Review Modals =====
+  const [showConfirmReview, setShowConfirmReview] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [reviewData, setReviewData] = useState<{
+    orders: any[];
+    files: File[];
+  } | null>(null);
 
   // ESC to close modal
   useEffect(() => {
@@ -616,23 +624,44 @@ if (!skipUnknownCheck) {
 
     console.log("🔍 5️⃣ אחרי FILTER:", filtered.length);
 
-    const withNotes = filtered.map(o => normalizeImportantNotes(o));
-    const merged = [...orders, ...withNotes];
-  await persist(merged);
-    const missing = withNotes
-      .filter(o => !o.eventDate)
-      .map(o => ({ id: o.__id!, name: o.clientName, date: fmtYMD(new Date()) }));
+   const withNotes = filtered.map(o => normalizeImportantNotes(o));
 
-    if (missing.length) {
-      setDateFixList(missing);
-      setDateFixOpen(true);
-    }
+// ✅ במקום persist ישירות - פותחים את חלונית האישור
+console.log("🔹 9️⃣ פותח חלונית אישור לבדיקה");
+setReviewData({
+  orders: withNotes,
+  files: files // הקבצים עדיין זמינים כאן!
+});
+setShowConfirmReview(true);
 
-    setShowUpload(false);
-    setFiles([]);
-    ingestBufferRef.current = null;
-    log.groupEnd();
+// ✅ הקוד הישן יעבור לפונקציה חדשה (ראה למטה)
   };
+
+  // ===== Finalize Orders (אחרי בדיקה או ישירות) =====
+const finalizeOrders = async (finalOrders: any[]) => {
+  console.log("🔹 🎯 שומר הזמנות סופיות", finalOrders);
+  
+  const merged = [...orders, ...finalOrders];
+  await persist(merged);
+
+  const missing = finalOrders
+    .filter(o => !o.eventDate)
+    .map(o => ({ id: o.__id!, name: o.clientName, date: fmtYMD(new Date()) }));
+
+  if (missing.length) {
+    setDateFixList(missing);
+    setDateFixOpen(true);
+  }
+
+  // ניקוי
+  setShowUpload(false);
+  setFiles([]);
+  setShowConfirmReview(false);
+  setShowReview(false);
+  setReviewData(null);
+  ingestBufferRef.current = null;
+  log.on("🎉 העלאה הושלמה!");
+};
   console.log("📊 State check:", {
   viewMode,
   loading,
@@ -866,6 +895,42 @@ if (!skipUnknownCheck) {
           persist={persist}
         />
       )}
+
+      {/* Confirm Review Modal */}
+{showConfirmReview && reviewData && (
+  <ConfirmReviewModal
+    show={showConfirmReview}
+    onConfirm={() => {
+      console.log("✅ משתמש בחר לבדוק");
+      setShowConfirmReview(false);
+      setShowReview(true);
+    }}
+    onSkip={async () => {
+      console.log("⏭️ משתמש דילג על בדיקה");
+      setShowConfirmReview(false);
+      await finalizeOrders(reviewData.orders);
+    }}
+  />
+)}
+
+{/* Review Modal */}
+{showReview && reviewData && (
+  <ReviewModal
+    show={showReview}
+    orders={reviewData.orders}
+    files={reviewData.files}
+    onClose={() => {
+      console.log("❌ משתמש ביטל בדיקה");
+      setShowReview(false);
+      setShowConfirmReview(false);
+      setReviewData(null);
+    }}
+    onSave={async (editedOrders) => {
+      console.log("💾 משתמש שמר אחרי בדיקה", editedOrders);
+      await finalizeOrders(editedOrders);
+    }}
+  />
+)}
     </div>
   );
 }
