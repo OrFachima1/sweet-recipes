@@ -16,50 +16,84 @@
   <div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div>
   <div id="err"></div>
 
+  <!-- UMD builds served מקומית מ-public/pdfjs/vendor -->
   <script src="/pdfjs/vendor/pdf.js"></script>
   <script src="/pdfjs/vendor/pdf_viewer.js"></script>
+
   <script>
-    (function() {
+    (function () {
       const showErr = (msg) => { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; };
 
       try {
-        // הגדרת ה־worker מתוך ה־public שלך
-        window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc = "/pdfjs/vendor/pdf.worker.js";
+        // ספריות מ-UMD הגלובלי
+        const pdfjsLib     = window['pdfjs-dist/build/pdf'];
+        const pdfjsViewer  = window['pdfjs-dist/web/pdf_viewer'];
 
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        const pdfjsViewer = window['pdfjs-dist/web/pdf_viewer'];
+        // הגדרת ה-worker מקומי
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/vendor/pdf.worker.js";
 
+        // קבלת ה-file מה-URL (יכול להיות blob:)
         const params = new URLSearchParams(location.search);
         const file = params.get("file");
         if (!file) { showErr("Missing ?file=…"); return; }
 
-        const eventBus = new pdfjsViewer.EventBus();
-        const container = document.getElementById("viewerContainer");
-        const viewer = new pdfjsViewer.PDFViewer({ container, eventBus, textLayerMode: 2 });
-
+        // אובייקטים של viewer
+        const eventBus    = new pdfjsViewer.EventBus();
         const linkService = new pdfjsViewer.PDFLinkService({ eventBus });
+
+        const container = document.getElementById("viewerContainer");
+        const viewer = new pdfjsViewer.PDFViewer({
+          container,
+          eventBus,
+          linkService,      // ← חשוב: העברה בקונסטרקטור (אין setLinkService ב-UMD הזה)
+          textLayerMode: 2, // נדרש להדגשות
+        });
+
+        // חיבורים
         linkService.setViewer(viewer);
-        viewer.setLinkService(linkService);
 
-        const findController = new pdfjsViewer.PDFFindController({ eventBus, linkService, pdfViewer: viewer });
-        viewer.setFindController(findController);
+        const findController = new pdfjsViewer.PDFFindController({
+          eventBus,
+          linkService,
+          pdfViewer: viewer,
+        });
+        if (typeof viewer.setFindController === "function") {
+          viewer.setFindController(findController);
+        } else {
+          // fallback נדיר בגרסאות מסוימות
+          viewer.findController = findController;
+        }
 
-        pdfjsLib.getDocument({ url: file }).promise.then(function(pdfDoc) {
+        // טעינת ה-PDF
+        pdfjsLib.getDocument({ url: file }).promise.then(function (pdfDoc) {
           viewer.setDocument(pdfDoc);
           linkService.setDocument(pdfDoc);
 
+          // תמיכה ב-#search= בטען הראשוני
           const m = (location.hash || "").match(/search=([^&]+)/);
           const initial = m ? decodeURIComponent(m[1]) : "";
-          const doFind = (q) => q && eventBus.dispatch("find", { source: window, type: "again", query: q, caseSensitive: false, entireWord: false, highlightAll: true, findPrevious: false });
+          const doFind = (q) => q && eventBus.dispatch("find", {
+            source: window, type: "again", query: q,
+            caseSensitive: false, entireWord: false,
+            highlightAll: true, findPrevious: false,
+          });
 
           if (initial) setTimeout(() => doFind(initial), 150);
 
+          // קבלת חיפוש מה-parent (iframe)
           window.addEventListener("message", (e) => {
             const d = e.data || {};
             if (d.type === "find" && typeof d.query === "string") doFind(d.query);
           });
-        }).catch(function(err) { console.error(err); showErr("Failed to load PDF: " + (err && err.message ? err.message : String(err))); });
-      } catch (e) { console.error(e); showErr("Viewer error: " + (e && e.message ? e.message : String(e))); }
+        }).catch(function (err) {
+          console.error(err);
+          showErr("Failed to load PDF: " + (err && err.message ? err.message : String(err)));
+        });
+
+      } catch (e) {
+        console.error(e);
+        showErr("Viewer error: " + (e && e.message ? e.message : String(e)));
+      }
     })();
   </script>
 </body>
