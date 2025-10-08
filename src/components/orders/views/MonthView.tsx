@@ -169,7 +169,7 @@ export default function MonthView({
           )`
         }} />
         
-        <div className="relative grid grid-cols-5 md:grid-cols-7 text-[10px] md:text-sm font-bold">
+        <div className="relative grid grid-cols-6 md:grid-cols-7 text-[10px] md:text-sm font-bold">
           {weeksHeader.map((d, idx) => {
             const isWeekend = idx === 6;
             
@@ -211,7 +211,7 @@ export default function MonthView({
             const isToday = cell?.date ? key === todayKey : false;
             const isSelected = cell.date ? key === selectedDayKey : false;
             const dayOfWeek = cell.date?.getDay();
-            const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+            const isWeekend =  dayOfWeek === 6;
 
             // מסתיר שבתות במובייל
             if (isWeekend) {

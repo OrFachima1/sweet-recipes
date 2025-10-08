@@ -219,7 +219,7 @@ export default function WeekView({
             const isToday = key === todayKey;
             const isSelected = key === selectedDayKey;
             const dayOfWeek = d.getDay();
-            const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+            const isWeekend =  dayOfWeek === 6;
 
             // מסתיר שבתות במובייל
             if (isWeekend) {
