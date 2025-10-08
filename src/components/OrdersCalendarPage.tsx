@@ -11,6 +11,7 @@ import {
   applyMappingOnOrders,
   getUnknownTitles,
 } from "@/utils/orders";
+import ManualOrderModal from "@/components/orders/modals/ManualOrderModal";
 import Toolbar from "@/components/orders/Toolbar";
 import MappingModal from "@/components/orders/modals/MappingModal";
 import UploadModal from "@/components/orders/modals/UploadModal";
@@ -97,6 +98,7 @@ export default function OrdersCalendarPage({
     orders: any[];
     files: File[];
   } | null>(null);
+  const [showManualOrder, setShowManualOrder] = useState(false);
  const [showSettings, setShowSettings] = useState(false);
  const [categoryConfig, setCategoryConfigState] = useState<{
   items: Record<string, { color: string; order: number }>;
@@ -286,30 +288,32 @@ useEffect(() => {
     saveSettings(mapping, newIgnored);
   };
 
-  // ===== Load menu.json =====
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      log.group("Load menu.json");
-      log.time("menu.fetch");
-      try {
-        const res = await fetch("/menu.json", { headers: { accept: "application/json" } });
-        const data = await res.json().catch(() => ({}));
-        const arr = Array.isArray(data) ? data : (Array.isArray((data as any)?.menu) ? (data as any).menu : []);
-        if (!cancel) {
-          setMenuOptions(arr || []);
-          log.on("Menu loaded", { items: (arr || []).length });
-        }
-      } catch (e) {
-        if (!cancel) setMenuOptions([]);
-        log.warn("Menu load failed, fallback to []", e);
-      } finally {
-        log.timeEnd("menu.fetch");
-        log.groupEnd();
-      }
-    })();
-    return () => { cancel = true; };
-  }, []);
+useEffect(() => {
+  if (!user) return;
+  
+  log.group("Load menu from Firestore");
+  
+  const menuDoc = doc(db, "orderSettings", "menu");
+  const unsub = onSnapshot(menuDoc, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      const menuArray = data.items || [];
+      setMenuOptions(menuArray);
+      log.on("Menu loaded from Firestore", { count: menuArray.length });
+    } else {
+      // ⚠️ אל תיצור מסמך ריק אוטומטית!
+      log.warn("No menu found in Firestore");
+      setMenuOptions([]);
+      // לא קוראים ל-setDoc כאן!
+    }
+  }, (err) => {
+    log.err("Failed loading menu", err);
+    setMenuOptions([]);
+  });
+  
+  log.groupEnd();
+  return () => unsub();
+}, [user]);
 
   // ===== Persistence helper (now saves to Firestore) =====
   const persist = async (next: IngestJsonOrder[]) => {
@@ -726,6 +730,64 @@ const finalizeOrders = async (finalOrders: any[]) => {
   authLoading,
   role
 });
+// ===== Save Manual Order =====
+const saveManualOrder = async (orderData: {
+  clientName: string;
+  eventDate: string;
+  items: any[];
+  orderNotes: string;
+}) => {
+  if (!isManager) {
+    alert("אין לך הרשאה להוסיף הזמנות");
+    return;
+  }
+
+  console.log("💾 שומר הזמנה ידנית חדשה", orderData);
+  
+  const newOrder = {
+    __id: genId(),
+    orderId: null,
+    clientName: orderData.clientName,
+    eventDate: orderData.eventDate,
+    status: "new",
+    items: orderData.items,
+    orderNotes: orderData.orderNotes,
+    totalSum: null,
+    currency: null,
+    source: "manual",
+    meta: { addedManually: true, addedAt: new Date().toISOString() },
+  };
+
+  try {
+    const orderDoc = doc(db, "orders", newOrder.__id);
+    await setDoc(orderDoc, {
+      orderId: newOrder.orderId,
+      clientName: newOrder.clientName,
+      eventDate: newOrder.eventDate,
+      status: newOrder.status,
+      items: newOrder.items,
+      orderNotes: newOrder.orderNotes,
+      totalSum: newOrder.totalSum,
+      currency: newOrder.currency,
+      source: newOrder.source,
+      meta: newOrder.meta,
+      createdAt: serverTimestamp(),
+    });
+
+    console.log("✅ הזמנה נשמרה בהצלחה");
+    setShowManualOrder(false);
+    
+    // ניווט לתאריך של ההזמנה
+    const orderDate = new Date(orderData.eventDate);
+    setViewDate(orderDate);
+    setSelectedDayKey(fmtYMD(orderDate));
+    setViewMode("day");
+    
+  } catch (e: any) {
+    console.error("❌ שגיאה בשמירת הזמנה", e);
+    alert(`שגיאה בשמירה: ${e?.message || 'Unknown error'}`);
+  }
+};
   // ===== Loading state =====
   if (authLoading || role === null) {
     return (
@@ -935,19 +997,25 @@ const finalizeOrders = async (finalOrders: any[]) => {
 
       {/* Upload PDF Modal - only for managers */}
       {isManager && (
-        <UploadModal
-          show={showUpload}
-          onClose={() => { setShowUpload(false); log.on("[UI] close upload"); }}
-          files={files}
-          setFiles={setFiles}
-          error={error}
-          loading={loading}
-          onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}  // ✅ עדכון
-          apiBase={apiBase}  // ✅ הוספה
-          
-        />
-      )}
-
+  <UploadModal
+    show={showUpload}
+    onClose={() => { 
+      setShowUpload(false); 
+      log.on("[UI] close upload"); 
+    }}
+    files={files}
+    setFiles={setFiles}
+    error={error}
+    loading={loading}
+    onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}
+    apiBase={apiBase}
+    onManualStart={() => {
+      console.log("🎯 onManualStart called!");
+      setShowUpload(false);
+      setShowManualOrder(true);
+    }}
+  />
+)}
       {/* Date-fix modal - only for managers */}
       {isManager && (
         <DateFixModal
@@ -1027,6 +1095,15 @@ const finalizeOrders = async (finalOrders: any[]) => {
         alert("שגיאה בשמירה");
       }
     }}
+  />
+)}
+{/* Manual Order Modal - only for managers */}
+{isManager && (
+  <ManualOrderModal
+    show={showManualOrder}
+    onClose={() => setShowManualOrder(false)}
+    onSave={saveManualOrder}
+    menuOptions={menuOptions}
   />
 )}
     </div>
