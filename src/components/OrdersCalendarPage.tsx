@@ -46,6 +46,7 @@ import {
 } from "firebase/firestore";
 import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
+import SettingsModal from "@/components/orders/modals/SettingModal";
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -95,7 +96,7 @@ export default function OrdersCalendarPage({
     orders: any[];
     files: File[];
   } | null>(null);
-
+ const [showSettings, setShowSettings] = useState(false);
   // ESC to close modal
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -701,13 +702,23 @@ const finalizeOrders = async (finalOrders: any[]) => {
   
   return (
     <div className="min-h-dvh w-full max-w-7xl mx-auto p-4 space-y-4 bg-white text-sky-950">
-      {/* Debug switch */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-600">
-          שלום, {displayName || user?.email}
-          {isManager && <span className="mr-2 text-pink-600 font-bold">(מנהל)</span>}
-        </div>
-      </div>
+     <div className="flex justify-between items-center">
+  <div className="text-sm text-gray-600">
+    שלום, {displayName || user?.email}
+    {isManager && <span className="mr-2 text-pink-600 font-bold">(מנהל)</span>}
+  </div>
+  
+  {isManager && (
+    <button
+      onClick={() => setShowSettings(true)}
+      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all flex items-center gap-2"
+      title="הגדרות"
+    >
+      <span className="text-lg">⚙️</span>
+      <span className="text-sm font-medium">הגדרות</span>
+    </button>
+  )}
+</div>
 
       {/* מתג תצוגות */}
       <ViewToggle currentView={mainView} onToggle={setMainView} />
@@ -928,6 +939,27 @@ const finalizeOrders = async (finalOrders: any[]) => {
     onSave={async (editedOrders) => {
       console.log("💾 משתמש שמר אחרי בדיקה", editedOrders);
       await finalizeOrders(editedOrders);
+    }}
+  />
+)}
+{/* Settings Modal - only for managers */}
+{isManager && (
+  <SettingsModal
+    show={showSettings}
+    onClose={() => setShowSettings(false)}
+    menuOptions={menuOptions}
+    onUpdateMenu={(newMenu) => {
+      setMenuOptions(newMenu);
+      // שמור ל-localStorage או Firestore
+      localStorage.setItem('menu', JSON.stringify(newMenu));
+    }}
+    mapping={mapping}
+    onUpdateMapping={(newMapping) => {
+      updateMapping(newMapping);
+    }}
+    ignored={ignored}
+    onUpdateIgnored={(newIgnored) => {
+      updateIgnored(newIgnored);
     }}
   />
 )}
