@@ -1,7 +1,6 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
-import { parsePreviewStrict } from "@/lib/ordersApi";
-
+import { parsePreviewStrict, ingestStrict} from "@/lib/ordersApi";
 interface UploadModalProps {
   show: boolean;
   onClose: () => void;
@@ -38,39 +37,44 @@ export default function UploadModal({
   const [parseError, setParseError] = useState<string | null>(null);
 
   // 🔥 Parse אוטומטי כשיש קבצים
-  useEffect(() => {
-    if (files.length === 0) {
-      setPreviewOrders([]);
-      setDateOverrides({});
-      setParseError(null);
-      return;
-    }
+  // 🔥 Parse אוטומטי כשיש קבצים
+useEffect(() => {
+  if (files.length === 0) {
+    setPreviewOrders([]);
+    setDateOverrides({});
+    setParseError(null);
+    return;
+  }
 
-    let cancelled = false;
+  let cancelled = false;
 
-    (async () => {
-      setParsing(true);
-      setParseError(null);
-      try {
-        const result = await parsePreviewStrict(apiBase, files);
-        if (!cancelled) {
-          setPreviewOrders(result.orders || []);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setParseError(e?.message || "שגיאה בניתוח הקבצים");
-        }
-      } finally {
-        if (!cancelled) {
-          setParsing(false);
-        }
+  (async () => {
+    setParsing(true);
+    setParseError(null);
+    try {
+      // ✅ משתמשים ב-ingestStrict במקום parsePreviewStrict
+      const result = await ingestStrict(apiBase, files, {});
+      if (!cancelled) {
+        setPreviewOrders(result.orders || []);
       }
-    })();
+    } catch (e: any) {
+      if (!cancelled) {
+        const errorMsg = typeof e?.message === 'string' 
+          ? e.message 
+          : JSON.stringify(e, null, 2);
+        setParseError(errorMsg);
+      }
+    } finally {
+      if (!cancelled) {
+        setParsing(false);
+      }
+    }
+  })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [files, apiBase]);
+  return () => {
+    cancelled = true;
+  };
+}, [files, apiBase]);
 
   const onPickPdfs = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = e.target.files ? Array.from(e.target.files) : [];
