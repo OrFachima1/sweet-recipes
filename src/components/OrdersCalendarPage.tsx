@@ -944,6 +944,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
           loading={loading}
           onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}  // ✅ עדכון
           apiBase={apiBase}  // ✅ הוספה
+          
         />
       )}
 

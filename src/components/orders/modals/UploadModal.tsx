@@ -11,6 +11,9 @@ interface UploadModalProps {
   loading: boolean;
   onRunPreview: (dateOverrides?: Record<number, string>) => Promise<void>;
   apiBase?: string;
+
+  // חדש (לא חובה להעביר): יפעיל את המודאל הידני במסך הראשי
+  onManualStart?: () => void;
 }
 
 interface PreviewOrder {
@@ -30,6 +33,7 @@ export default function UploadModal({
   loading,
   onRunPreview,
   apiBase = "http://127.0.0.1:8000",
+  onManualStart
 }: UploadModalProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -37,7 +41,8 @@ export default function UploadModal({
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  
+  const [step, setStep] = useState<'choose' | 'pdf'>('choose');
+
   // ✅ מפה לעקוב אחרי קבצים שכבר פורסרו
   const [parsedFilesMap, setParsedFilesMap] = useState<Map<string, PreviewOrder[]>>(new Map());
   const [parsingFiles, setParsingFiles] = useState<Set<string>>(new Set());
@@ -261,18 +266,42 @@ export default function UploadModal({
           <div className="flex items-center gap-3">
             <span className="text-3xl">📄</span>
             <div>
-              <div className="font-bold text-white text-xl">העלאת קבצי PDF</div>
-              <div className="text-white/80 text-sm">גרור קבצים או לחץ לבחירה</div>
+              <div className="font-bold text-white text-xl">
+                {step === 'choose' ? 'בחר מקור הזמנה' : 'העלאת קבצי PDF'}
+              </div>
+              <div className="text-white/80 text-sm">
+                {step === 'choose' ? 'PDF או הזנה ידנית' : 'גרור קבצים או לחץ לבחירה'}
+              </div>
             </div>
           </div>
+
           <button
-            onClick={onClose}
+            onClick={() => { setStep('choose'); onClose(); }}
             className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition-all flex items-center justify-center text-white text-xl"
           >
             ✕
           </button>
         </div>
-
+        
+        {/* בחירה בין PDF לידני */}
+{step === 'choose' && (
+  <div className="p-6 space-y-4">
+    <button
+      onClick={() => setStep('pdf')}
+      className="w-full px-5 py-3 rounded-xl bg-purple-600 text-white font-bold hover:shadow active:scale-[0.98] transition-all"
+    >
+      העלאת PDF
+    </button>
+    <button
+      onClick={() => { onManualStart?.(); setStep('choose'); onClose(); }}
+      className="w-full px-5 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium"
+    >
+      הוספה ידנית
+    </button>
+  </div>
+)}
+{step === 'pdf' && (
+<>
         {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <input
@@ -490,6 +519,8 @@ export default function UploadModal({
             )}
           </button>
         </div>
+        </>
+)}
       </div>
     </div>
   );
