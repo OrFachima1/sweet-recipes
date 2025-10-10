@@ -8,16 +8,13 @@ import { useIngredientDict } from "../../../../hooks/useIngredientDict";
 import HomeButton from "../../../../components/HomeButton";
 import { useCategoryDict } from "../../../../hooks/useCategoryDict";
 import { useUnitDict } from "../../../../hooks/useUnitDict";
-
+import {generateId} from  "@/utils/imageHelpers";
 
 type Ingredient = { id: string; name: string; qty: string; unit: string };
 type IngredientGroup = { id: string; groupName: string; items: Ingredient[] };
 type Step = { id: string; text: string };
 
-const uid = () =>
-  typeof crypto !== "undefined" && (crypto as any).randomUUID
-    ? (crypto as any).randomUUID()
-    : Math.random().toString(36).slice(2);
+
 
 // דחיסה
 async function fileToDataUrl(file: File): Promise<string> {

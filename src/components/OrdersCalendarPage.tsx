@@ -78,8 +78,7 @@ function makeLogger(enabledRef: React.MutableRefObject<boolean>) {
 export default function OrdersCalendarPage({
   apiBase = "http://127.0.0.1:8000",
 }: { apiBase?: string }) {
-    console.log("🔄 OrdersCalendarPage RENDER");
-
+    
   // 🔐 Auth & Role
   const { user, loading: authLoading } = useUser();
   const { role, displayName } = useRole(user?.uid);
@@ -121,10 +120,8 @@ useEffect(() => {
       setCategoryConfigState(config);
       setCategoryConfig(config); // ✅ עדכן גם את categoryMapping.ts
       
-      console.log("📁 קטגוריות נטענו:", config);
-    } else {
-      console.warn("⚠️ אין קטגוריות ב-Firestore!");
-    }
+          } else {
+          }
   });
   
   return () => unsub();
@@ -137,8 +134,7 @@ useEffect(() => {
     if (snap.exists()) {
       const data = snap.data();
       setRecipeLinks(data.links || {});
-      console.log("📖 קישורי מתכונים נטענו:", data.links);
-    } else {
+          } else {
       setRecipeLinks({});
     }
   });
@@ -186,8 +182,7 @@ useEffect(() => {
     const next = !readDebugFlag();
     writeDebugFlag(next);
     setDebugOn(next);
-    console.info("[UI] debug ->", next);
-  };
+      };
   
   // 🔥 Load orders from Firestore (real-time)
 useEffect(() => {
@@ -339,14 +334,10 @@ useEffect(() => {
   const persist = async (next: IngestJsonOrder[]) => {
      debugger;
   if (!user || !isManager) {
-    console.log("❌ Cannot persist - no auth or not manager");
-    log.warn("Cannot persist - no auth or not manager");
+        log.warn("Cannot persist - no auth or not manager");
     return;
   }
   
-  console.log("🚀 persist() START");
-  console.log("📦 Orders to persist:", next.length);
-  console.log("📦 First order sample:", next[0]);
   
   log.group("persist()");
   log.on("Saving orders to Firestore", { count: next.length });
@@ -356,11 +347,9 @@ useEffect(() => {
     
     // סינון הזמנות בלי __id
     const validOrders = next.filter(o => o.__id);
-    console.log("✅ Valid orders (with __id):", validOrders.length);
     
     if (validOrders.length === 0) {
-      console.warn("⚠️ No valid orders to save!");
-      return;
+            return;
     }
     
     // Delete removed orders
@@ -369,19 +358,15 @@ useEffect(() => {
       .filter(o => o.__id && !currentIds.has(o.__id))
       .map(o => o.__id!);
     
-    console.log("🗑️ Orders to delete:", deletedIds.length);
-    
+        
     for (const id of deletedIds) {
-      console.log(`🗑️ Deleting: ${id}`);
-      batch.delete(doc(db, "orders", id));
+            batch.delete(doc(db, "orders", id));
     }
     
     // Update/create orders
-    console.log("💾 Starting to prepare orders for batch...");
-    for (let i = 0; i < validOrders.length; i++) {
+        for (let i = 0; i < validOrders.length; i++) {
       const order = validOrders[i];
-      console.log(`📝 Processing order ${i + 1}/${validOrders.length}: ${order.__id}`);
-      
+            
       const orderDoc = doc(db, "orders", order.__id!);
       
       // נקה undefined ← null
@@ -405,17 +390,11 @@ useEffect(() => {
         createdAt: serverTimestamp(),
       };
       
-      if (i === 0) {
-        console.log("📋 First order clean data:", JSON.stringify(cleanData, null, 2));
-      }
-      
       batch.set(orderDoc, cleanData);
     }
     
-    console.log("⏳ Committing batch to Firestore...");
-    await batch.commit();
-    console.log("✅✅✅ Batch committed successfully!");
-    log.on("Batch write completed");
+        await batch.commit();
+        log.on("Batch write completed");
     
   } catch (e: any) {
     console.error("❌❌❌ PERSIST FAILED!");
@@ -440,8 +419,7 @@ useEffect(() => {
     if (!m.has(day)) m.set(day, []);
     m.get(day)!.push(o);
   }
-  console.log("🗺️ daysMap recalculated, orders:", orders.length);
-  return m;
+    return m;
 }, [orders]); // 🔧 שינוי כאן - רק אורך המערך
 
   const dayKey = selectedDayKey;
@@ -620,7 +598,6 @@ const setViewDateStable = useCallback((date: Date) => {
     const data = await ingestStrict(apiBase, files, mappingObj);
     log.timeEnd("ingest.call");
 
-    console.log("🔍 1️⃣ RAW DATA מה-API:", JSON.stringify(data, null, 2));
 
     // 1) Normalize
     let normalized: NormalizedOrder[] = (data.orders || []).map((o: any): NormalizedOrder => ({
@@ -642,10 +619,8 @@ const setViewDateStable = useCallback((date: Date) => {
       meta: o.meta,
     }));
 
-    console.log("🔍 2️⃣ אחרי NORMALIZE:", normalized.length);
 // ✅ החל את התאריכים שהמשתמש מילא
 if (dateOverrides && Object.keys(dateOverrides).length > 0) {
-  console.log("🗓️ מחיל תאריכים שהמשתמש מילא:", dateOverrides);
   normalized = normalized.map((order, idx) => {
     if (dateOverrides[idx]) {
       return { ...order, eventDate: dateOverrides[idx] };
@@ -654,26 +629,21 @@ if (dateOverrides && Object.keys(dateOverrides).length > 0) {
   });
 }
     // 2) Apply existing mapping FIRST (מה-state)
-console.log("🔍 2.5️⃣ מיפוי קיים מה-state:", mapping);
 if (Object.keys(mapping).length > 0) {
-  console.log("✅ מחיל מיפוי קיים לפני בדיקה");
-  normalized = applyMappingOnOrders(normalized, mapping);
+    normalized = applyMappingOnOrders(normalized, mapping);
 }
 
 // 2.1) Apply new mapping if provided (מה-parameter)
 if (Object.keys(mappingObj).length) {
-  console.log("✅ מחיל מיפוי נוסף מהפרמטר");
-  normalized = applyMappingOnOrders(normalized, mappingObj);
+    normalized = applyMappingOnOrders(normalized, mappingObj);
 }
 
 // 3) Check unknowns
 if (!skipUnknownCheck) {
   const stillUnknown = getUnknownTitles(normalized, menuOptions, ignored);
-  console.log("🔍 4️⃣ unknowns אחרי מיפוי קיים:", stillUnknown);
-
+  
   if (stillUnknown.length > 0) {
-    console.log("🎯 יש unknowns - פותח חלונית מיפוי");
-    ingestBufferRef.current = normalized as any;
+        ingestBufferRef.current = normalized as any;
     setUnknowns(stillUnknown);
     // ❌ לא לאפס! setMapping({});  
     // ✅ שומר את המיפוי הקיים כבר יש לו מה-state
@@ -692,20 +662,15 @@ if (!skipUnknownCheck) {
         ...order,
         items: order.items.filter((item) => {
           const isInMenu = menuSet.has(item.title);
-          if (!isInMenu) {
-            console.log(`❌ זורק: "${item.title}" (לא בתפריט)`);
-          }
           return isInMenu;
         })
       }))
       .filter(order => order.items.length > 0);
 
-    console.log("🔍 5️⃣ אחרי FILTER:", filtered.length);
 
    const withNotes = filtered.map(o => normalizeImportantNotes(o));
 
 // ✅ במקום persist ישירות - פותחים את חלונית האישור
-console.log("🔹 9️⃣ פותח חלונית אישור לבדיקה");
 setReviewData({
   orders: withNotes,
   files: files // הקבצים עדיין זמינים כאן!
@@ -717,8 +682,7 @@ setShowReview(true); // ישר למסך הבדיקה!
 
   // ===== Finalize Orders (אחרי בדיקה או ישירות) =====
 const finalizeOrders = async (finalOrders: any[]) => {
-  console.log("🔹 🎯 שומר הזמנות סופיות", finalOrders);
-   // ✅ וודא שכל הלקוחות קיימים ב-clients collection
+     // ✅ וודא שכל הלקוחות קיימים ב-clients collection
   for (const order of finalOrders) {
     const color = order.clientColor || getClientColor(order.clientName);
     await ensureClient(order.clientName, color);
@@ -745,18 +709,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
   ingestBufferRef.current = null;
   log.on("🎉 העלאה הושלמה!");
 };
-  console.log("📊 State check:", {
-  viewMode,
-  loading,
-  showUpload,
-  mapOpen,
-  dateFixOpen,
-  dayModalKey,
-  addItemFor,
-  authLoading,
-  role
-});
-// ===== Save Manual Order =====
+  // ===== Save Manual Order =====
 const saveManualOrder = async (orderData: {
   clientName: string;
   eventDate: string;
@@ -769,8 +722,7 @@ const saveManualOrder = async (orderData: {
     return;
   }
 
-  console.log("💾 שומר הזמנה ידנית חדשה", orderData);
-  
+    
   // ✅ קבל את הצבע מה-clients collection או מהמשתמש
   const finalColor = orderData.clientColor || getClientColor(orderData.clientName);
   
@@ -809,8 +761,7 @@ const saveManualOrder = async (orderData: {
       createdAt: serverTimestamp(),
     });
 
-    console.log("✅ הזמנה נשמרה בהצלחה");
-    setShowManualOrder(false);
+        setShowManualOrder(false);
     
     const orderDate = new Date(orderData.eventDate);
     setViewDate(orderDate);
@@ -1056,7 +1007,6 @@ const saveManualOrder = async (orderData: {
     onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}
     apiBase={apiBase}
     onManualStart={() => {
-      console.log("🎯 onManualStart called!");
       setShowUpload(false);
       setShowManualOrder(true);
     }}
@@ -1079,13 +1029,11 @@ const saveManualOrder = async (orderData: {
   <ConfirmReviewModal
     show={showConfirmReview}
     onConfirm={() => {
-      console.log("✅ משתמש בחר לבדוק");
       setShowConfirmReview(false);
       setShowReview(true);
     }}
     onSkip={async () => {
-      console.log("⏭️ משתמש דילג על בדיקה");
-      setShowConfirmReview(false);
+            setShowConfirmReview(false);
       await finalizeOrders(reviewData.orders);
     }}
   />
@@ -1098,14 +1046,12 @@ const saveManualOrder = async (orderData: {
     orders={reviewData.orders}
     files={reviewData.files}
     onClose={() => {
-      console.log("❌ משתמש ביטל בדיקה");
-      setShowReview(false);
+            setShowReview(false);
       setShowConfirmReview(false);
       setReviewData(null);
     }}
     onSave={async (editedOrders) => {
-      console.log("💾 משתמש שמר אחרי בדיקה", editedOrders);
-      await finalizeOrders(editedOrders);
+            await finalizeOrders(editedOrders);
     }}
   />
 )}
@@ -1127,8 +1073,7 @@ const saveManualOrder = async (orderData: {
     // עדכן state מקומי
     setMenuOptions(newMenu);
     
-    console.log("✅ תפריט נשמר ל-Firebase");
-  } catch (e) {
+      } catch (e) {
     console.error("❌ שגיאה בשמירת תפריט:", e);
     alert("שגיאה בשמירה");
   }
@@ -1148,8 +1093,7 @@ const saveManualOrder = async (orderData: {
         await setDoc(doc(db, "orderSettings", "categoryConfig"), newConfig);
         setCategoryConfigState(newConfig);
         setCategoryConfig(newConfig);
-        console.log("✅ קטגוריות נשמרו");
-      } catch (e) {
+              } catch (e) {
         console.error("❌ שגיאה:", e);
         alert("שגיאה בשמירה");
       }
@@ -1162,8 +1106,7 @@ const saveManualOrder = async (orderData: {
           updatedAt: serverTimestamp(),
         });
         setRecipeLinks(newLinks);
-        console.log("✅ קישורי מתכונים נשמרו");
-      } catch (e) {
+              } catch (e) {
         console.error("❌ שגיאה:", e);
         alert("שגיאה בשמירה");
       }

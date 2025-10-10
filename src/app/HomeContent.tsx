@@ -21,7 +21,7 @@ import { useCategoryDict } from "@/hooks/useCategoryDict";
 import { useUnitDict } from "@/hooks/useUnitDict";
 import { logout } from "@/lib/auth";
 import InstallPrompt from "../components/InstallPrompt";
-
+import { fileToDataUrl, compressImage , compressForCategory, generateId } from "@/utils/imageHelpers";
 // ===== Types =====
 type Ingredient = { id: string; name: string; qty: string; unit: string };
 type IngredientGroup = { id: string; groupName: string; items: Ingredient[] };
@@ -49,47 +49,6 @@ type CategoryDoc = {
 };
 
 // ===== Helpers =====
-const uid = () =>
-  typeof crypto !== "undefined" && (crypto as any).randomUUID
-    ? (crypto as any).randomUUID()
-    : Math.random().toString(36).slice(2);
-
-async function fileToDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-async function downscaleImage(dataUrl: string, maxW = 1280, quality = 0.8): Promise<string> {
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = dataUrl;
-  });
-  const scale = Math.min(1, maxW / img.naturalWidth);
-  const w = Math.round(img.naturalWidth * scale);
-  const h = Math.round(img.naturalHeight * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
-}
-
-// דחיסה אגרסיבית יותר לתמונות קטגוריה
-async function downscaleForCategory(dataUrl: string): Promise<string> {
-  let out = await downscaleImage(dataUrl, 800, 0.7);
-  const bytes = Math.ceil((out.length * 3) / 4);
-  if (bytes > 900 * 1024) {
-    out = await downscaleImage(out, 600, 0.6);
-  }
-  return out;
-}
-
 // קיצורי מקלדת ל-**בולד** ו-__קו__
 function toggleWrapSelection(
   el: HTMLTextAreaElement | null,
@@ -188,13 +147,13 @@ export default function HomeContent({
   const [note, setNote] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
   const [groups, setGroups] = useState<IngredientGroup[]>([
-    { id: uid(), groupName: "קבוצה", items: [{ id: uid(), name: "", qty: "", unit: "" }] },
+    { id: generateId(), groupName: "קבוצה", items: [{ id: generateId(), name: "", qty: "", unit: "" }] },
   ]);
-  const [steps, setSteps] = useState<Step[]>([{ id: uid(), text: "" }]);
+  const [steps, setSteps] = useState<Step[]>([{ id: generateId(), text: "" }]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function addGroup() {
-    setGroups((g) => [...g, { id: uid(), groupName: "קבוצה", items: [] }]);
+    setGroups((g) => [...g, { id: generateId(), groupName: "קבוצה", items: [] }]);
   }
   function removeGroup(groupId: string) {
     setGroups((g) => g.filter((x) => x.id !== groupId));
@@ -206,7 +165,7 @@ export default function HomeContent({
     setGroups((g) =>
       g.map((x) =>
         x.id === groupId
-          ? { ...x, items: [...x.items, { id: uid(), name: "", qty: "", unit: "" }] }
+          ? { ...x, items: [...x.items, { id: generateId(), name: "", qty: "", unit: "" }] }
           : x
       )
     );
@@ -229,7 +188,7 @@ export default function HomeContent({
     );
   }
   function addStep() {
-    setSteps((s) => [...s, { id: uid(), text: "" }]);
+    setSteps((s) => [...s, { id: generateId(), text: "" }]);
   }
   function removeStep(id: string) {
     setSteps((s) => s.filter((x) => x.id !== id));
@@ -242,7 +201,7 @@ export default function HomeContent({
     const f = e.target.files?.[0];
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
-    const compressed = await downscaleImage(dataUrl, 1280, 0.8);
+const compressed = await compressImage(dataUrl, 1280, 0.8);
     setImageDataUrl(compressed);
   }
 
@@ -251,8 +210,8 @@ export default function HomeContent({
     setCategory("");
     setNote("");
     setImageDataUrl(undefined);
-    setGroups([{ id: uid(), groupName: "קבוצה", items: [{ id: uid(), name: "", qty: "", unit: "" }] }]);
-    setSteps([{ id: uid(), text: "" }]);
+    setGroups([{ id: generateId(), groupName: "קבוצה", items: [{ id: generateId(), name: "", qty: "", unit: "" }] }]);
+    setSteps([{ id: generateId(), text: "" }]);
   }
 
   async function saveRecipe() {
@@ -289,7 +248,7 @@ export default function HomeContent({
     const f = e.target.files?.[0];
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
-    const compressed = await downscaleForCategory(dataUrl);
+    const compressed = await compressForCategory(dataUrl);
     await setDoc(
       doc(db, "categories", catKey),
       { key: catKey, name: catLabel, imageDataUrl: compressed, active: true },
@@ -352,7 +311,7 @@ export default function HomeContent({
     const f = e.target.files?.[0];
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
-    const compressed = await downscaleForCategory(dataUrl);
+    const compressed = await compressForCategory(dataUrl);
     setCatImage(compressed);
   }
 
