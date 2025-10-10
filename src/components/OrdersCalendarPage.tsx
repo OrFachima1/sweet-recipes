@@ -51,6 +51,7 @@ import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
 import ClientColorPicker from "@/components/orders/ClientColorPicker";
 import { useOrdersState } from '@/hooks/useOrdersState';
+import { useOrdersActions } from '@/hooks/useOrdersActions';
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -80,7 +81,10 @@ export default function OrdersCalendarPage({
   apiBase = "http://127.0.0.1:8000",
 }: { apiBase?: string }) {
   const state = useOrdersState();
-    
+  const actions = useOrdersActions({
+  orders: state.orders,
+  setOrders: state.setOrders,
+});
   // 🔐 Auth & Role
   const { user, loading: authLoading } = useUser();
   const { role, displayName } = useRole(user?.uid);
@@ -527,50 +531,9 @@ const setViewDateStable = useCallback((date: Date) => {
     log.on("[UI] toggle note", { orderId, idx });
   };
 
-  const editOrderItem = (orderId: string, idx: number, patch: Partial<IngestJsonOrderItem>) => {
-    if (!isManager) {
-      alert("אין לך הרשאה לערוך הזמנות");
-      return;
-    }
-    
-    log.on("[UI] edit item", { orderId, idx, patch });
-    const next = state.orders.map(o => {
-      if (o.__id !== orderId) return o;
-      const items = o.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
-      return { ...o, items };
-    });
-    persist(next);
-  };
-
-  const removeItemFromOrder = (orderId: string, idx: number) => {
-    if (!isManager) {
-      alert("אין לך הרשאה למחוק פריטים");
-      return;
-    }
-    
-    log.on("[UI] remove item", { orderId, idx });
-    const next = state.orders.map(o => (o.__id !== orderId ? o : { ...o, items: o.items.filter((_, i) => i !== idx) }));
-    persist(next);
-  };
-
-  const deleteOrder = async (orderId: string) => {
-    if (!isManager) {
-      alert("אין לך הרשאה למחוק הזמנות");
-      return;
-    }
-    
-    log.warn("[UI] delete order?", { orderId });
-    if (!confirm("למחוק את ההזמנה?")) return;
-    
-    try {
-      await deleteDoc(doc(db, "orders", orderId));
-      log.on("Order deleted from Firestore");
-    } catch (e) {
-      log.err("Failed to delete order", e);
-      alert("שגיאה במחיקת ההזמנה");
-    }
-  };
-
+  
+  
+  
   // ===== Upload + Preview + Mapping + Ingest =====
   const hasPendingFiles = () => files && files.length > 0;
 
@@ -728,72 +691,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
   ingestBufferRef.current = null;
   log.on("🎉 העלאה הושלמה!");
 };
-  // ===== Save Manual Order =====
-const saveManualOrder = async (orderData: {
-  clientName: string;
-  eventDate: string;
-  items: any[];
-  orderNotes: string;
-  clientColor?: string;
-}) => {
-  if (!isManager) {
-    alert("אין לך הרשאה להוסיף הזמנות");
-    return;
-  }
 
-    
-  // ✅ קבל את הצבע מה-clients collection או מהמשתמש
-  const finalColor = orderData.clientColor || getClientColor(orderData.clientName);
-  
-  // ✅ וודא שהלקוח קיים ב-clients collection
-  await ensureClient(orderData.clientName, finalColor);
-  
-  const newOrder = {
-    __id: genId(),
-    orderId: null,
-    clientName: orderData.clientName,
-    clientColor: finalColor, // ✅ שימוש בצבע המסונכרן
-    eventDate: orderData.eventDate,
-    status: "new",
-    items: orderData.items,
-    orderNotes: orderData.orderNotes,
-    totalSum: null,
-    currency: null,
-    source: "manual",
-    meta: { addedManually: true, addedAt: new Date().toISOString() },
-  };
-
-  try {
-    const orderDoc = doc(db, "orders", newOrder.__id);
-    await setDoc(orderDoc, {
-      orderId: newOrder.orderId,
-      clientName: newOrder.clientName,
-      clientColor: newOrder.clientColor,
-      eventDate: newOrder.eventDate,
-      status: newOrder.status,
-      items: newOrder.items,
-      orderNotes: newOrder.orderNotes,
-      totalSum: newOrder.totalSum,
-      currency: newOrder.currency,
-      source: newOrder.source,
-      meta: newOrder.meta,
-      createdAt: serverTimestamp(),
-    });
-
-        state.setShowManualOrder(false);
-    
-    const orderDate = new Date(orderData.eventDate);
-    state.setViewDate
-(orderDate);
-    setSelectedDayKey(fmtYMD(orderDate));
-    state.setViewMode
-("day");
-    
-  } catch (e: any) {
-    console.error("❌ שגיאה בשמירת הזמנה", e);
-    alert(`שגיאה בשמירה: ${e?.message || 'Unknown error'}`);
-  }
-};
   // ===== Loading state =====
   if (authLoading || role === null) {
     return (
@@ -943,9 +841,9 @@ const saveManualOrder = async (orderData: {
                 <DayOrdersList
                   dayKey={dayKey}
                   daysMap={daysMap}
-                  deleteOrder={isManager ? deleteOrder : undefined}
-                  editOrderItem={isManager ? editOrderItem : undefined}
-                  removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
+                  deleteOrder={isManager ? actions.deleteOrder : undefined}
+                  editOrderItem={isManager ? actions.editOrderItem : undefined}
+                  removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
                   onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
                   noteOpen={noteOpen}
                   toggleNote={toggleNote}
@@ -977,9 +875,9 @@ const saveManualOrder = async (orderData: {
     dayKey={state.dayModalKey}
     onClose={() => { state.setDayModalKey(null); log.on("[UI] close day modal"); }}
     daysMap={daysMap}
-    deleteOrder={isManager ? deleteOrder : undefined}
-    editOrderItem={isManager ? editOrderItem : undefined}
-    removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
+    deleteOrder={isManager ? actions.deleteOrder : undefined}
+    editOrderItem={isManager ? actions.editOrderItem : undefined}
+    removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
     onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
     noteOpen={noteOpen}
     toggleNote={toggleNote}
@@ -1150,7 +1048,7 @@ const saveManualOrder = async (orderData: {
   <ManualOrderModal
     show={state.showManualOrder}
     onClose={() => state.setShowManualOrder(false)}
-    onSave={saveManualOrder}
+    onSave={actions.saveManualOrder}
     menuOptions={state.menuOptions
 }
   />
