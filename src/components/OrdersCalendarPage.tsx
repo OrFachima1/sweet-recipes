@@ -50,6 +50,7 @@ import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
 import ClientColorPicker from "@/components/orders/ClientColorPicker";
+import { useOrdersState } from '@/hooks/useOrdersState';
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -78,6 +79,7 @@ function makeLogger(enabledRef: React.MutableRefObject<boolean>) {
 export default function OrdersCalendarPage({
   apiBase = "http://127.0.0.1:8000",
 }: { apiBase?: string }) {
+  const state = useOrdersState();
     
   // 🔐 Auth & Role
   const { user, loading: authLoading } = useUser();
@@ -85,12 +87,7 @@ export default function OrdersCalendarPage({
   const isManager = role === "manager";
 const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
   // ===== State =====
-  const [orders, setOrders] = useState<IngestJsonOrder[]>([]);
-  const [menuOptions, setMenuOptions] = useState<string[]>([]);
-  const [viewDate, setViewDate] = useState<Date>(() => new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [selectedDayKey, setSelectedDayKey] = useState<string>(fmtYMD(new Date()));
-  const [dayModalKey, setDayModalKey] = useState<string | null>(null);
   // ===== Review Modals =====
   const [showConfirmReview, setShowConfirmReview] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -98,7 +95,6 @@ const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid
     orders: any[];
     files: File[];
   } | null>(null);
-  const [showManualOrder, setShowManualOrder] = useState(false);
  const [showSettings, setShowSettings] = useState(false);
  const [categoryConfig, setCategoryConfigState] = useState<{
   items: Record<string, { color: string; order: number }>;
@@ -144,16 +140,15 @@ useEffect(() => {
   // ESC to close modal
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dayModalKey) {
-        setDayModalKey(null);
+      if (e.key === 'Escape' && state.dayModalKey) {
+        state.setDayModalKey(null);
         log.on("[UI] close day modal (ESC)");
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [dayModalKey]);
+  }, [state.dayModalKey]);
 
-  const [addItemFor, setAddItemFor] = useState<string | null>(null);
   const [addSearch, setAddSearch] = useState<string>("");
   const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
 
@@ -165,7 +160,6 @@ useEffect(() => {
   const [dateFixOpen, setDateFixOpen] = useState(false);
   const [dateFixList, setDateFixList] = useState<{ id: string; name: string; date: string }[]>([]);
 
-  const [showUpload, setShowUpload] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +211,7 @@ useEffect(() => {
     });
     
     log.on("Orders loaded from Firestore", { count: list.length });
-    setOrders(list);
+    state.setOrders(list);
   }, (err) => {
     log.err("Failed loading orders", err);
   });
@@ -313,17 +307,20 @@ useEffect(() => {
     if (snap.exists()) {
       const data = snap.data();
       const menuArray = data.items || [];
-      setMenuOptions(menuArray);
+      state.setMenuOptions
+(menuArray);
       log.on("Menu loaded from Firestore", { count: menuArray.length });
     } else {
       // ⚠️ אל תיצור מסמך ריק אוטומטית!
       log.warn("No menu found in Firestore");
-      setMenuOptions([]);
+      state.setMenuOptions
+([]);
       // לא קוראים ל-setDoc כאן!
     }
   }, (err) => {
     log.err("Failed loading menu", err);
-    setMenuOptions([]);
+    state.setMenuOptions
+([]);
   });
   
   log.groupEnd();
@@ -354,7 +351,7 @@ useEffect(() => {
     
     // Delete removed orders
     const currentIds = new Set(validOrders.map(o => o.__id));
-    const deletedIds = orders
+    const deletedIds = state.orders
       .filter(o => o.__id && !currentIds.has(o.__id))
       .map(o => o.__id!);
     
@@ -413,60 +410,78 @@ useEffect(() => {
   // ===== Derived =====
   const daysMap = useMemo(() => {
   const m = new Map<string, IngestJsonOrder[]>();
-  for (const o of orders) {
+  for (const o of state.orders) {
     const day = o?.eventDate ? fmtYMD(new Date(o.eventDate)) : null;
     if (!day) continue;
     if (!m.has(day)) m.set(day, []);
     m.get(day)!.push(o);
   }
     return m;
-}, [orders]); // 🔧 שינוי כאן - רק אורך המערך
+}, [state.orders]); // 🔧 שינוי כאן - רק אורך המערך
 
   const dayKey = selectedDayKey;
   const todayKey = fmtYMD(new Date());
-  const monthLabel = viewDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const monthLabel = state.viewDate
+.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   // ===== UI actions =====
 const goToday = () => {
   const t = new Date();
-  setViewDate(t);
+  state.setViewDate
+(t);
   setSelectedDayKey(fmtYMD(t));
   log.on("[UI] goToday ->", fmtYMD(t));
 };
 
 const prev = () => {
-  if (viewMode === "month") {
-    const d = addMonths(viewDate, -1);
-    setViewDate(d);
+  if (state.viewMode
+ === "month") {
+    const d = addMonths(state.viewDate
+, -1);
+    state.setViewDate
+(d);
     setSelectedDayKey(fmtYMD(d));
     log.on("[UI] prev month ->", d.toISOString());
-  } else if (viewMode === "week") {
-    const nd = addDays(viewDate, -7);
-    setViewDate(nd);
+  } else if (state.viewMode
+ === "week") {
+    const nd = addDays(state.viewDate
+, -7);
+    state.setViewDate
+(nd);
     setSelectedDayKey(fmtYMD(nd));
     log.on("[UI] prev week ->", fmtYMD(nd));
   } else {
-    const nd = addDays(viewDate, -1);
-    setViewDate(nd);
+    const nd = addDays(state.viewDate
+, -1);
+    state.setViewDate
+(nd);
     setSelectedDayKey(fmtYMD(nd));
     log.on("[UI] prev day ->", fmtYMD(nd));
   }
 };
 
 const next = () => {
-  if (viewMode === "month") {
-    const d = addMonths(viewDate, 1);
-    setViewDate(d);
+  if (state.viewMode
+ === "month") {
+    const d = addMonths(state.viewDate
+, 1);
+    state.setViewDate
+(d);
     setSelectedDayKey(fmtYMD(d));
     log.on("[UI] next month ->", d.toISOString());
-  } else if (viewMode === "week") {
-    const nd = addDays(viewDate, 7);
-    setViewDate(nd);
+  } else if (state.viewMode
+ === "week") {
+    const nd = addDays(state.viewDate
+, 7);
+    state.setViewDate
+(nd);
     setSelectedDayKey(fmtYMD(nd));
     log.on("[UI] next week ->", fmtYMD(nd));
   } else {
-    const nd = addDays(viewDate, 1);
-    setViewDate(nd);
+    const nd = addDays(state.viewDate
+, 1);
+    state.setViewDate
+(nd);
     setSelectedDayKey(fmtYMD(nd));
     log.on("[UI] next day ->", fmtYMD(nd));
   }
@@ -476,7 +491,8 @@ const next = () => {
   useEffect(() => {
     if (picker) {
       setSelectedDayKey(picker);
-      setViewDate(new Date(picker));
+      state.setViewDate
+(new Date(picker));
       log.on("[UI] date picked ->", picker);
     }
   }, [picker]);
@@ -485,23 +501,24 @@ const next = () => {
 }, []);
 
 const setViewDateStable = useCallback((date: Date) => {
-  setViewDate(date);
+  state.setViewDate
+(date);
 }, []);
   const confirmAddItem = (title: string) => {
     if (!isManager) {
       alert("אין לך הרשאה לערוך הזמנות");
       return;
     }
-    if (!addItemFor || !title) return;
+    if (!state.addItemFor || !title) return;
     
-    log.on("[UI] add item", { orderId: addItemFor, title });
-    const next = orders.map(o =>
-      o.__id !== addItemFor
+    log.on("[UI] add item", { orderId: state.addItemFor, title });
+    const next = state.orders.map(o =>
+      o.__id !== state.addItemFor
         ? o
         : { ...o, items: [...o.items, { title, qty: 1, unit: "יח'", notes: "" }] }
     );
     persist(next);
-    setAddItemFor(null);
+    state.setAddItemFor(null);
   };
 
   const noteKey = (orderId: string, idx: number) => `${orderId}:${idx}`;
@@ -517,7 +534,7 @@ const setViewDateStable = useCallback((date: Date) => {
     }
     
     log.on("[UI] edit item", { orderId, idx, patch });
-    const next = orders.map(o => {
+    const next = state.orders.map(o => {
       if (o.__id !== orderId) return o;
       const items = o.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
       return { ...o, items };
@@ -532,7 +549,7 @@ const setViewDateStable = useCallback((date: Date) => {
     }
     
     log.on("[UI] remove item", { orderId, idx });
-    const next = orders.map(o => (o.__id !== orderId ? o : { ...o, items: o.items.filter((_, i) => i !== idx) }));
+    const next = state.orders.map(o => (o.__id !== orderId ? o : { ...o, items: o.items.filter((_, i) => i !== idx) }));
     persist(next);
   };
 
@@ -640,14 +657,15 @@ if (Object.keys(mappingObj).length) {
 
 // 3) Check unknowns
 if (!skipUnknownCheck) {
-  const stillUnknown = getUnknownTitles(normalized, menuOptions, ignored);
+  const stillUnknown = getUnknownTitles(normalized, state.menuOptions
+, ignored);
   
   if (stillUnknown.length > 0) {
         ingestBufferRef.current = normalized as any;
     setUnknowns(stillUnknown);
     // ❌ לא לאפס! setMapping({});  
     // ✅ שומר את המיפוי הקיים כבר יש לו מה-state
-    setShowUpload(false);  // ✅ סגור את חלונית ההעלאה
+    state.setShowUpload(false);  // ✅ סגור את חלונית ההעלאה
     setMapOpen(true);
 
     log.groupEnd();
@@ -656,7 +674,8 @@ if (!skipUnknownCheck) {
 }
 
     // 4) Filter by menu
-    const menuSet = new Set(menuOptions);
+    const menuSet = new Set(state.menuOptions
+);
     const filtered = normalized
       .map(order => ({
         ...order,
@@ -688,7 +707,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
     await ensureClient(order.clientName, color);
     order.clientColor = color; // עדכן את ההזמנה עם הצבע הנכון
   }
-  const merged = [...orders, ...finalOrders];
+  const merged = [...state.orders, ...finalOrders];
   await persist(merged);
 
   const missing = finalOrders
@@ -701,7 +720,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
   }
 
   // ניקוי
-  setShowUpload(false);
+  state.setShowUpload(false);
   setFiles([]);
   setShowConfirmReview(false);
   setShowReview(false);
@@ -761,12 +780,14 @@ const saveManualOrder = async (orderData: {
       createdAt: serverTimestamp(),
     });
 
-        setShowManualOrder(false);
+        state.setShowManualOrder(false);
     
     const orderDate = new Date(orderData.eventDate);
-    setViewDate(orderDate);
+    state.setViewDate
+(orderDate);
     setSelectedDayKey(fmtYMD(orderDate));
-    setViewMode("day");
+    state.setViewMode
+("day");
     
   } catch (e: any) {
     console.error("❌ שגיאה בשמירת הזמנה", e);
@@ -826,53 +847,60 @@ const saveManualOrder = async (orderData: {
       {mainView === "calendar" && (
         <>
           <Toolbar
-            viewMode={viewMode}
-            onChangeViewMode={(m) => { setViewMode(m); log.on("[UI] view mode ->", m); }}
+            viewMode={state.viewMode}
+            onChangeViewMode={(m) => { state.setViewMode(m); log.on("[UI] view mode ->", m); }}
             picker={selectedDayKey}
             onPickerChange={(val: string) => { setPicker(val); }}
           />
 
-          {viewMode === "month" && (
+          {state.viewMode
+ === "month" && (
             <MonthView
-              viewDate={viewDate}
+              viewDate={state.viewDate
+}
               selectedDayKey={selectedDayKey}
               setSelectedDayKey={setSelectedDayKey}
-              setViewDate={setViewDate}
+              setViewDate={state.setViewDate
+}
               daysMap={daysMap}
               todayKey={today}
-              onOpenDayModal={(key: string) => { setDayModalKey(key); }}
+              onOpenDayModal={(key: string) => { state.setDayModalKey(key); }}
               onPrev={prev}
               onNext={next}
               onToday={goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => { setShowUpload(true); } : undefined}
+              onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
             />
           )}
 
-          {viewMode === "week" && (
+          {state.viewMode
+ === "week" && (
             <WeekView
-              viewDate={viewDate}
+              viewDate={state.viewDate
+}
               selectedDayKey={selectedDayKey}
               setSelectedDayKey={setSelectedDayKey}
-              setViewDate={setViewDate}
+              setViewDate={state.setViewDate
+}
               daysMap={daysMap}
               todayKey={today}
-              onOpenDayModal={(key: string) => { setDayModalKey(key); }}
+              onOpenDayModal={(key: string) => { state.setDayModalKey(key); }}
               onPrevWeek={prev}
               onNextWeek={next}
               onToday={goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => { setShowUpload(true); } : undefined}
+              onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
             />
           )}
 
-          {viewMode === "day" && (
+          {state.viewMode
+ === "day" && (
             <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
               <div className="bg-red-100 px-6 py-6">
                 <div className="flex items-center justify-between mb-3">
                   {isManager && (
                     <button
-                      onClick={() => { setShowUpload(true); }}
+                      onClick={() => { state.setShowUpload(true); }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
                     >
                       <span className="text-xl leading-none">＋</span>
@@ -918,7 +946,7 @@ const saveManualOrder = async (orderData: {
                   deleteOrder={isManager ? deleteOrder : undefined}
                   editOrderItem={isManager ? editOrderItem : undefined}
                   removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
-                  onAddItem={isManager ? (orderId: string) => { setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
+                  onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
                   noteOpen={noteOpen}
                   toggleNote={toggleNote}
                   onEditColor={isManager ? async (clientName, newColor) => {
@@ -936,23 +964,23 @@ const saveManualOrder = async (orderData: {
 
       {mainView === "clients" && (
         <ClientsView
-          orders={orders}
-          onAddClient={isManager ? () => { setShowUpload(true); } : undefined}
+          orders={state.orders}
+          onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
               recipeLinks={recipeLinks} // ✅ הוסף
 
         />
       )}
 
       {/* Day Modal */}
-{dayModalKey && (
+{state.dayModalKey && (
   <DayModal
-    dayKey={dayModalKey}
-    onClose={() => { setDayModalKey(null); log.on("[UI] close day modal"); }}
+    dayKey={state.dayModalKey}
+    onClose={() => { state.setDayModalKey(null); log.on("[UI] close day modal"); }}
     daysMap={daysMap}
     deleteOrder={isManager ? deleteOrder : undefined}
     editOrderItem={isManager ? editOrderItem : undefined}
     removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
-    onAddItem={isManager ? (orderId: string) => { setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
+    onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
     noteOpen={noteOpen}
     toggleNote={toggleNote}
     // ✅ הוסף את אלה:
@@ -965,9 +993,10 @@ const saveManualOrder = async (orderData: {
       {/* Add Item Picker - only for managers */}
       {isManager && (
         <AddItemModal
-          showFor={addItemFor}
-          onClose={() => { setAddItemFor(null); log.on("[UI] close add-item"); }}
-          menuOptions={menuOptions}
+          showFor={state.addItemFor}
+          onClose={() => { state.setAddItemFor(null); log.on("[UI] close add-item"); }}
+          menuOptions={state.menuOptions
+}
           addSearch={addSearch}
           setAddSearch={setAddSearch}
           onConfirm={confirmAddItem}
@@ -980,14 +1009,15 @@ const saveManualOrder = async (orderData: {
           unknowns={unknowns}
           mapping={mapping}
           setMapping={updateMapping}
-          menuOptions={menuOptions}
+          menuOptions={state.menuOptions
+}
           ignored={ignored}
           setIgnored={updateIgnored}
           onClose={() => { setMapOpen(false); log.on("[UI] close mapping"); }}
           onIngest={(mappingObj) => doIngest(mappingObj, true)}
           hasPendingFiles={hasPendingFiles}
           ingestBufferRef={ingestBufferRef}
-          orders={orders as any}
+          orders={state.orders as any}
           persist={persist as any}
         />
       )}
@@ -995,9 +1025,9 @@ const saveManualOrder = async (orderData: {
       {/* Upload PDF Modal - only for managers */}
       {isManager && (
   <UploadModal
-    show={showUpload}
+    show={state.showUpload}
     onClose={() => { 
-      setShowUpload(false); 
+      state.setShowUpload(false); 
       log.on("[UI] close upload"); 
     }}
     files={files}
@@ -1007,8 +1037,8 @@ const saveManualOrder = async (orderData: {
     onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}
     apiBase={apiBase}
     onManualStart={() => {
-      setShowUpload(false);
-      setShowManualOrder(true);
+      state.setShowUpload(false);
+      state.setShowManualOrder(true);
     }}
   />
 )}
@@ -1019,7 +1049,7 @@ const saveManualOrder = async (orderData: {
           onClose={() => { setDateFixOpen(false); log.on("[UI] close date-fix"); }}
           dateFixList={dateFixList}
           setDateFixList={setDateFixList}
-          orders={orders}
+          orders={state.orders}
           persist={persist}
         />
       )}
@@ -1061,7 +1091,8 @@ const saveManualOrder = async (orderData: {
     show={showSettings}
     onClose={() => setShowSettings(false)}
     
-    menuOptions={menuOptions}
+    menuOptions={state.menuOptions
+}
     onUpdateMenu={async (newMenu) => {
   try {
     // שמור ל-Firebase
@@ -1071,7 +1102,8 @@ const saveManualOrder = async (orderData: {
     });
     
     // עדכן state מקומי
-    setMenuOptions(newMenu);
+    state.setMenuOptions
+(newMenu);
     
       } catch (e) {
     console.error("❌ שגיאה בשמירת תפריט:", e);
@@ -1116,10 +1148,11 @@ const saveManualOrder = async (orderData: {
 {/* Manual Order Modal - only for managers */}
 {isManager && (
   <ManualOrderModal
-    show={showManualOrder}
-    onClose={() => setShowManualOrder(false)}
+    show={state.showManualOrder}
+    onClose={() => state.setShowManualOrder(false)}
     onSave={saveManualOrder}
-    menuOptions={menuOptions}
+    menuOptions={state.menuOptions
+}
   />
 )}
     </div>
