@@ -23,7 +23,7 @@ export function getTextColor(bgColor: string): string {
  * צבעים מוכנים לשימוש מהיר - פלטת צבעים מומלצת
  */
 export const DEFAULT_CLIENT_COLORS = [
-  "#73a1ecff", // כחול - ברירת מחדל
+  "#a5c4f7ff", // כחול - ברירת מחדל
   "#10B981", // ירוק - מאושר/שולם
   "#F59E0B", // כתום - בהמתנה
   "#EF4444", // אדום - דחוף/חשוב

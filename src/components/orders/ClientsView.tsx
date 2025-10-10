@@ -11,13 +11,17 @@ import { getTextColor } from "@/utils/colorHelpers";
 interface ClientsViewProps {
   orders: any[];
   onAddClient?: () => void;
+  recipeLinks?: Record<string, string>; // ✅ הוסף
 }
 
 type TimeRange = "today" | "week" | "weekend" | "twoweeks" | "month" | "custom";
 
-export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
+export default function ClientsView({ orders, onAddClient ,recipeLinks
+
+}: ClientsViewProps) {
   const { user } = useUser();
-  const { clients, updateClientColor, getClientColor } = useClients(user?.uid);
+  const { clients, updateClientColor, getClientColor
+    } = useClients(user?.uid);
   
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [focusMode, setFocusMode] = useState(false);
@@ -264,11 +268,12 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
           ) : (
             filteredOrders.map((order: any) => (
               <ClientCard 
-                key={order.__id} 
-                order={order}
-                clientColor={order.clientColor || getClientColor(order.clientName)}
-                onEditColor={handleEditColor}
-              />
+  key={order.__id} 
+  order={order}
+  clientColor={order.clientColor || getClientColor(order.clientName)}
+  onEditColor={handleEditColor}
+  recipeLinks={recipeLinks} // ✅ הוסף
+/>
             ))
           )}
         </div>
@@ -292,11 +297,13 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
 function ClientCard({ 
   order, 
   clientColor,
-  onEditColor 
+  onEditColor,
+  recipeLinks // ✅ הוסף
 }: { 
   order: any;
   clientColor: string;
   onEditColor: (name: string, color: string) => void;
+  recipeLinks?: Record<string, string>; // ✅ הוסף
 }) {
   let tracking;
   try {
@@ -526,7 +533,21 @@ function ClientCard({
                           </button>
                           
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs font-semibold text-gray-900 truncate block">{item.title}</span>
+                           {recipeLinks?.[item.title] ? (
+  <a
+    href={`/recipes/${recipeLinks[item.title]}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={(e) => e.stopPropagation()} // אם לשורה יש onClick אחר
+    className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+    title="פתח מתכון"
+  >
+    {item.title}
+  </a>
+) : (
+  <span className="text-sm font-semibold text-gray-900">{item.title}</span>
+)}
+
                           </div>
                           
                           <span className="text-sm font-bold text-gray-700 flex-shrink-0">

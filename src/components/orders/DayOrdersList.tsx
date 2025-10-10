@@ -19,6 +19,8 @@ interface DayOrdersListProps {
   } | null;
    onEditColor?: (clientName: string, currentColor: string) => void;
   getClientColor?: (clientName: string) => string;
+  recipeLinks?: Record<string, string>; // ✅ הוסף
+
 }
 
 export default function DayOrdersList({
@@ -32,6 +34,7 @@ export default function DayOrdersList({
   toggleNote: externalToggleNote,
    onEditColor, // ✅ הוסף
   getClientColor, // ✅ הוסף
+    recipeLinks, // ✅ הוסף
 }: DayOrdersListProps) {
   const orders = daysMap.get(dayKey) || [];
   
@@ -427,7 +430,22 @@ export default function DayOrdersList({
                                 </button>
                                 
                                 <div className="flex-1 flex items-center gap-1">
-                                  <span className="text-sm font-semibold text-gray-900">{it.title}</span>
+{recipeLinks?.[it.title] ? (
+  <a
+    href={`/recipes/${recipeLinks[it.title]}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={(e) => e.stopPropagation()} // אם לשורה יש onClick אחר
+    className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+    title="פתח מתכון"
+  >
+    {it.title}
+  </a>
+) : (
+  <span className="text-sm font-semibold text-gray-900">{it.title}</span>
+)}
+
+
                                   {canEdit ? (
                                     <span 
                                       className="text-base font-bold cursor-pointer hover:text-blue-600"

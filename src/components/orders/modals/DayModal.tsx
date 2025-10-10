@@ -16,6 +16,7 @@ interface DayModalProps {
   isManager?: boolean;
   updateClientColor?: (clientName: string, newColor: string) => Promise<void>;
   getClientColor?: (clientName: string) => string;
+    recipeLinks?: Record<string, string>; // ✅ הוסף
 }
 
 export default function DayModal({
@@ -31,6 +32,7 @@ export default function DayModal({
   isManager,
   updateClientColor,
   getClientColor,
+  recipeLinks
 }: DayModalProps) {
   let tracking;
   try {
@@ -107,6 +109,8 @@ export default function DayModal({
               toggleNote={toggleNote}
               onEditColor={isManager ? updateClientColor : undefined}
               getClientColor={getClientColor}
+                    recipeLinks={recipeLinks} // ✅ הוסף
+
             />
           </div>
 

@@ -105,6 +105,7 @@ const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid
   items: Record<string, { color: string; order: number }>;
   itemMapping: Record<string, string>;
 } | null>(null);
+const [recipeLinks, setRecipeLinks] = useState<Record<string, string>>({});
 useEffect(() => {
   if (!user) return;
   
@@ -123,6 +124,22 @@ useEffect(() => {
       console.log("📁 קטגוריות נטענו:", config);
     } else {
       console.warn("⚠️ אין קטגוריות ב-Firestore!");
+    }
+  });
+  
+  return () => unsub();
+}, [user]);
+useEffect(() => {
+  if (!user) return;
+  
+  const recipeLinksDoc = doc(db, "orderSettings", "recipeLinks");
+  const unsub = onSnapshot(recipeLinksDoc, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      setRecipeLinks(data.links || {});
+      console.log("📖 קישורי מתכונים נטענו:", data.links);
+    } else {
+      setRecipeLinks({});
     }
   });
   
@@ -957,6 +974,8 @@ const saveManualOrder = async (orderData: {
                   await updateClientColor(clientName, newColor);
                 } : undefined}
                 getClientColor={getClientColor}
+                  recipeLinks={recipeLinks} // ✅ הוסף
+
                 />
               </div>
             </div>
@@ -968,10 +987,11 @@ const saveManualOrder = async (orderData: {
         <ClientsView
           orders={orders}
           onAddClient={isManager ? () => { setShowUpload(true); } : undefined}
+              recipeLinks={recipeLinks} // ✅ הוסף
+
         />
       )}
 
-      {/* Day Modal */}
       {/* Day Modal */}
 {dayModalKey && (
   <DayModal
@@ -988,6 +1008,7 @@ const saveManualOrder = async (orderData: {
     isManager={isManager}
     updateClientColor={updateClientColor}
     getClientColor={getClientColor}
+    recipeLinks={recipeLinks} // ✅ הוסף
   />
 )}
       {/* Add Item Picker - only for managers */}
@@ -1128,6 +1149,20 @@ const saveManualOrder = async (orderData: {
         setCategoryConfigState(newConfig);
         setCategoryConfig(newConfig);
         console.log("✅ קטגוריות נשמרו");
+      } catch (e) {
+        console.error("❌ שגיאה:", e);
+        alert("שגיאה בשמירה");
+      }
+    }}
+    recipeLinks={recipeLinks}
+    onUpdateRecipeLinks={async (newLinks) => {
+      try {
+        await setDoc(doc(db, "orderSettings", "recipeLinks"), {
+          links: newLinks,
+          updatedAt: serverTimestamp(),
+        });
+        setRecipeLinks(newLinks);
+        console.log("✅ קישורי מתכונים נשמרו");
       } catch (e) {
         console.error("❌ שגיאה:", e);
         alert("שגיאה בשמירה");

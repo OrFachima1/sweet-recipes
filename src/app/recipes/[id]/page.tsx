@@ -230,7 +230,7 @@ function PartyOverlay({
 export default function RecipePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useUser();
+const { user, loading: authLoading } = useUser();
   const { role } = useRole(user?.uid);
   const isManager = role === "manager";
   const [data, setData] = useState<any | null>(null);
@@ -261,20 +261,33 @@ async function handleWorkModeToggle(e: React.ChangeEvent<HTMLInputElement>) {
 const [party, setParty] = useState(false);
 
   // טעינת מתכון
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await ensureAnonAuth();
-      const ref = doc(db, "recipes", id);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        setData({ id: snap.id, ...(snap.data() as any) });
-      } else {
-        setData(null);
+  // טעינת מתכון
+useEffect(() => {
+  // ✅ חכה עד שה-auth יסתיים
+  if (authLoading) return;
+  
+  (async () => {
+    setLoading(true);
+    
+    // ✅ רק אם אין user בכלל - התחבר אנונימית
+    if (!user) {
+      try {
+        await ensureAnonAuth();
+      } catch (error) {
+        console.error("Failed to sign in anonymously:", error);
       }
-      setLoading(false);
-    })();
-  }, [id]);
+    }
+    
+    const ref = doc(db, "recipes", id);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      setData({ id: snap.id, ...(snap.data() as any) });
+    } else {
+      setData(null);
+    }
+    setLoading(false);
+  })();
+}, [id, user, authLoading]); // ✅ תלוי ב-authLoading
 
   // רשימת רכיבים שטוחים (עם מזהים) – משמשת ל־checked map
   const items = useMemo(() => {
