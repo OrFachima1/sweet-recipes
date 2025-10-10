@@ -52,6 +52,8 @@ import SettingsModal from "@/components/orders/modals/SettingModal";
 import ClientColorPicker from "@/components/orders/ClientColorPicker";
 import { useOrdersState } from '@/hooks/useOrdersState';
 import { useOrdersActions } from '@/hooks/useOrdersActions';
+import { useOrdersSettings } from '@/hooks/useOrdersSettings';
+
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -85,10 +87,13 @@ export default function OrdersCalendarPage({
   orders: state.orders,
   setOrders: state.setOrders,
 });
+
   // 🔐 Auth & Role
   const { user, loading: authLoading } = useUser();
   const { role, displayName } = useRole(user?.uid);
   const isManager = role === "manager";
+  const settings = useOrdersSettings(user?.uid);
+
 const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
   // ===== State =====
   const [selectedDayKey, setSelectedDayKey] = useState<string>(fmtYMD(new Date()));
@@ -100,11 +105,7 @@ const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid
     files: File[];
   } | null>(null);
  const [showSettings, setShowSettings] = useState(false);
- const [categoryConfig, setCategoryConfigState] = useState<{
-  items: Record<string, { color: string; order: number }>;
-  itemMapping: Record<string, string>;
-} | null>(null);
-const [recipeLinks, setRecipeLinks] = useState<Record<string, string>>({});
+
 useEffect(() => {
   if (!user) return;
   
@@ -117,7 +118,7 @@ useEffect(() => {
         itemMapping: data.itemMapping || {}
       };
       
-      setCategoryConfigState(config);
+      settings.updateCategoryConfig(config);
       setCategoryConfig(config); // ✅ עדכן גם את categoryMapping.ts
       
           } else {
@@ -133,9 +134,9 @@ useEffect(() => {
   const unsub = onSnapshot(recipeLinksDoc, (snap) => {
     if (snap.exists()) {
       const data = snap.data();
-      setRecipeLinks(data.links || {});
+      settings.updateRecipeLinks(data.links || {});
           } else {
-      setRecipeLinks({});
+      settings.updateRecipeLinks({});
     }
   });
   
@@ -158,8 +159,6 @@ useEffect(() => {
 
   const [mapOpen, setMapOpen] = useState(false);
   const [unknowns, setUnknowns] = useState<string[]>([]);
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [ignored, setIgnored] = useState<string[]>([]);
 
   const [dateFixOpen, setDateFixOpen] = useState(false);
   const [dateFixList, setDateFixList] = useState<{ id: string; name: string; date: string }[]>([]);
@@ -235,9 +234,9 @@ useEffect(() => {
   
   const unsub1 = onSnapshot(settingsDoc, (snap) => {
     if (snap.exists()) {
-      const data = snap.data();
-      setMapping(data.mapping || {});
-      setIgnored(data.ignored || []);
+      const data = snap.data(); 
+      settings.updateMapping(data.mapping || {});
+      settings.updateIgnored(data.ignored || []);
     }
   });
   
@@ -261,8 +260,8 @@ useEffect(() => {
     const unsub = onSnapshot(settingsDoc, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setMapping(data.mapping || {});
-        setIgnored(data.ignored || []);
+        settings.updateMapping(data.mapping || {});
+        settings.updateIgnored(data.ignored || []);
         log.on("Settings loaded", { mapping: data.mapping, ignored: data.ignored });
       } else {
         log.on("No settings doc, using defaults");
@@ -286,19 +285,19 @@ useEffect(() => {
       });
       log.on("Settings saved to Firestore");
     } catch (e) {
-      log.err("Failed saving settings", e);
+      log.err("Failed saving settings", e); 
     }
   };
 
   // Update setMapping and setIgnored to also save to Firestore
   const updateMapping = (newMapping: Record<string, string>) => {
-    setMapping(newMapping);
-    saveSettings(newMapping, ignored);
+    settings.updateMapping(newMapping);
+    saveSettings(newMapping, settings.ignored);
   };
 
   const updateIgnored = (newIgnored: string[]) => {
-    setIgnored(newIgnored);
-    saveSettings(mapping, newIgnored);
+    settings.updateIgnored(newIgnored);
+    saveSettings(settings.mapping, newIgnored);
   };
 
 useEffect(() => {
@@ -609,8 +608,8 @@ if (dateOverrides && Object.keys(dateOverrides).length > 0) {
   });
 }
     // 2) Apply existing mapping FIRST (מה-state)
-if (Object.keys(mapping).length > 0) {
-    normalized = applyMappingOnOrders(normalized, mapping);
+if (Object.keys(settings.mapping).length > 0) {
+    normalized = applyMappingOnOrders(normalized, settings.mapping);
 }
 
 // 2.1) Apply new mapping if provided (מה-parameter)
@@ -621,7 +620,7 @@ if (Object.keys(mappingObj).length) {
 // 3) Check unknowns
 if (!skipUnknownCheck) {
   const stillUnknown = getUnknownTitles(normalized, state.menuOptions
-, ignored);
+, settings.ignored);
   
   if (stillUnknown.length > 0) {
         ingestBufferRef.current = normalized as any;
@@ -851,7 +850,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
                   await updateClientColor(clientName, newColor);
                 } : undefined}
                 getClientColor={getClientColor}
-                  recipeLinks={recipeLinks} // ✅ הוסף
+                  recipeLinks={settings.recipeLinks} // ✅ הוסף
 
                 />
               </div>
@@ -864,7 +863,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
         <ClientsView
           orders={state.orders}
           onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
-              recipeLinks={recipeLinks} // ✅ הוסף
+              recipeLinks={settings.recipeLinks} // ✅ הוסף
 
         />
       )}
@@ -885,7 +884,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
     isManager={isManager}
     updateClientColor={updateClientColor}
     getClientColor={getClientColor}
-    recipeLinks={recipeLinks} // ✅ הוסף
+    recipeLinks={settings.recipeLinks} // ✅ הוסף
   />
 )}
       {/* Add Item Picker - only for managers */}
@@ -905,11 +904,11 @@ const finalizeOrders = async (finalOrders: any[]) => {
       {isManager && mapOpen && (
         <MappingModal
           unknowns={unknowns}
-          mapping={mapping}
+          mapping={settings.mapping}
           setMapping={updateMapping}
           menuOptions={state.menuOptions
 }
-          ignored={ignored}
+          ignored={settings.ignored}
           setIgnored={updateIgnored}
           onClose={() => { setMapOpen(false); log.on("[UI] close mapping"); }}
           onIngest={(mappingObj) => doIngest(mappingObj, true)}
@@ -984,7 +983,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
   />
 )}
 {/* Settings Modal - only for managers */}
-{isManager && categoryConfig && (
+{isManager && settings.categoryConfig && (
   <SettingsModal
     show={showSettings}
     onClose={() => setShowSettings(false)}
@@ -1009,33 +1008,33 @@ const finalizeOrders = async (finalOrders: any[]) => {
   }
 }}
     
-    mapping={mapping}
+    mapping={settings.mapping}
     onUpdateMapping={updateMapping}
     
-    ignored={ignored}
+    ignored={settings.ignored}
     onUpdateIgnored={updateIgnored}
     
     // ✅ העבר את הקטגוריות!
-    categories={categoryConfig}
+    categories={settings.categoryConfig}
     
     onUpdateCategories={async (newConfig) => {
       try {
         await setDoc(doc(db, "orderSettings", "categoryConfig"), newConfig);
-        setCategoryConfigState(newConfig);
+        settings.updateCategoryConfig(newConfig);
         setCategoryConfig(newConfig);
               } catch (e) {
         console.error("❌ שגיאה:", e);
         alert("שגיאה בשמירה");
       }
     }}
-    recipeLinks={recipeLinks}
+    recipeLinks={settings.recipeLinks}
     onUpdateRecipeLinks={async (newLinks) => {
       try {
         await setDoc(doc(db, "orderSettings", "recipeLinks"), {
           links: newLinks,
           updatedAt: serverTimestamp(),
         });
-        setRecipeLinks(newLinks);
+        settings.updateRecipeLinks(newLinks);
               } catch (e) {
         console.error("❌ שגיאה:", e);
         alert("שגיאה בשמירה");
