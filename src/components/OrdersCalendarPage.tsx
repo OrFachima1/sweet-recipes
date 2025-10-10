@@ -31,7 +31,7 @@ import type {
 import ViewToggle from "@/components/orders/ViewToggle";
 import ClientsView from "@/components/orders/ClientsView";
 import { setCategoryConfig } from "@/utils/categoryMapping";
-
+import { useClients } from "@/hooks/useClients";
 // 🔥 Firebase imports
 import { useUser, useRole } from "@/lib/auth";
 import { db } from "@/lib/firebase";
@@ -49,6 +49,7 @@ import {
 import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
+import ClientColorPicker from "@/components/orders/ClientColorPicker";
 // ========================
 // Debug helpers (safe on SSR)
 // ========================
@@ -83,7 +84,7 @@ export default function OrdersCalendarPage({
   const { user, loading: authLoading } = useUser();
   const { role, displayName } = useRole(user?.uid);
   const isManager = role === "manager";
-
+const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
   // ===== State =====
   const [orders, setOrders] = useState<IngestJsonOrder[]>([]);
   const [menuOptions, setMenuOptions] = useState<string[]>([]);
@@ -172,49 +173,50 @@ useEffect(() => {
   };
   
   // 🔥 Load orders from Firestore (real-time)
-  useEffect(() => {
-    if (!user) return;
-    let isSubscribed = true; // 🔧 הוסף את זה
+useEffect(() => {
+  if (!user) return;
+  let isSubscribed = true;
 
-    log.group("Load orders from Firestore");
-    
-    const ordersCol = collection(db, "orders");
-    const q = query(ordersCol, firestoreOrderBy("createdAt", "desc"));
-    
-    const unsub = onSnapshot(q, (snap) => {
-          if (!isSubscribed) return; // 🔧 הוסף את זה
+  log.group("Load orders from Firestore");
+  
+  const ordersCol = collection(db, "orders");
+  const q = query(ordersCol, firestoreOrderBy("createdAt", "desc"));
+  
+  const unsub = onSnapshot(q, (snap) => {
+    if (!isSubscribed) return;
 
-      const list = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          __id: d.id,
-          orderId: data.orderId,
-          clientName: data.clientName,
-          clientColor: data.clientColor ?? "#3B82F6",
-          eventDate: data.eventDate,
-          status: data.status,
-          items: data.items || [],
-          orderNotes: data.orderNotes,
-          totalSum: data.totalSum,
-          currency: data.currency,
-          source: data.source,
-          meta: data.meta,
-          createdAt: data.createdAt,
-        } as IngestJsonOrder;
-      });
-      
-      log.on("Orders loaded from Firestore", { count: list.length });
-      setOrders(list);
-    }, (err) => {
-      log.err("Failed loading orders", err);
+    const list = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        __id: d.id,
+        orderId: data.orderId,
+        clientName: data.clientName,
+        clientColor: getClientColor(data.clientName), // ✅ תמיד לוקח מ-clients collection
+        eventDate: data.eventDate,
+        status: data.status,
+        items: data.items || [],
+        orderNotes: data.orderNotes,
+        totalSum: data.totalSum,
+        currency: data.currency,
+        source: data.source,
+        meta: data.meta,
+        createdAt: data.createdAt,
+      } as IngestJsonOrder;
     });
     
-    log.groupEnd();
-   return () => {
-    isSubscribed = false; // 🔧 הוסף את זה
+    log.on("Orders loaded from Firestore", { count: list.length });
+    setOrders(list);
+  }, (err) => {
+    log.err("Failed loading orders", err);
+  });
+  
+  log.groupEnd();
+  return () => {
+    isSubscribed = false;
     unsub();
   };
-}, [user]);
+}, [user, getClientColor]); // ✅ הוסף dependency
+
 useEffect(() => {
   if (!user) return;
   
@@ -369,8 +371,7 @@ useEffect(() => {
       const cleanData: any = {
         orderId: order.orderId ?? null,
         clientName: order.clientName ?? null,
-          clientColor: order.clientColor ?? "#3B82F6", // ✅ הוסף שורה זו
-
+        clientColor: order.clientColor || getClientColor(order.clientName), // ✅ שורה מעודכנת
         eventDate: order.eventDate ?? null,
         status: order.status ?? "new",
         items: (order.items || []).map(item => ({
@@ -700,7 +701,12 @@ setShowReview(true); // ישר למסך הבדיקה!
   // ===== Finalize Orders (אחרי בדיקה או ישירות) =====
 const finalizeOrders = async (finalOrders: any[]) => {
   console.log("🔹 🎯 שומר הזמנות סופיות", finalOrders);
-  
+   // ✅ וודא שכל הלקוחות קיימים ב-clients collection
+  for (const order of finalOrders) {
+    const color = order.clientColor || getClientColor(order.clientName);
+    await ensureClient(order.clientName, color);
+    order.clientColor = color; // עדכן את ההזמנה עם הצבע הנכון
+  }
   const merged = [...orders, ...finalOrders];
   await persist(merged);
 
@@ -739,7 +745,7 @@ const saveManualOrder = async (orderData: {
   eventDate: string;
   items: any[];
   orderNotes: string;
-  clientColor?: string; // ✅ הוספת צבע
+  clientColor?: string;
 }) => {
   if (!isManager) {
     alert("אין לך הרשאה להוסיף הזמנות");
@@ -748,11 +754,17 @@ const saveManualOrder = async (orderData: {
 
   console.log("💾 שומר הזמנה ידנית חדשה", orderData);
   
+  // ✅ קבל את הצבע מה-clients collection או מהמשתמש
+  const finalColor = orderData.clientColor || getClientColor(orderData.clientName);
+  
+  // ✅ וודא שהלקוח קיים ב-clients collection
+  await ensureClient(orderData.clientName, finalColor);
+  
   const newOrder = {
     __id: genId(),
     orderId: null,
     clientName: orderData.clientName,
-    clientColor: orderData.clientColor || "#3B82F6", // ✅ ברירת מחדל כחול
+    clientColor: finalColor, // ✅ שימוש בצבע המסונכרן
     eventDate: orderData.eventDate,
     status: "new",
     items: orderData.items,
@@ -768,7 +780,7 @@ const saveManualOrder = async (orderData: {
     await setDoc(orderDoc, {
       orderId: newOrder.orderId,
       clientName: newOrder.clientName,
-      clientColor: newOrder.clientColor, // ✅ שמירת הצבע
+      clientColor: newOrder.clientColor,
       eventDate: newOrder.eventDate,
       status: newOrder.status,
       items: newOrder.items,
@@ -783,7 +795,6 @@ const saveManualOrder = async (orderData: {
     console.log("✅ הזמנה נשמרה בהצלחה");
     setShowManualOrder(false);
     
-    // ניווט לתאריך של ההזמנה
     const orderDate = new Date(orderData.eventDate);
     setViewDate(orderDate);
     setSelectedDayKey(fmtYMD(orderDate));
@@ -942,6 +953,10 @@ const saveManualOrder = async (orderData: {
                   onAddItem={isManager ? (orderId: string) => { setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
                   noteOpen={noteOpen}
                   toggleNote={toggleNote}
+                  onEditColor={isManager ? async (clientName, newColor) => {
+                  await updateClientColor(clientName, newColor);
+                } : undefined}
+                getClientColor={getClientColor}
                 />
               </div>
             </div>
@@ -957,20 +972,24 @@ const saveManualOrder = async (orderData: {
       )}
 
       {/* Day Modal */}
-      {dayModalKey && (
-        <DayModal
-          dayKey={dayModalKey}
-          onClose={() => { setDayModalKey(null); log.on("[UI] close day modal"); }}
-          daysMap={daysMap}
-          deleteOrder={isManager ? deleteOrder : undefined}
-          editOrderItem={isManager ? editOrderItem : undefined}
-          removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
-          onAddItem={isManager ? (orderId: string) => { setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
-          noteOpen={noteOpen}
-          toggleNote={toggleNote}
-        />
-      )}
-
+      {/* Day Modal */}
+{dayModalKey && (
+  <DayModal
+    dayKey={dayModalKey}
+    onClose={() => { setDayModalKey(null); log.on("[UI] close day modal"); }}
+    daysMap={daysMap}
+    deleteOrder={isManager ? deleteOrder : undefined}
+    editOrderItem={isManager ? editOrderItem : undefined}
+    removeItemFromOrder={isManager ? removeItemFromOrder : undefined}
+    onAddItem={isManager ? (orderId: string) => { setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
+    noteOpen={noteOpen}
+    toggleNote={toggleNote}
+    // ✅ הוסף את אלה:
+    isManager={isManager}
+    updateClientColor={updateClientColor}
+    getClientColor={getClientColor}
+  />
+)}
       {/* Add Item Picker - only for managers */}
       {isManager && (
         <AddItemModal

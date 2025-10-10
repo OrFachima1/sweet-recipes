@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import { groupItemsByCategory, getCategoryColor, getCategoryOrder} from "@/utils/categoryMapping";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
-
+import ClientColorPicker from "./ClientColorPicker"; // ✅ הוסף
+import { getTextColor } from "@/utils/colorHelpers"; // ✅ הוסף
 interface DayOrdersListProps {
   dayKey: string;
   daysMap: Map<string, any[]>;
@@ -16,6 +17,8 @@ interface DayOrdersListProps {
     items: Record<string, { color: string; order: number }>;
     itemMapping: Record<string, string>;
   } | null;
+   onEditColor?: (clientName: string, currentColor: string) => void;
+  getClientColor?: (clientName: string) => string;
 }
 
 export default function DayOrdersList({
@@ -27,6 +30,8 @@ export default function DayOrdersList({
   onAddItem,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
+   onEditColor, // ✅ הוסף
+  getClientColor, // ✅ הוסף
 }: DayOrdersListProps) {
   const orders = daysMap.get(dayKey) || [];
   
@@ -40,7 +45,8 @@ export default function DayOrdersList({
   const [localCompletionState, setLocalCompletionState] = useState<Record<string, { completed: number; status: 'pending' | 'partial' | 'almost' | 'done'; missingNote: string }>>({});
   const [localNoteOpen, setLocalNoteOpen] = useState<Record<string, boolean>>({});
   const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
-  
+  const [editingClient, setEditingClient] = useState<{ name: string; color: string } | null>(null);
+
   const canEdit = !!editOrderItem;
   const canDelete = !!deleteOrder;
   const canRemoveItems = !!removeItemFromOrder;
@@ -151,51 +157,97 @@ export default function DayOrdersList({
         return (
           <div key={o.__id} className="rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
             {/* Header */}
-            <div className="bg-red-100 px-4 py-2 flex items-center justify-between">
-              <div className="font-bold text-gray-900 text-xl truncate">{o.clientName}</div>
-              <div className="flex items-center gap-2">
-                {o.status && (
-                  <span className="text-xs px-2 py-1 rounded-full bg-white/60 text-gray-700 font-medium">
-                    {o.status}
-                  </span>
-                )}
-                
-                {tracking && (
-                  <>
-                    <button
-                      onClick={() => handleSaveOrder(o)}
-                      className="text-green-600 hover:text-green-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50 flex items-center gap-1"
-                      title="שמור שינויים"
-                    >
-                      💾 <span className="hidden sm:inline">שמור</span>
-                    </button>
-                    
-                    {orderHistory.length > 0 && (
-                      <button
-                        onClick={() => setShowHistory(prev => ({ ...prev, [o.__id]: !prev[o.__id] }))}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
-                        title="היסטוריית שינויים"
-                      >
-                        📜 {orderHistory.length}
-                      </button>
-                    )}
-                  </>
-                )}
-                
-                {canDelete && (
-                  <button 
-                    onClick={() => {
-                      if (confirm(`האם למחוק את ההזמנה של ${o.clientName}?`)) {
-                        deleteOrder(o.__id!);
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            </div>
+           {/* Header */}
+<div 
+  className="px-4 py-2 flex items-center justify-between"
+  style={{ 
+    backgroundColor: o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff')
+  }}
+>
+  <div 
+    className="font-bold text-xl truncate"
+    style={{ 
+      color: getTextColor(o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff'))
+    }}
+  >
+    {o.clientName}
+  </div>
+  
+  <div className="flex items-center gap-2">
+    {/* ✅ כפתור עריכת צבע */}
+    {onEditColor && getClientColor && (
+      <button
+        onClick={() => setEditingClient({ 
+          name: o.clientName, 
+          color: o.clientColor || getClientColor(o.clientName) 
+        })}
+        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/10 transition-all"
+        title="שנה צבע"
+        style={{ 
+          color: getTextColor(o.clientColor || getClientColor(o.clientName))
+        }}
+      >
+        🎨
+      </button>
+    )}
+    
+    {o.status && (
+      <span 
+        className="text-xs px-2 py-1 rounded-full font-medium"
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.3)',
+          color: getTextColor(o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff'))
+        }}
+      >
+        {o.status}
+      </span>
+    )}
+    
+    {tracking && (
+      <>
+        <button
+          onClick={() => handleSaveOrder(o)}
+          className="text-sm font-medium px-2 py-1 rounded hover:bg-white/50 flex items-center gap-1"
+          title="שמור שינויים"
+          style={{ 
+            color: getTextColor(o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff'))
+          }}
+        >
+          💾 <span className="hidden sm:inline">שמור</span>
+        </button>
+        
+        {orderHistory.length > 0 && (
+          <button
+            onClick={() => setShowHistory(prev => ({ ...prev, [o.__id]: !prev[o.__id] }))}
+            className="text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
+            title="היסטוריית שינויים"
+            style={{ 
+              color: getTextColor(o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff'))
+            }}
+          >
+            📜 {orderHistory.length}
+          </button>
+        )}
+      </>
+    )}
+    
+    {canDelete && (
+      <button 
+        onClick={() => {
+          if (confirm(`האם למחוק את ההזמנה של ${o.clientName}?`)) {
+            deleteOrder(o.__id!);
+          }
+        }}
+        className="text-sm font-medium px-2 py-1 rounded hover:bg-white/50"
+        style={{ 
+          color: getTextColor(o.clientColor || (getClientColor ? getClientColor(o.clientName) : '#73a1ecff'))
+        }}
+      >
+        🗑️
+      </button>
+    )}
+  </div>
+</div>
 
             {/* היסטוריית שינויים - קומפקטית */}
             {tracking && showHistory[o.__id] && orderHistory.length > 0 && (
@@ -458,6 +510,20 @@ export default function DayOrdersList({
                                   readOnly={!canEdit}
                                 />
                               )}
+                                  {/* ✅ הוסף את זה */}
+    {editingClient && onEditColor && (
+      <ClientColorPicker
+        show={!!editingClient}
+        clientName={editingClient.name}
+        currentColor={editingClient.color}
+        onClose={() => setEditingClient(null)}
+        onSave={async (newColor) => {
+          await onEditColor(editingClient.name, newColor);
+          setEditingClient(null);
+        }}
+      />
+    )}
+  
                             </div>
                           );
                         })}

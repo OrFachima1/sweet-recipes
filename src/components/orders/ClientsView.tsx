@@ -3,6 +3,10 @@ import React, { useState, useMemo } from "react";
 import { fmtYMD, addDays } from "@/utils/orders";
 import { groupItemsByCategory, getCategoryColor, getCategoryOrder} from "@/utils/categoryMapping";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
+import { useClients } from "@/hooks/useClients";
+import { useUser } from "@/lib/auth";
+import ClientColorPicker from "./ClientColorPicker";
+import { getTextColor } from "@/utils/colorHelpers";
 
 interface ClientsViewProps {
   orders: any[];
@@ -12,10 +16,16 @@ interface ClientsViewProps {
 type TimeRange = "today" | "week" | "weekend" | "twoweeks" | "month" | "custom";
 
 export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
+  const { user } = useUser();
+  const { clients, updateClientColor, getClientColor } = useClients(user?.uid);
+  
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [focusMode, setFocusMode] = useState(false);
   const [customStart, setCustomStart] = useState<string>(fmtYMD(new Date()));
   const [customEnd, setCustomEnd] = useState<string>(fmtYMD(addDays(new Date(), 7)));
+
+  // 🎨 State לעריכת צבע
+  const [editingClient, setEditingClient] = useState<{ name: string; color: string } | null>(null);
 
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
@@ -73,6 +83,20 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
     return groupItemsByCategory(items);
   }, [itemsSummary]);
 
+  // 🎨 פונקציית עריכת צבע
+  const handleEditColor = (clientName: string, currentColor: string) => {
+    setEditingClient({ name: clientName, color: currentColor });
+  };
+
+ const handleSaveColor = async (newColor: string) => {
+  if (!editingClient) return;
+  try {
+    await updateClientColor(editingClient.name, newColor);
+    setEditingClient(null);  // סגור את המודל רק אחרי הצלחה
+  } catch (e) {
+    alert("שגיאה בשמירת הצבע: " + (e as Error).message);
+  }
+};
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -202,7 +226,7 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
           <h3 className="text-lg font-bold text-gray-900 mb-4">סיכום מנות</h3>
           
           <div className="grid grid-cols-2 gap-3">
-       {getCategoryOrder().map(category => {
+            {getCategoryOrder().map(category => {
               const categoryItems = itemsByCategory[category];
               if (!categoryItems || categoryItems.length === 0) return null;
               
@@ -239,17 +263,41 @@ export default function ClientsView({ orders, onAddClient }: ClientsViewProps) {
             </div>
           ) : (
             filteredOrders.map((order: any) => (
-              <ClientCard key={order.__id} order={order} />
+              <ClientCard 
+                key={order.__id} 
+                order={order}
+                clientColor={order.clientColor || getClientColor(order.clientName)}
+                onEditColor={handleEditColor}
+              />
             ))
           )}
         </div>
+      )}
+
+      {/* 🎨 Modal לעריכת צבע */}
+      {editingClient && (
+        <ClientColorPicker
+          show={!!editingClient}
+          clientName={editingClient.name}
+          currentColor={editingClient.color}
+          onClose={() => setEditingClient(null)}
+          onSave={handleSaveColor}
+        />
       )}
     </div>
   );
 }
 
 // קומפוננטת כרטיס לקוח - מסונכרן עם מערכת המעקב
-function ClientCard({ order }: { order: any }) {
+function ClientCard({ 
+  order, 
+  clientColor,
+  onEditColor 
+}: { 
+  order: any;
+  clientColor: string;
+  onEditColor: (name: string, color: string) => void;
+}) {
   let tracking;
   try {
     tracking = useOrderTracking();
@@ -319,38 +367,62 @@ function ClientCard({ order }: { order: any }) {
   
   return (
     <div className="rounded-xl border-2 border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-red-100 px-3 py-2 flex-shrink-0">
+      {/* Header עם צבע */}
+      <div 
+        className="px-3 py-2 flex-shrink-0"
+        style={{ backgroundColor: clientColor }}
+      >
         <div className="flex items-center justify-between mb-1">
-          <h4 className="text-base font-bold text-gray-900 truncate" title={order.clientName}>
+          <h4 
+            className="text-base font-bold truncate flex-1" 
+            title={order.clientName}
+            style={{ color: getTextColor(clientColor) }}
+          >
             {order.clientName}
           </h4>
           
           {/* כפתורי פעולה */}
-          {tracking && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleSaveCard}
-                className="text-green-600 hover:text-green-800 text-xs font-medium"
-                title="שמור"
-              >
-                💾
-              </button>
-              
-              {orderHistory.length > 0 && (
+          <div className="flex items-center gap-1">
+            {/* 🎨 כפתור עריכת צבע */}
+            <button
+              onClick={() => onEditColor(order.clientName, clientColor)}
+              className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-black/10 transition-all"
+              title="שנה צבע"
+              style={{ color: getTextColor(clientColor) }}
+            >
+              🎨
+            </button>
+            
+            {tracking && (
+              <>
                 <button
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                  title="היסטוריה"
+                  onClick={handleSaveCard}
+                  className="text-xs font-medium hover:bg-black/10 rounded px-1"
+                  title="שמור"
+                  style={{ color: getTextColor(clientColor) }}
                 >
-                  📜 {orderHistory.length}
+                  💾
                 </button>
-              )}
-            </div>
-          )}
+                
+                {orderHistory.length > 0 && (
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="text-xs font-medium hover:bg-black/10 rounded px-1"
+                    title="היסטוריה"
+                    style={{ color: getTextColor(clientColor) }}
+                  >
+                    📜 {orderHistory.length}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
         
-        <p className="text-xs text-gray-700">
+        <p 
+          className="text-xs"
+          style={{ color: getTextColor(clientColor) }}
+        >
           {new Date(order.eventDate).toLocaleDateString('he-IL', {
             weekday: 'short',
             day: 'numeric',
@@ -358,7 +430,13 @@ function ClientCard({ order }: { order: any }) {
           })}
         </p>
         {order.status && (
-          <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-white/60 text-gray-700 font-medium">
+          <span 
+            className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium"
+            style={{ 
+              backgroundColor: 'rgba(255,255,255,0.3)',
+              color: getTextColor(clientColor)
+            }}
+          >
             {order.status}
           </span>
         )}
@@ -391,7 +469,7 @@ function ClientCard({ order }: { order: any }) {
       {/* Body */}
       <div className="flex-1 overflow-auto p-2">
         <div className="space-y-1.5">
-      {getCategoryOrder().map(category => {
+          {getCategoryOrder().map(category => {
             const categoryItems = groupedItems[category];
             if (!categoryItems || categoryItems.length === 0) return null;
             
