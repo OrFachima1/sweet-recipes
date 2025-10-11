@@ -93,17 +93,7 @@ export default function ClientsView({
 
   const itemsByCategory = useMemo(() => {
     const items = Object.entries(itemsSummary).map(([title, qty]) => ({ title, qty }));
-    const grouped: Record<string, any[]> = {};
-    
-    items.forEach(item => {
-      const result = groupItemsByCategory([item]);
-      Object.entries(result).forEach(([cat, catItems]) => {
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(...catItems);
-      });
-    });
-    
-    return grouped;
+    return groupItemsByCategory(items);
   }, [itemsSummary]);
 
   const handleEditColor = async (clientName: string, newColor: string) => {
@@ -237,53 +227,90 @@ export default function ClientsView({
 
       {/* Content */}
       {focusMode ? (
-        // Focus Mode: Items summary
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
-          <h3 className="text-xl font-bold mb-4 text-gray-900">סיכום מנות</h3>
-          
-          {Object.entries(itemsByCategory)
-            .sort((a, b) => {
-              const orderArray = getCategoryOrder();
-              const indexA = orderArray.indexOf(a[0]);
-              const indexB = orderArray.indexOf(b[0]);
-              const orderA = indexA === -1 ? 999 : indexA;
-              const orderB = indexB === -1 ? 999 : indexB;
-              return orderA - orderB;
-            })
-            .map(([category, items]: [string, any[]]) => (
-            <div key={category} className="mb-6 last:mb-0">
-              <div 
-                className="text-sm font-bold mb-2 px-3 py-1 rounded inline-block"
-                style={{ 
-                  backgroundColor: getCategoryColor(category),
-                  color: 'white'
-                }}
-              >
-                {category}
-              </div>
-              
-              <div className="space-y-1">
-                {items
-                  .sort((a: any, b: any) => b.qty - a.qty)
-                  .map((item: any) => (
-                    <div key={item.title} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 rounded">
-                      <span className="font-medium">{item.title}</span>
-                      <span className="text-gray-600 font-bold">{item.qty}</span>
-                    </div>
-                  ))}
-              </div>
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">📊 סיכום מנות</h3>
+            <div className="text-sm text-gray-600">
+              סה"כ {Object.values(itemsSummary).reduce((a, b) => a + b, 0)} פריטים
             </div>
-          ))}
+          </div>
+          
+          <div className="space-y-3">
+            {getCategoryOrder().map(category => {
+              const categoryItems = itemsByCategory[category];
+              if (!categoryItems || categoryItems.length === 0) return null;
+              
+              const categoryColor = getCategoryColor(category);
+              const totalInCategory = categoryItems.reduce((sum: number, item: any) => sum + item.qty, 0);
+              
+              // צבע כהה יותר
+              const darkerColor = (() => {
+                const hex = categoryColor.replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                const darkerR = Math.floor(r * 0.6);
+                const darkerG = Math.floor(g * 0.6);
+                const darkerB = Math.floor(b * 0.6);
+                return `#${darkerR.toString(16).padStart(2, '0')}${darkerG.toString(16).padStart(2, '0')}${darkerB.toString(16).padStart(2, '0')}`;
+              })();
+              
+              return (
+                <div key={category} className="rounded-lg overflow-hidden border-2" style={{ borderColor: categoryColor }}>
+                  <div 
+                    className="px-4 py-2 flex items-center justify-between"
+                    style={{ backgroundColor: categoryColor }}
+                  >
+                    <span className="text-base font-bold text-gray-800">{category}</span>
+                    <span className="text-xs font-bold text-gray-700 bg-white/50 px-2 py-1 rounded-full">
+                      {totalInCategory} יח'
+                    </span>
+                  </div>
+                  
+                  <div className="p-2" style={{ backgroundColor: `${categoryColor}10` }}>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                      {categoryItems.map((item: any) => (
+                        <div 
+                          key={item.title} 
+                          className="bg-white rounded p-2 border hover:shadow-sm transition-shadow"
+                          style={{ borderColor: categoryColor }}
+                        >
+                          {recipeLinks?.[item.title] ? (
+                            <a
+                              href={`/recipes/${recipeLinks[item.title]}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline block mb-1"
+                              title="פתח מתכון"
+                            >
+                              {item.title}
+                            </a>
+                          ) : (
+                            <div className="text-xs font-semibold text-gray-900 mb-1">{item.title}</div>
+                          )}
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold" style={{ color: darkerColor }}>
+                              {item.qty}
+                            </span>
+                            <span className="text-xs text-gray-500">יח'</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
-        // Normal Mode: Client cards
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredOrders.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              אין הזמנות בטווח הזמן שנבחר
+            <div className="col-span-full text-center py-12 text-gray-400">
+              אין הזמנות בתקופה זו
             </div>
           ) : (
-            filteredOrders.map(order => (
+            filteredOrders.map((order: any) => (
               <OrderCard
                 key={`${order.__id}-${refreshKey}`}
                 order={order}
