@@ -11,12 +11,13 @@ interface DayModalProps {
   editOrderItem?: (orderId: string, idx: number, patch: any) => void;
   removeItemFromOrder?: (orderId: string, idx: number) => void;
   onAddItem?: (orderId: string) => void;
+  onEditOrderNotes?: (orderId: string, notes: string) => void; // 🔥 הוספה!
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
   isManager?: boolean;
   updateClientColor?: (clientName: string, newColor: string) => Promise<void>;
   getClientColor?: (clientName: string) => string;
-    recipeLinks?: Record<string, string>; // ✅ הוסף
+  recipeLinks?: Record<string, string>;
 }
 
 export default function DayModal({
@@ -27,6 +28,7 @@ export default function DayModal({
   editOrderItem,
   removeItemFromOrder,
   onAddItem,
+  onEditOrderNotes, // 🔥 הוספה!
   noteOpen,
   toggleNote,
   isManager,
@@ -105,21 +107,18 @@ export default function DayModal({
               editOrderItem={editOrderItem}
               removeItemFromOrder={removeItemFromOrder}
               onAddItem={onAddItem}
+              onEditOrderNotes={onEditOrderNotes} // 🔥 העברה!
               noteOpen={noteOpen}
               toggleNote={toggleNote}
-              onEditColor={isManager ? updateClientColor : undefined}
+              onEditColor={isManager ? async (clientName, newColor) => {
+                if (updateClientColor) {
+                  await updateClientColor(clientName, newColor);
+                }
+              } : undefined}
               getClientColor={getClientColor}
-                    recipeLinks={recipeLinks} // ✅ הוסף
-
+              recipeLinks={recipeLinks}
             />
           </div>
-
-          {/* Footer - אינדיקטור */}
-          {tracking && (
-            <div className="px-6 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center">
-              💡 השינויים יישמרו אוטומטית כשתסגור את החלון
-            </div>
-          )}
         </div>
       </div>
     </>

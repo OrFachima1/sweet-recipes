@@ -145,6 +145,17 @@ export default function OrdersCalendarPage({
   const dayKey = navigation.selectedDayKey;
   const today = navigation.today;
   const monthLbl = navigation.monthLabel;
+ const editOrderNotes = (orderId: string, notes: string) => {
+  if (!isManager) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+  
+  const next = state.orders.map(o =>
+    o.__id !== orderId ? o : { ...o, orderNotes: notes }
+  );
+  firebase.persist(next);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
@@ -252,6 +263,7 @@ export default function OrdersCalendarPage({
                   editOrderItem={isManager ? actions.editOrderItem : undefined}
                   removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
                   onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+                  onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
                   noteOpen={modals.noteOpen}
                   toggleNote={modals.toggleNote}
                   onEditColor={isManager ? async (clientName, newColor) => {
@@ -268,11 +280,13 @@ export default function OrdersCalendarPage({
 
       {/* Clients View */}
       {navigation.mainView === "clients" && (
-        <ClientsView
-          orders={state.orders}
-          onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
-          recipeLinks={settings.recipeLinks}
-        />
+       <ClientsView
+        orders={state.orders}
+        onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+        recipeLinks={settings.recipeLinks}
+        onEditItem={isManager ? actions.editOrderItem : undefined} // 🔥 הוסף שורה זו!
+        onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
+      />
       )}
 
       {/* Day Modal */}
@@ -285,6 +299,7 @@ export default function OrdersCalendarPage({
           editOrderItem={isManager ? actions.editOrderItem : undefined}
           removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
           onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+          onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
           isManager={isManager}
