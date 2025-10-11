@@ -38,7 +38,7 @@ export default function OrdersCalendarPage({
 }: { apiBase?: string }) {
   // ===== Auth & Role =====
   const { user, loading: authLoading } = useUser();
-  const { role } = useRole(user?.uid);
+  const { role, displayName } = useRole(user?.uid);
   const isManager = role === "manager";
 
   // ===== Core State & Actions =====
@@ -167,14 +167,29 @@ const editOrderNotes = (orderId: string, notes: string) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
-      {/* Toolbar */}
-      <Toolbar
-        viewMode={state.viewMode}
-        onChangeViewMode={state.setViewMode}
-        picker={navigation.picker}
-        onPickerChange={navigation.setPicker}
-      />
+      {/* Header - שלום + הגדרות */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-2xl font-bold text-gray-900">
+          שלום {displayName || user?.email || 'עובד'} {isManager && <span className="text-blue-600">(מנהל)</span>}
+        </div>
+        <button
+          onClick={() => modals.setShowSettings(true)}
+          className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 hover:border-blue-500 transition-all shadow-sm flex items-center gap-2"
+        >
+          <span>⚙️</span>
+          <span>הגדרות</span>
+        </button>
+      </div>
 
+      {navigation.mainView === "calendar" && (
+        <Toolbar
+          viewMode={state.viewMode}
+          onChangeViewMode={state.setViewMode}
+          picker={navigation.picker}
+          onPickerChange={navigation.setPicker}
+        />
+      )}
+        
       {/* Main View Toggle */}
       <ViewToggle
         currentView={navigation.mainView}
