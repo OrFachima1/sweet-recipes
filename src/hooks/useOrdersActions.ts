@@ -78,7 +78,7 @@ export function useOrdersActions({ orders, setOrders }: UseOrdersActionsProps) {
   }, [orders, setOrders]);
 
   // שמירת הזמנה ידנית
-  const saveManualOrder = useCallback(async (orderData: Partial<IngestJsonOrder>) => {
+ const saveManualOrder = useCallback(async (orderData: Partial<IngestJsonOrder>) => {
     const id = generateId();
     const newOrder: IngestJsonOrder = {
       __id: id,
@@ -87,7 +87,7 @@ export function useOrdersActions({ orders, setOrders }: UseOrdersActionsProps) {
       eventDate: orderData.eventDate || fmtYMD(new Date()),
       status: orderData.status || 'pending',
       items: orderData.items || [],
-      notes: orderData.notes,
+      notes: orderData.notes || '', // 👈 הוסף ברירת מחדל
       totalSum: orderData.totalSum || null,
       currency: orderData.currency || 'ILS',
       source: 'manual',
@@ -106,7 +106,7 @@ export function useOrdersActions({ orders, setOrders }: UseOrdersActionsProps) {
       alert('שגיאה בשמירת הזמנה');
     }
   }, [orders, setOrders]);
-
+  
   return {
     deleteOrder,
     editOrderItem,
