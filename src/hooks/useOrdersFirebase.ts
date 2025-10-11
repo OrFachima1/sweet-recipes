@@ -51,7 +51,6 @@ export function useOrdersFirebase({
   const ordersQuery = useMemo(() => {
     return query(
       collection(db, 'orders'),
-      firestoreOrderBy('createdAt', 'desc'),
       limit(200) // חשוב: לא למשוך את כל הקולקציה
     );
   }, []);
