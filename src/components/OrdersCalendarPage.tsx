@@ -1,16 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState, useCallback} from "react";
-import {
-  fmtYMD,
-  genId,
-  addMonths,
-  startOfWeek,
-  addDays,
-  getMonthGridMax5,
-  normalizeImportantNotes,
-  applyMappingOnOrders,
-  getUnknownTitles,
-} from "@/utils/orders";
+import React, { useEffect, useMemo, useCallback } from "react";
+import { fmtYMD } from "@/utils/orders";
 import ManualOrderModal from "@/components/orders/modals/ManualOrderModal";
 import Toolbar from "@/components/orders/Toolbar";
 import MappingModal from "@/components/orders/modals/MappingModal";
@@ -21,783 +11,201 @@ import MonthView from "@/components/orders/views/MonthView";
 import WeekView from "@/components/orders/views/WeekView";
 import DayOrdersList from "@/components/orders/DayOrdersList";
 import DayModal from "@/components/orders/modals/DayModal";
-import { parsePreviewStrict, ingestStrict } from "@/lib/ordersApi";
-import type {
-  IngestJsonOrder,
-  IngestJsonOrderItem,
-  NormalizedOrder,
-  NormalizedOrderItem,
-} from "@/types/orders";
 import ViewToggle from "@/components/orders/ViewToggle";
 import ClientsView from "@/components/orders/ClientsView";
-import { setCategoryConfig } from "@/utils/categoryMapping";
-import { useClients } from "@/hooks/useClients";
-// 🔥 Firebase imports
-import { useUser, useRole } from "@/lib/auth";
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  doc,
-  onSnapshot,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-  query,
-  orderBy as firestoreOrderBy,
-  writeBatch,
-} from "firebase/firestore";
 import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
-import ClientColorPicker from "@/components/orders/ClientColorPicker";
+import { useClients } from "@/hooks/useClients";
+import { useUser, useRole } from "@/lib/auth";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+
+// ===== Custom Hooks =====
 import { useOrdersState } from '@/hooks/useOrdersState';
 import { useOrdersActions } from '@/hooks/useOrdersActions';
 import { useOrdersSettings } from '@/hooks/useOrdersSettings';
+import { useOrdersUpload } from '@/hooks/useOrdersUpload';
+import { useOrdersNavigation } from '@/hooks/useOrdersNavigation';
+import { useOrdersModals } from '@/hooks/useOrdersModals';
+import { useOrdersFirebase } from '@/hooks/useOrdersFirebase';
+import type { IngestJsonOrder } from '@/types/orders';
 
-// ========================
-// Debug helpers (safe on SSR)
-// ========================
-const isBrowser = typeof window !== "undefined";
-const readDebugFlag = (): boolean => {
-  if (!isBrowser) return false;
-  try { return localStorage.getItem("ordersCalendar.debug") === "1"; } catch { return false; }
-};
-const writeDebugFlag = (val: boolean) => {
-  if (!isBrowser) return;
-  try { localStorage.setItem("ordersCalendar.debug", val ? "1" : "0"); } catch {}
-};
 
-// A tiny logger that checks a ref (no stale closures, no recursion)
-function makeLogger(enabledRef: React.MutableRefObject<boolean>) {
-  const on = (...a: any[]) => enabledRef.current && console.info("[OC]", ...a);
-  const warn = (...a: any[]) => enabledRef.current && console.warn("[OC]", ...a);
-  const err = (...a: any[]) => enabledRef.current && console.error("[OC]", ...a);
-  const group = (label: string) => enabledRef.current && console.group(`[OC] ${label}`);
-  const groupEnd = () => enabledRef.current && console.groupEnd();
-  const time = (label: string) => enabledRef.current && console.time(`[OC] ${label}`);
-  const timeEnd = (label: string) => enabledRef.current && console.timeEnd(`[OC] ${label}`);
-  return { on, warn, err, group, groupEnd, time, timeEnd };
-}
 
 export default function OrdersCalendarPage({
   apiBase = "http://127.0.0.1:8000",
 }: { apiBase?: string }) {
+  // ===== Auth & Role =====
+  const { user, loading: authLoading } = useUser();
+  const { role } = useRole(user?.uid);
+  const isManager = role === "manager";
+
+  // ===== Core State & Actions =====
   const state = useOrdersState();
   const actions = useOrdersActions({
-  orders: state.orders,
-  setOrders: state.setOrders,
-});
-
-  // 🔐 Auth & Role
-  const { user, loading: authLoading } = useUser();
-  const { role, displayName } = useRole(user?.uid);
-  const isManager = role === "manager";
+    orders: state.orders,
+    setOrders: state.setOrders,
+  });
   const settings = useOrdersSettings(user?.uid);
+  const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
 
-const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
-  // ===== State =====
-  const [selectedDayKey, setSelectedDayKey] = useState<string>(fmtYMD(new Date()));
-  // ===== Review Modals =====
-  const [showConfirmReview, setShowConfirmReview] = useState(false);
-  const [showReview, setShowReview] = useState(false);
-  const [reviewData, setReviewData] = useState<{
-    orders: any[];
-    files: File[];
-  } | null>(null);
- const [showSettings, setShowSettings] = useState(false);
+  // ===== Navigation =====
+  const navigation = useOrdersNavigation({
+    viewMode: state.viewMode,
+    viewDate: state.viewDate,
+    setViewDate: state.setViewDate,
+  });
 
-useEffect(() => {
-  if (!user) return;
-  
-  const categoryDoc = doc(db, "orderSettings", "categoryConfig");
-  const unsub = onSnapshot(categoryDoc, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      const config = {
-        items: data.items || {},
-        itemMapping: data.itemMapping || {}
-      };
-      
-      settings.updateCategoryConfig(config);
-      setCategoryConfig(config); // ✅ עדכן גם את categoryMapping.ts
-      
-          } else {
-          }
+  // ===== Modals =====
+  const modals = useOrdersModals();
+
+  // ===== Upload & Review =====
+  const upload = useOrdersUpload({
+    apiBase,
+    isManager,
+    mapping: settings.mapping,
+    ignored: settings.ignored,
+    menuOptions: state.menuOptions,
+    getClientColor,
+    ensureClient,
   });
-  
-  return () => unsub();
-}, [user]);
-useEffect(() => {
-  if (!user) return;
-  
-  const recipeLinksDoc = doc(db, "orderSettings", "recipeLinks");
-  const unsub = onSnapshot(recipeLinksDoc, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      settings.updateRecipeLinks(data.links || {});
-          } else {
-      settings.updateRecipeLinks({});
-    }
+
+  // ===== Firebase =====
+  const firebase = useOrdersFirebase({
+    user,
+    isManager,
+    getClientColor,
+    setOrders: state.setOrders,
+    orders: state.orders,
+    settings,
+    setMenuOptions: state.setMenuOptions,
   });
-  
-  return () => unsub();
-}, [user]);
-  // ESC to close modal
+
+  // ===== ESC to close modal =====
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && state.dayModalKey) {
         state.setDayModalKey(null);
-        log.on("[UI] close day modal (ESC)");
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [state.dayModalKey]);
+  }, [state.dayModalKey, state]);
 
-  const [addSearch, setAddSearch] = useState<string>("");
-  const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
-
-  const [mapOpen, setMapOpen] = useState(false);
-  const [unknowns, setUnknowns] = useState<string[]>([]);
-
-  const [dateFixOpen, setDateFixOpen] = useState(false);
-  const [dateFixList, setDateFixList] = useState<{ id: string; name: string; date: string }[]>([]);
-
-  const [files, setFiles] = useState<File[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const ingestBufferRef = useRef<IngestJsonOrder[] | null>(null);
-  const [mainView, setMainView] = useState<"calendar" | "clients">("calendar");
-
-  // ===== Debug =====
-  const [debugOn, setDebugOn] = useState<boolean>(readDebugFlag());
-  const debugRef = useRef<boolean>(debugOn);
-  useEffect(() => { debugRef.current = debugOn; }, [debugOn]);
-  const log = useMemo(() => makeLogger(debugRef), []);
-  const toggleDebug = () => {
-    const next = !readDebugFlag();
-    writeDebugFlag(next);
-    setDebugOn(next);
-      };
-  
-  // 🔥 Load orders from Firestore (real-time)
-useEffect(() => {
-  if (!user) return;
-  let isSubscribed = true;
-
-  log.group("Load orders from Firestore");
-  
-  const ordersCol = collection(db, "orders");
-  const q = query(ordersCol, firestoreOrderBy("createdAt", "desc"));
-  
-  const unsub = onSnapshot(q, (snap) => {
-    if (!isSubscribed) return;
-
-    const list = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        __id: d.id,
-        orderId: data.orderId,
-        clientName: data.clientName,
-        clientColor: getClientColor(data.clientName), // ✅ תמיד לוקח מ-clients collection
-        eventDate: data.eventDate,
-        status: data.status,
-        items: data.items || [],
-        orderNotes: data.orderNotes,
-        totalSum: data.totalSum,
-        currency: data.currency,
-        source: data.source,
-        meta: data.meta,
-        createdAt: data.createdAt,
-      } as IngestJsonOrder;
-    });
-    
-    log.on("Orders loaded from Firestore", { count: list.length });
-    state.setOrders(list);
-  }, (err) => {
-    log.err("Failed loading orders", err);
-  });
-  
-  log.groupEnd();
-  return () => {
-    isSubscribed = false;
-    unsub();
-  };
-}, [user, getClientColor]); // ✅ הוסף dependency
-
-useEffect(() => {
-  if (!user) return;
-  
-  const settingsDoc = doc(db, "orderSettings", "main");
-  const categoryDoc = doc(db, "orderSettings", "categoryConfig");
-  
-  const unsub1 = onSnapshot(settingsDoc, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data(); 
-      settings.updateMapping(data.mapping || {});
-      settings.updateIgnored(data.ignored || []);
-    }
-  });
-  
-  const unsub2 = onSnapshot(categoryDoc, (snap) => {
-    if (snap.exists()) {
-      setCategoryConfig(snap.data()); // ✅ זהו!
-    }
-  });
-  
-  return () => {
-    unsub1();
-    unsub2();
-  };
-}, [user]);
-  // 🔥 Load mapping & ignored from Firestore
-  useEffect(() => {
-    if (!user) return;
-    log.group("Load settings from Firestore");
-    
-    const settingsDoc = doc(db, "orderSettings", "main");
-    const unsub = onSnapshot(settingsDoc, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        settings.updateMapping(data.mapping || {});
-        settings.updateIgnored(data.ignored || []);
-        log.on("Settings loaded", { mapping: data.mapping, ignored: data.ignored });
-      } else {
-        log.on("No settings doc, using defaults");
-      }
-    }, (err) => {
-      log.err("Failed loading settings", err);
-    });
-    
-    log.groupEnd();
-    return () => unsub();
-  }, [user]);
-
-  // 🔥 Save mapping & ignored to Firestore
-  const saveSettings = async (newMapping: Record<string, string>, newIgnored: string[]) => {
-    if (!user) return;
-    try {
-      await setDoc(doc(db, "orderSettings", "main"), {
-        mapping: newMapping,
-        ignored: newIgnored,
-        updatedAt: serverTimestamp(),
-      });
-      log.on("Settings saved to Firestore");
-    } catch (e) {
-      log.err("Failed saving settings", e); 
-    }
-  };
-
-  // Update setMapping and setIgnored to also save to Firestore
-  const updateMapping = (newMapping: Record<string, string>) => {
-    settings.updateMapping(newMapping);
-    saveSettings(newMapping, settings.ignored);
-  };
-
-  const updateIgnored = (newIgnored: string[]) => {
-    settings.updateIgnored(newIgnored);
-    saveSettings(settings.mapping, newIgnored);
-  };
-
-useEffect(() => {
-  if (!user) return;
-  
-  log.group("Load menu from Firestore");
-  
-  const menuDoc = doc(db, "orderSettings", "menu");
-  const unsub = onSnapshot(menuDoc, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      const menuArray = data.items || [];
-      state.setMenuOptions
-(menuArray);
-      log.on("Menu loaded from Firestore", { count: menuArray.length });
-    } else {
-      // ⚠️ אל תיצור מסמך ריק אוטומטית!
-      log.warn("No menu found in Firestore");
-      state.setMenuOptions
-([]);
-      // לא קוראים ל-setDoc כאן!
-    }
-  }, (err) => {
-    log.err("Failed loading menu", err);
-    state.setMenuOptions
-([]);
-  });
-  
-  log.groupEnd();
-  return () => unsub();
-}, [user]);
-
-  // ===== Persistence helper (now saves to Firestore) =====
-  const persist = async (next: IngestJsonOrder[]) => {
-     debugger;
-  if (!user || !isManager) {
-        log.warn("Cannot persist - no auth or not manager");
-    return;
-  }
-  
-  
-  log.group("persist()");
-  log.on("Saving orders to Firestore", { count: next.length });
-  
-  try {
-    const batch = writeBatch(db);
-    
-    // סינון הזמנות בלי __id
-    const validOrders = next.filter(o => o.__id);
-    
-    if (validOrders.length === 0) {
-            return;
-    }
-    
-    // Delete removed orders
-    const currentIds = new Set(validOrders.map(o => o.__id));
-    const deletedIds = state.orders
-      .filter(o => o.__id && !currentIds.has(o.__id))
-      .map(o => o.__id!);
-    
-        
-    for (const id of deletedIds) {
-            batch.delete(doc(db, "orders", id));
-    }
-    
-    // Update/create orders
-        for (let i = 0; i < validOrders.length; i++) {
-      const order = validOrders[i];
-            
-      const orderDoc = doc(db, "orders", order.__id!);
-      
-      // נקה undefined ← null
-      const cleanData: any = {
-        orderId: order.orderId ?? null,
-        clientName: order.clientName ?? null,
-        clientColor: order.clientColor || getClientColor(order.clientName), // ✅ שורה מעודכנת
-        eventDate: order.eventDate ?? null,
-        status: order.status ?? "new",
-        items: (order.items || []).map(item => ({
-          title: item.title ?? null,
-          qty: typeof item.qty === 'number' ? item.qty : 1,
-          unit: item.unit ?? null,
-          notes: item.notes ?? null,
-        })),
-        orderNotes: order.orderNotes ?? null,
-        totalSum: typeof order.totalSum === 'number' ? order.totalSum : null,
-        currency: order.currency ?? null,
-        source: order.source ?? null,
-        meta: order.meta ?? null,
-        createdAt: serverTimestamp(),
-      };
-      
-      batch.set(orderDoc, cleanData);
-    }
-    
-        await batch.commit();
-        log.on("Batch write completed");
-    
-  } catch (e: any) {
-    console.error("❌❌❌ PERSIST FAILED!");
-    console.error("Error object:", e);
-    console.error("Error name:", e?.name);
-    console.error("Error message:", e?.message);
-    console.error("Error code:", e?.code);
-    console.error("Error stack:", e?.stack);
-    log.err("Failed to persist", e);
-    alert(`שגיאה בשמירה ל-Firebase: ${e?.message || e?.code || 'Unknown error'}`);
-  }
-  
-  log.groupEnd();
-};
-
-  // ===== Derived =====
+  // ===== Derived Data =====
   const daysMap = useMemo(() => {
-  const m = new Map<string, IngestJsonOrder[]>();
-  for (const o of state.orders) {
-    const day = o?.eventDate ? fmtYMD(new Date(o.eventDate)) : null;
-    if (!day) continue;
-    if (!m.has(day)) m.set(day, []);
-    m.get(day)!.push(o);
-  }
-    return m;
-}, [state.orders]); // 🔧 שינוי כאן - רק אורך המערך
-
-  const dayKey = selectedDayKey;
-  const todayKey = fmtYMD(new Date());
-  const monthLabel = state.viewDate
-.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-
-  // ===== UI actions =====
-const goToday = () => {
-  const t = new Date();
-  state.setViewDate
-(t);
-  setSelectedDayKey(fmtYMD(t));
-  log.on("[UI] goToday ->", fmtYMD(t));
-};
-
-const prev = () => {
-  if (state.viewMode
- === "month") {
-    const d = addMonths(state.viewDate
-, -1);
-    state.setViewDate
-(d);
-    setSelectedDayKey(fmtYMD(d));
-    log.on("[UI] prev month ->", d.toISOString());
-  } else if (state.viewMode
- === "week") {
-    const nd = addDays(state.viewDate
-, -7);
-    state.setViewDate
-(nd);
-    setSelectedDayKey(fmtYMD(nd));
-    log.on("[UI] prev week ->", fmtYMD(nd));
-  } else {
-    const nd = addDays(state.viewDate
-, -1);
-    state.setViewDate
-(nd);
-    setSelectedDayKey(fmtYMD(nd));
-    log.on("[UI] prev day ->", fmtYMD(nd));
-  }
-};
-
-const next = () => {
-  if (state.viewMode
- === "month") {
-    const d = addMonths(state.viewDate
-, 1);
-    state.setViewDate
-(d);
-    setSelectedDayKey(fmtYMD(d));
-    log.on("[UI] next month ->", d.toISOString());
-  } else if (state.viewMode
- === "week") {
-    const nd = addDays(state.viewDate
-, 7);
-    state.setViewDate
-(nd);
-    setSelectedDayKey(fmtYMD(nd));
-    log.on("[UI] next week ->", fmtYMD(nd));
-  } else {
-    const nd = addDays(state.viewDate
-, 1);
-    state.setViewDate
-(nd);
-    setSelectedDayKey(fmtYMD(nd));
-    log.on("[UI] next day ->", fmtYMD(nd));
-  }
-};
-
-  const [picker, setPicker] = useState<string>(fmtYMD(new Date()));
-  useEffect(() => {
-    if (picker) {
-      setSelectedDayKey(picker);
-      state.setViewDate
-(new Date(picker));
-      log.on("[UI] date picked ->", picker);
+    const m = new Map<string, IngestJsonOrder[]>();
+    for (const o of state.orders) {
+      const day = o?.eventDate ? fmtYMD(new Date(o.eventDate)) : null;
+      if (!day) continue;
+      if (!m.has(day)) m.set(day, []);
+      m.get(day)!.push(o);
     }
-  }, [picker]);
-  const setSelectedDayKeyStable = useCallback((key: string) => {
-  setSelectedDayKey(key);
-}, []);
+    return m;
+  }, [state.orders]);
 
-const setViewDateStable = useCallback((date: Date) => {
-  state.setViewDate
-(date);
-}, []);
-  const confirmAddItem = (title: string) => {
+  // ===== Add Item =====
+  const confirmAddItem = useCallback((title: string) => {
     if (!isManager) {
       alert("אין לך הרשאה לערוך הזמנות");
       return;
     }
     if (!state.addItemFor || !title) return;
-    
-    log.on("[UI] add item", { orderId: state.addItemFor, title });
+
     const next = state.orders.map(o =>
       o.__id !== state.addItemFor
         ? o
         : { ...o, items: [...o.items, { title, qty: 1, unit: "יח'", notes: "" }] }
     );
-    persist(next);
+    firebase.persist(next);
     state.setAddItemFor(null);
-  };
+  }, [isManager, state.addItemFor, state.orders, firebase, state]);
 
-  const noteKey = (orderId: string, idx: number) => `${orderId}:${idx}`;
-  const toggleNote = (orderId: string, idx: number) => {
-    setNoteOpen(prev => ({ ...prev, [noteKey(orderId, idx)]: !prev[noteKey(orderId, idx)] }));
-    log.on("[UI] toggle note", { orderId, idx });
-  };
+  // ===== Update Mapping & Ignored =====
+  const updateMapping = useCallback((newMapping: Record<string, string>) => {
+    settings.updateMapping(newMapping);
+    firebase.saveSettings(newMapping, settings.ignored);
+  }, [settings, firebase]);
 
-  
-  
-  
-  // ===== Upload + Preview + Mapping + Ingest =====
-  const hasPendingFiles = () => files && files.length > 0;
+  const updateIgnored = useCallback((newIgnored: string[]) => {
+    settings.updateIgnored(newIgnored);
+    firebase.saveSettings(settings.mapping, newIgnored);
+  }, [settings, firebase]);
 
-  const runPreviewThenIngest = async (dateOverrides?: Record<number, string>) => {
-  if (!isManager) {
-    alert("אין לך הרשאה להעלות קבצים");
-    return;
-  }
-  if (!files.length) return;
-  
-  setLoading(true);
-  setError(null);
-  log.group("runPreviewThenIngest()");
-  log.on("[PREVIEW] files", files.map((f: File) => ({ name: f.name, size: f.size })));
-  log.on("[PREVIEW] dateOverrides", dateOverrides);
-
-  try {
-    await doIngest({}, false, dateOverrides);
-  } catch (e: any) {
-    setError(e?.message || "Preview/ingest failed");
-    log.err("[INGEST] failed", e);
-  } finally {
-    setLoading(false);
-    log.groupEnd();
-  }
-};
-
- const doIngest = async (
-  mappingObj: Record<string, string>,
-  skipUnknownCheck: boolean = false,
-  dateOverrides?: Record<number, string>
-) => {
-    if (!isManager) {
-      alert("אין לך הרשאה לבצע פעולה זו");
-      return;
-    }
-    
-    log.group("doIngest()");
-    log.on("[INGEST] start", { mapping: mappingObj, skipUnknownCheck });
-    log.time("ingest.call");
-
-    const data = await ingestStrict(apiBase, files, mappingObj);
-    log.timeEnd("ingest.call");
-
-
-    // 1) Normalize
-    let normalized: NormalizedOrder[] = (data.orders || []).map((o: any): NormalizedOrder => ({
-      __id: o.__id ?? genId(),
-      orderId: o.orderId ?? null,
-      clientName: o.clientName,
-      eventDate: o.eventDate ?? null,
-      status: o.status ?? "new",
-      items: (o.items || []).map((it: any): NormalizedOrderItem => ({
-        title: String(it.title ?? "").trim(),
-        qty: Number(it.qty ?? 1),
-        notes: typeof it.notes === "string" && it.notes.trim() ? it.notes.trim() : undefined,
-        unit: it.unit ?? null,
-      })),
-      orderNotes: o.orderNotes ?? o.notes ?? null,
-      totalSum: o.totalSum ?? null,
-      currency: o.currency ?? null,
-      source: o.source,
-      meta: o.meta,
-    }));
-
-// ✅ החל את התאריכים שהמשתמש מילא
-if (dateOverrides && Object.keys(dateOverrides).length > 0) {
-  normalized = normalized.map((order, idx) => {
-    if (dateOverrides[idx]) {
-      return { ...order, eventDate: dateOverrides[idx] };
-    }
-    return order;
-  });
-}
-    // 2) Apply existing mapping FIRST (מה-state)
-if (Object.keys(settings.mapping).length > 0) {
-    normalized = applyMappingOnOrders(normalized, settings.mapping);
-}
-
-// 2.1) Apply new mapping if provided (מה-parameter)
-if (Object.keys(mappingObj).length) {
-    normalized = applyMappingOnOrders(normalized, mappingObj);
-}
-
-// 3) Check unknowns
-if (!skipUnknownCheck) {
-  const stillUnknown = getUnknownTitles(normalized, state.menuOptions
-, settings.ignored);
-  
-  if (stillUnknown.length > 0) {
-        ingestBufferRef.current = normalized as any;
-    setUnknowns(stillUnknown);
-    // ❌ לא לאפס! setMapping({});  
-    // ✅ שומר את המיפוי הקיים כבר יש לו מה-state
-    state.setShowUpload(false);  // ✅ סגור את חלונית ההעלאה
-    setMapOpen(true);
-
-    log.groupEnd();
-    return;
-  }
-}
-
-    // 4) Filter by menu
-    const menuSet = new Set(state.menuOptions
-);
-    const filtered = normalized
-      .map(order => ({
-        ...order,
-        items: order.items.filter((item) => {
-          const isInMenu = menuSet.has(item.title);
-          return isInMenu;
-        })
-      }))
-      .filter(order => order.items.length > 0);
-
-
-   const withNotes = filtered.map(o => normalizeImportantNotes(o));
-
-// ✅ במקום persist ישירות - פותחים את חלונית האישור
-setReviewData({
-  orders: withNotes,
-  files: files // הקבצים עדיין זמינים כאן!
-});
-setShowReview(true); // ישר למסך הבדיקה!
-
-// ✅ הקוד הישן יעבור לפונקציה חדשה (ראה למטה)
-  };
-
-  // ===== Finalize Orders (אחרי בדיקה או ישירות) =====
-const finalizeOrders = async (finalOrders: any[]) => {
-     // ✅ וודא שכל הלקוחות קיימים ב-clients collection
-  for (const order of finalOrders) {
-    const color = order.clientColor || getClientColor(order.clientName);
-    await ensureClient(order.clientName, color);
-    order.clientColor = color; // עדכן את ההזמנה עם הצבע הנכון
-  }
-  const merged = [...state.orders, ...finalOrders];
-  await persist(merged);
-
-  const missing = finalOrders
-    .filter(o => !o.eventDate)
-    .map(o => ({ id: o.__id!, name: o.clientName, date: fmtYMD(new Date()) }));
-
-  if (missing.length) {
-    setDateFixList(missing);
-    setDateFixOpen(true);
+  // ===== Loading State =====
+  if (authLoading) {
+    return <div className="p-8 text-center text-gray-500">טוען...</div>;
   }
 
-  // ניקוי
-  state.setShowUpload(false);
-  setFiles([]);
-  setShowConfirmReview(false);
-  setShowReview(false);
-  setReviewData(null);
-  ingestBufferRef.current = null;
-  log.on("🎉 העלאה הושלמה!");
-};
-
-  // ===== Loading state =====
-  if (authLoading || role === null) {
-    return (
-      <div className="min-h-dvh w-full flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-sky-950">טוען...</div>
-        </div>
-      </div>
-    );
+  if (!user) {
+    return <div className="p-8 text-center text-gray-500">נא להתחבר</div>;
   }
 
-  if (role === "unauthorized") {
-    return (
-      <div className="min-h-dvh w-full flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-red-600">אין לך הרשאה לגשת לדף זה</div>
-          <div className="mt-4 text-gray-600">צור קשר עם המנהל לקבלת הרשאות</div>
-        </div>
-      </div>
-    );
-  }
+  const dayKey = navigation.selectedDayKey;
+  const today = navigation.today;
+  const monthLbl = navigation.monthLabel;
 
-  // ===== Render =====
-  const today = todayKey;
-  const monthLbl = monthLabel;
-  
   return (
-    <div className="min-h-dvh w-full max-w-7xl mx-auto p-4 space-y-4 bg-white text-sky-950">
-     <div className="flex justify-between items-center">
-  <div className="text-sm text-gray-600">
-    שלום, {displayName || user?.email}
-    {isManager && <span className="mr-2 text-pink-600 font-bold">(מנהל)</span>}
-  </div>
-  
-  {isManager && (
-    <button
-      onClick={() => setShowSettings(true)}
-      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all flex items-center gap-2"
-      title="הגדרות"
-    >
-      <span className="text-lg">⚙️</span>
-      <span className="text-sm font-medium">הגדרות</span>
-    </button>
-  )}
-</div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
+      {/* Toolbar */}
+      <Toolbar
+        viewMode={state.viewMode}
+        onChangeViewMode={state.setViewMode}
+        picker={navigation.picker}
+        onPickerChange={navigation.setPicker}
+      />
 
-      {/* מתג תצוגות */}
-      <ViewToggle currentView={mainView} onToggle={setMainView} />
+      {/* Main View Toggle */}
+      <ViewToggle
+        currentView={navigation.mainView}
+        onToggle={navigation.setMainView}
+      />
 
-      {/* תצוגת לוח שנה */}
-      {mainView === "calendar" && (
+      {/* Calendar Views */}
+      {navigation.mainView === "calendar" && (
         <>
-          <Toolbar
-            viewMode={state.viewMode}
-            onChangeViewMode={(m) => { state.setViewMode(m); log.on("[UI] view mode ->", m); }}
-            picker={selectedDayKey}
-            onPickerChange={(val: string) => { setPicker(val); }}
-          />
-
-          {state.viewMode
- === "month" && (
+          {state.viewMode === "month" && (
             <MonthView
-              viewDate={state.viewDate
-}
-              selectedDayKey={selectedDayKey}
-              setSelectedDayKey={setSelectedDayKey}
-              setViewDate={state.setViewDate
-}
+              viewDate={state.viewDate}
+              selectedDayKey={navigation.selectedDayKey}
+              setSelectedDayKey={navigation.setSelectedDayKey}
+              setViewDate={state.setViewDate}
               daysMap={daysMap}
               todayKey={today}
-              onOpenDayModal={(key: string) => { state.setDayModalKey(key); }}
-              onPrev={prev}
-              onNext={next}
-              onToday={goToday}
+              onOpenDayModal={(key: string) => state.setDayModalKey(key)}
+              onPrev={navigation.prev}
+              onNext={navigation.next}
+              onToday={navigation.goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
+              onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
             />
           )}
 
-          {state.viewMode
- === "week" && (
+          {state.viewMode === "week" && (
             <WeekView
-              viewDate={state.viewDate
-}
-              selectedDayKey={selectedDayKey}
-              setSelectedDayKey={setSelectedDayKey}
-              setViewDate={state.setViewDate
-}
+              viewDate={state.viewDate}
+              selectedDayKey={navigation.selectedDayKey}
+              setSelectedDayKey={navigation.setSelectedDayKey}
+              setViewDate={state.setViewDate}
               daysMap={daysMap}
               todayKey={today}
-              onOpenDayModal={(key: string) => { state.setDayModalKey(key); }}
-              onPrevWeek={prev}
-              onNextWeek={next}
-              onToday={goToday}
+              onOpenDayModal={(key: string) => state.setDayModalKey(key)}
+              onPrevWeek={navigation.prev}
+              onNextWeek={navigation.next}
+              onToday={navigation.goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
+              onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
             />
           )}
 
-          {state.viewMode
- === "day" && (
+          {state.viewMode === "day" && (
             <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
               <div className="bg-red-100 px-6 py-6">
                 <div className="flex items-center justify-between mb-3">
                   {isManager && (
                     <button
-                      onClick={() => { state.setShowUpload(true); }}
+                      onClick={() => state.setShowUpload(true)}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
                     >
                       <span className="text-xl leading-none">＋</span>
@@ -806,7 +214,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
                   )}
 
                   <button
-                    onClick={goToday}
+                    onClick={navigation.goToday}
                     className="text-xs px-4 py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
                   >
                     היום
@@ -814,7 +222,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
                 </div>
 
                 <div className="flex items-center justify-center gap-6">
-                  <button onClick={prev} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום קודם">
+                  <button onClick={navigation.prev} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום קודם">
                     ‹
                   </button>
 
@@ -830,7 +238,7 @@ const finalizeOrders = async (finalOrders: any[]) => {
                     </div>
                   </div>
 
-                  <button onClick={next} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום הבא">
+                  <button onClick={navigation.next} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום הבא">
                     ›
                   </button>
                 </div>
@@ -843,15 +251,14 @@ const finalizeOrders = async (finalOrders: any[]) => {
                   deleteOrder={isManager ? actions.deleteOrder : undefined}
                   editOrderItem={isManager ? actions.editOrderItem : undefined}
                   removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
-                  onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
-                  noteOpen={noteOpen}
-                  toggleNote={toggleNote}
+                  onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+                  noteOpen={modals.noteOpen}
+                  toggleNote={modals.toggleNote}
                   onEditColor={isManager ? async (clientName, newColor) => {
-                  await updateClientColor(clientName, newColor);
-                } : undefined}
-                getClientColor={getClientColor}
-                  recipeLinks={settings.recipeLinks} // ✅ הוסף
-
+                    await updateClientColor(clientName, newColor);
+                  } : undefined}
+                  getClientColor={getClientColor}
+                  recipeLinks={settings.recipeLinks}
                 />
               </div>
             </div>
@@ -859,199 +266,177 @@ const finalizeOrders = async (finalOrders: any[]) => {
         </>
       )}
 
-      {mainView === "clients" && (
+      {/* Clients View */}
+      {navigation.mainView === "clients" && (
         <ClientsView
           orders={state.orders}
-          onAddClient={isManager ? () => { state.setShowUpload(true); } : undefined}
-              recipeLinks={settings.recipeLinks} // ✅ הוסף
-
+          onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+          recipeLinks={settings.recipeLinks}
         />
       )}
 
       {/* Day Modal */}
-{state.dayModalKey && (
-  <DayModal
-    dayKey={state.dayModalKey}
-    onClose={() => { state.setDayModalKey(null); log.on("[UI] close day modal"); }}
-    daysMap={daysMap}
-    deleteOrder={isManager ? actions.deleteOrder : undefined}
-    editOrderItem={isManager ? actions.editOrderItem : undefined}
-    removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
-    onAddItem={isManager ? (orderId: string) => { state.setAddItemFor(orderId); log.on("[UI] open add-item", { orderId }); } : undefined}
-    noteOpen={noteOpen}
-    toggleNote={toggleNote}
-    // ✅ הוסף את אלה:
-    isManager={isManager}
-    updateClientColor={updateClientColor}
-    getClientColor={getClientColor}
-    recipeLinks={settings.recipeLinks} // ✅ הוסף
-  />
-)}
-      {/* Add Item Picker - only for managers */}
+      {state.dayModalKey && (
+        <DayModal
+          dayKey={state.dayModalKey}
+          onClose={() => state.setDayModalKey(null)}
+          daysMap={daysMap}
+          deleteOrder={isManager ? actions.deleteOrder : undefined}
+          editOrderItem={isManager ? actions.editOrderItem : undefined}
+          removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
+          onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+          noteOpen={modals.noteOpen}
+          toggleNote={modals.toggleNote}
+          isManager={isManager}
+          updateClientColor={updateClientColor}
+          getClientColor={getClientColor}
+          recipeLinks={settings.recipeLinks}
+        />
+      )}
+
+      {/* Add Item Modal */}
       {isManager && (
         <AddItemModal
           showFor={state.addItemFor}
-          onClose={() => { state.setAddItemFor(null); log.on("[UI] close add-item"); }}
-          menuOptions={state.menuOptions
-}
-          addSearch={addSearch}
-          setAddSearch={setAddSearch}
+          onClose={() => state.setAddItemFor(null)}
+          menuOptions={state.menuOptions}
+          addSearch={modals.addSearch}
+          setAddSearch={modals.setAddSearch}
           onConfirm={confirmAddItem}
         />
       )}
 
-      {/* Mapping modal - only for managers */}
-      {isManager && mapOpen && (
+      {/* Mapping Modal */}
+      {isManager && upload.mapOpen && (
         <MappingModal
-          unknowns={unknowns}
+          unknowns={upload.unknowns}
           mapping={settings.mapping}
           setMapping={updateMapping}
-          menuOptions={state.menuOptions
-}
+          menuOptions={state.menuOptions}
           ignored={settings.ignored}
           setIgnored={updateIgnored}
-          onClose={() => { setMapOpen(false); log.on("[UI] close mapping"); }}
-          onIngest={(mappingObj) => doIngest(mappingObj, true)}
-          hasPendingFiles={hasPendingFiles}
-          ingestBufferRef={ingestBufferRef}
-          orders={state.orders as any}
-          persist={persist as any}
+          onClose={() => upload.setMapOpen(false)}
+          onIngest={(mappingObj) => upload.doIngest(mappingObj, true)}
+          hasPendingFiles={upload.hasPendingFiles}
+          ingestBufferRef={upload.ingestBufferRef}
+          orders={state.orders}
+          persist={firebase.persist}
         />
       )}
 
-      {/* Upload PDF Modal - only for managers */}
+      {/* Upload Modal */}
       {isManager && (
-  <UploadModal
-    show={state.showUpload}
-    onClose={() => { 
-      state.setShowUpload(false); 
-      log.on("[UI] close upload"); 
-    }}
-    files={files}
-    setFiles={setFiles}
-    error={error}
-    loading={loading}
-    onRunPreview={(dateOverrides) => runPreviewThenIngest(dateOverrides)}
-    apiBase={apiBase}
-    onManualStart={() => {
-      state.setShowUpload(false);
-      state.setShowManualOrder(true);
-    }}
-  />
-)}
-      {/* Date-fix modal - only for managers */}
-      {isManager && (
-        <DateFixModal
-          show={dateFixOpen}
-          onClose={() => { setDateFixOpen(false); log.on("[UI] close date-fix"); }}
-          dateFixList={dateFixList}
-          setDateFixList={setDateFixList}
-          orders={state.orders}
-          persist={persist}
+        <UploadModal
+          show={state.showUpload}
+          onClose={() => state.setShowUpload(false)}
+          files={upload.files}
+          setFiles={upload.setFiles}
+          loading={upload.loading}
+          error={upload.error}
+          onRunPreview={upload.runPreviewThenIngest}
+          apiBase={apiBase}
+          onManualStart={() => {
+            state.setShowUpload(false);
+            state.setShowManualOrder(true);
+          }}
         />
       )}
 
       {/* Confirm Review Modal */}
-{showConfirmReview && reviewData && (
-  <ConfirmReviewModal
-    show={showConfirmReview}
-    onConfirm={() => {
-      setShowConfirmReview(false);
-      setShowReview(true);
-    }}
-    onSkip={async () => {
-            setShowConfirmReview(false);
-      await finalizeOrders(reviewData.orders);
-    }}
-  />
-)}
+      {isManager && upload.reviewData && (
+        <ConfirmReviewModal
+          show={upload.showConfirmReview}
+          onConfirm={() => {
+            upload.setShowConfirmReview(false);
+            upload.setShowReview(true);
+          }}
+          onSkip={async () => {
+            upload.setShowConfirmReview(false);
+            await upload.finalizeOrders(upload.reviewData!.orders, firebase.persist, state.orders);
+          }}
+        />
+      )}
 
-{/* Review Modal */}
-{showReview && reviewData && (
-  <ReviewModal
-    show={showReview}
-    orders={reviewData.orders}
-    files={reviewData.files}
-    onClose={() => {
-            setShowReview(false);
-      setShowConfirmReview(false);
-      setReviewData(null);
-    }}
-    onSave={async (editedOrders) => {
-            await finalizeOrders(editedOrders);
-    }}
-  />
-)}
-{/* Settings Modal - only for managers */}
-{isManager && settings.categoryConfig && (
-  <SettingsModal
-    show={showSettings}
-    onClose={() => setShowSettings(false)}
-    
-    menuOptions={state.menuOptions
-}
-    onUpdateMenu={async (newMenu) => {
-  try {
-    // שמור ל-Firebase
-    await setDoc(doc(db, "orderSettings", "menu"), {
-      items: newMenu,
-      updatedAt: serverTimestamp(),
-    });
-    
-    // עדכן state מקומי
-    state.setMenuOptions
-(newMenu);
-    
-      } catch (e) {
-    console.error("❌ שגיאה בשמירת תפריט:", e);
-    alert("שגיאה בשמירה");
-  }
-}}
-    
-    mapping={settings.mapping}
-    onUpdateMapping={updateMapping}
-    
-    ignored={settings.ignored}
-    onUpdateIgnored={updateIgnored}
-    
-    // ✅ העבר את הקטגוריות!
-    categories={settings.categoryConfig}
-    
-    onUpdateCategories={async (newConfig) => {
-      try {
-        await setDoc(doc(db, "orderSettings", "categoryConfig"), newConfig);
-        settings.updateCategoryConfig(newConfig);
-        setCategoryConfig(newConfig);
-              } catch (e) {
-        console.error("❌ שגיאה:", e);
-        alert("שגיאה בשמירה");
-      }
-    }}
-    recipeLinks={settings.recipeLinks}
-    onUpdateRecipeLinks={async (newLinks) => {
-      try {
-        await setDoc(doc(db, "orderSettings", "recipeLinks"), {
-          links: newLinks,
-          updatedAt: serverTimestamp(),
-        });
-        settings.updateRecipeLinks(newLinks);
-              } catch (e) {
-        console.error("❌ שגיאה:", e);
-        alert("שגיאה בשמירה");
-      }
-    }}
-  />
-)}
-{/* Manual Order Modal - only for managers */}
-{isManager && (
-  <ManualOrderModal
-    show={state.showManualOrder}
-    onClose={() => state.setShowManualOrder(false)}
-    onSave={actions.saveManualOrder}
-    menuOptions={state.menuOptions
-}
-  />
-)}
+      {/* Review Modal */}
+      {isManager && upload.reviewData && (
+        <ReviewModal
+          show={upload.showReview}
+          onClose={() => {
+            upload.setShowReview(false);
+            upload.setReviewData(null);
+          }}
+          orders={upload.reviewData.orders}
+          files={upload.reviewData.files}
+          onSave={async (finalOrders: any) => {
+            await upload.finalizeOrders(finalOrders, firebase.persist, state.orders);
+          }}
+        />
+      )}
+
+      {/* Date Fix Modal */}
+      {isManager && (
+        <DateFixModal
+          show={upload.dateFixOpen}
+          onClose={() => upload.setDateFixOpen(false)}
+          dateFixList={upload.dateFixList}
+          setDateFixList={upload.setDateFixList}
+          orders={state.orders}
+          persist={async (next: any) => {
+            await firebase.persist(next);
+            upload.setDateFixOpen(false);
+          }}
+        />
+      )}
+
+      {/* Settings Modal */}
+      {isManager && (
+        <SettingsModal
+          show={modals.showSettings}
+          onClose={() => modals.setShowSettings(false)}
+          menuOptions={state.menuOptions}
+          onUpdateMenu={async (newMenu) => {
+            try {
+              await setDoc(doc(db, "orderSettings", "menu"), {
+                items: newMenu,
+                updatedAt: serverTimestamp(),
+              });
+              state.setMenuOptions(newMenu);
+            } catch (e) {
+              console.error("שגיאה:", e);
+              alert("שגיאה בשמירה");
+            }
+          }}
+          mapping={settings.mapping}
+          onUpdateMapping={updateMapping}
+          ignored={settings.ignored}
+          onUpdateIgnored={updateIgnored}
+          categories={settings.categoryConfig || { items: {}, itemMapping: {} }}
+          onUpdateCategories={async (newConfig) => {
+            try {
+              await setDoc(doc(db, "orderSettings", "categoryConfig"), newConfig);
+              settings.updateCategoryConfig(newConfig);
+            } catch (e) {
+              console.error("שגיאה:", e);
+              alert("שגיאה בשמירה");
+            }
+          }}
+       recipeLinks={settings.recipeLinks}
+      onUpdateRecipeLinks={(newLinks) => {
+        settings.updateRecipeLinks(newLinks); // הכתיבה ל-DB תתבצע בתוך ההוק
+      }}
+
+        />
+      )}
+
+      {/* Manual Order Modal */}
+      {isManager && (
+        <ManualOrderModal
+          show={state.showManualOrder}
+          onClose={() => state.setShowManualOrder(false)}
+          onSave={actions.saveManualOrder}
+          menuOptions={state.menuOptions}
+        />
+      )}
     </div>
   );
 }

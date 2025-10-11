@@ -93,10 +93,10 @@ export default function EditRecipePage() {
   }
 
   // --- עזר לעריכת קבוצות/שלבים ---
-  function addGroup() { setGroups((g) => [...g, { id: uid(), groupName: "קבוצה", items: [] }]); }
+  function addGroup() { setGroups((g) => [...g, { id: generateId(), groupName: "קבוצה", items: [] }]); }
   function removeGroup(groupId: string) { setGroups((g) => g.filter((x) => x.id !== groupId)); }
   function setGroupName(groupId: string, v: string) { setGroups((g) => g.map((x) => (x.id === groupId ? { ...x, groupName: v } : x))); }
-  function addItem(groupId: string) { setGroups((g) => g.map((x) => (x.id === groupId ? { ...x, items: [...x.items, { id: uid(), name: "", qty: "", unit: "" }] } : x))); }
+  function addItem(groupId: string) { setGroups((g) => g.map((x) => (x.id === groupId ? { ...x, items: [...x.items, { id: generateId(), name: "", qty: "", unit: "" }] } : x))); }
   function removeItem(groupId: string, itemId: string) { setGroups((g) => g.map((x) => (x.id === groupId ? { ...x, items: x.items.filter((it) => it.id !== itemId) } : x))); }
   function setItemField(groupId: string, itemId: string, field: keyof Ingredient, v: string) {
     setGroups((g) => g.map((x) =>
@@ -105,7 +105,7 @@ export default function EditRecipePage() {
         : x
     ));
   }
-  function addStep() { setSteps((s) => [...s, { id: uid(), text: "" }]); }
+  function addStep() { setSteps((s) => [...s, { id: generateId(), text: "" }]); }
   function removeStep(id2: string) { setSteps((s) => s.filter((x) => x.id !== id2)); }
   function setStepText(id2: string, v: string) { setSteps((s) => s.map((x) => (x.id === id2 ? { ...x, text: v } : x))); }
 

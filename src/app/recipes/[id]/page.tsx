@@ -8,7 +8,7 @@ import FloatingCalculator from "../../../components/FloatingCalculator";
 import NoSleep from "nosleep.js";
 import { useUser, useRole } from "../../../lib/auth";
 import ScaleControl from "../../../components/ScaleControl";
-
+import { updateDoc, serverTimestamp } from "firebase/firestore";
 
 // ---- Utilities: שמירה לוקאלית ----
 const LS_CHECKED = (id: string) => `recipe_${id}_checked_map_v1`;
