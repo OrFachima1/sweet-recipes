@@ -227,15 +227,15 @@ export default function ClientsView({
 
       {/* Content */}
       {focusMode ? (
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">📊 סיכום מנות</h3>
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">📊 סיכום מנות</h3>
             <div className="text-sm text-gray-600">
               סה״כ {Object.values(itemsSummary).reduce((a, b) => a + b, 0)} פריטים
             </div>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-3">
             {getCategoryOrder().map(category => {
               const categoryItems = itemsByCategory[category];
               if (!categoryItems || categoryItems.length === 0) return null;
@@ -243,63 +243,60 @@ export default function ClientsView({
               const categoryColor = getCategoryColor(category);
               const totalInCategory = categoryItems.reduce((sum: number, item: any) => sum + item.qty, 0);
               
+              // צבע כהה יותר
+              const darkerColor = (() => {
+                const hex = categoryColor.replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                const darkerR = Math.floor(r * 0.6);
+                const darkerG = Math.floor(g * 0.6);
+                const darkerB = Math.floor(b * 0.6);
+                return `#${darkerR.toString(16).padStart(2, '0')}${darkerG.toString(16).padStart(2, '0')}${darkerB.toString(16).padStart(2, '0')}`;
+              })();
+              
               return (
-                <div key={category} className="rounded-xl overflow-hidden border-2 shadow-sm" style={{ borderColor: categoryColor }}>
+                <div key={category} className="rounded-lg overflow-hidden border-2" style={{ borderColor: categoryColor }}>
                   <div 
-                    className="px-6 py-3 flex items-center justify-between"
+                    className="px-4 py-2 flex items-center justify-between"
                     style={{ backgroundColor: categoryColor }}
                   >
-                    <span className="text-lg font-bold text-gray-800">{category}</span>
-                    <span className="text-sm font-bold text-gray-700 bg-white/50 px-3 py-1 rounded-full">
-                      סה״כ: {totalInCategory}
+                    <span className="text-base font-bold text-gray-800">{category}</span>
+                    <span className="text-xs font-bold text-gray-700 bg-white/50 px-2 py-1 rounded-full">
+                      {totalInCategory} יח׳
                     </span>
                   </div>
                   
-                  <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" style={{ backgroundColor: `${categoryColor}10` }}>
-                    {categoryItems.map((item: any) => {
-                      // חישוב צבע כהה יותר מהצבע המקורי
-                      const darkerColor = (() => {
-                        const hex = categoryColor.replace('#', '');
-                        const r = parseInt(hex.substr(0, 2), 16);
-                        const g = parseInt(hex.substr(2, 2), 16);
-                        const b = parseInt(hex.substr(4, 2), 16);
-                        // הפחתה של 30% מכל ערך RGB
-                        const darkerR = Math.floor(r * 0.6);
-                        const darkerG = Math.floor(g * 0.6);
-                        const darkerB = Math.floor(b * 0.6);
-                        return `#${darkerR.toString(16).padStart(2, '0')}${darkerG.toString(16).padStart(2, '0')}${darkerB.toString(16).padStart(2, '0')}`;
-                      })();
-                      
-                      return (
+                  <div className="p-2" style={{ backgroundColor: `${categoryColor}10` }}>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                      {categoryItems.map((item: any) => (
                         <div 
                           key={item.title} 
-                          className="bg-white rounded-lg p-3 border-2 hover:shadow-md transition-shadow"
+                          className="bg-white rounded p-2 border hover:shadow-sm transition-shadow"
                           style={{ borderColor: categoryColor }}
                         >
-                          <div className="flex flex-col gap-1">
-                            {recipeLinks?.[item.title] ? (
-                              <a
-                                href={`/recipes/${recipeLinks[item.title]}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-semibold text-sm text-blue-600 hover:text-blue-700 hover:underline"
-                                title="פתח מתכון"
-                              >
-                                {item.title}
-                              </a>
-                            ) : (
-                              <span className="font-semibold text-sm text-gray-900">{item.title}</span>
-                            )}
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-2xl font-bold" style={{ color: darkerColor }}>
-                                {item.qty}
-                              </span>
-                              <span className="text-xs text-gray-500">יחידות</span>
-                            </div>
+                          {recipeLinks?.[item.title] ? (
+                            <a
+                              href={`/recipes/${recipeLinks[item.title]}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline block mb-1"
+                              title="פתח מתכון"
+                            >
+                              {item.title}
+                            </a>
+                          ) : (
+                            <div className="text-xs font-semibold text-gray-900 mb-1">{item.title}</div>
+                          )}
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-bold" style={{ color: darkerColor }}>
+                              {item.qty}
+                            </span>
+                            <span className="text-xs text-gray-500">יח׳</span>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </div>
               );

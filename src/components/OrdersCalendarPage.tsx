@@ -145,15 +145,23 @@ export default function OrdersCalendarPage({
   const dayKey = navigation.selectedDayKey;
   const today = navigation.today;
   const monthLbl = navigation.monthLabel;
- const editOrderNotes = (orderId: string, notes: string) => {
+// ===== Edit Order Notes =====
+const editOrderNotes = (orderId: string, notes: string) => {
   if (!isManager) {
     alert("אין לך הרשאה לערוך הזמנות");
     return;
   }
   
+  console.log('🔍 Before update:', state.orders.find(o => o.__id === orderId));
+  
   const next = state.orders.map(o =>
     o.__id !== orderId ? o : { ...o, orderNotes: notes }
   );
+  
+  console.log('🔍 After update:', next.find(o => o.__id === orderId));
+  console.log('🔍 Total orders before:', state.orders.length);
+  console.log('🔍 Total orders after:', next.length);
+  
   firebase.persist(next);
 };
 

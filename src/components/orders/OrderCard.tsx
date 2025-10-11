@@ -433,7 +433,7 @@ export default function OrderCard({
                                   {canEdit && (
                                     <button
                                       onClick={() => setEditingItemTitle(originalIndex)}
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-400 hover:text-blue-600 flex-shrink-0"
+                                      className="text-xs text-gray-400 hover:text-blue-600 p-1"
                                       title="ערוך שם"
                                     >
                                       ✏️
