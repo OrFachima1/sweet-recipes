@@ -32,9 +32,10 @@ export default function CategoryManager({
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [longPressedCat, setLongPressedCat] = useState<string | null>(null);
+  const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const lastTapTime = useRef<number>(0);
+  const lastTapCat = useRef<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -77,22 +78,26 @@ export default function CategoryManager({
   const handleDeleteCategory = (catId: string) => {
     if (confirm(`האם למחוק את הקטגוריה?`)) {
       onDeleteCategory(catId);
+      setShowOptionsFor(null);
     }
   };
 
-  // לחיצה ארוכה למובייל
-  const handleTouchStart = (catId: string) => {
-    if (catId === 'all') return;
+  // זיהוי דאבל קליק/טאפ
+  const handleCategoryClick = (catId: string) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTime.current;
     
-    longPressTimer.current = setTimeout(() => {
-      setLongPressedCat(catId);
-    }, 500);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+    // אם זה אותה קטגוריה ועבר פחות מ-300ms = דאבל קליק
+    if (lastTapCat.current === catId && timeSinceLastTap < 300 && catId !== 'all') {
+      // דאבל קליק - פתח אפשרויות
+      setShowOptionsFor(catId);
+      lastTapTime.current = 0;
+      lastTapCat.current = null;
+    } else {
+      // קליק רגיל - בחר קטגוריה
+      onSelectCategory(catId);
+      lastTapTime.current = now;
+      lastTapCat.current = catId;
     }
   };
 
@@ -130,10 +135,7 @@ export default function CategoryManager({
           return (
             <div key={cat.id} className="relative flex-shrink-0 group">
               <button
-                onClick={() => onSelectCategory(cat.id)}
-                onTouchStart={() => handleTouchStart(cat.id)}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchEnd}
+                onClick={() => handleCategoryClick(cat.id)}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center gap-1.5 whitespace-nowrap relative
@@ -160,7 +162,7 @@ export default function CategoryManager({
               
               {/* אפשרויות עריכה/מחיקה - דסקטופ (hover) */}
               {cat.id !== 'all' && (
-                <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -197,26 +199,26 @@ export default function CategoryManager({
         </button>
       </div>
 
-      {/* מודל אפשרויות קטגוריה - מובייל (לחיצה ארוכה) */}
-      {longPressedCat && (
+      {/* מודל אפשרויות קטגוריה - מובייל (דאבל קליק) */}
+      {showOptionsFor && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setLongPressedCat(null)}
+          onClick={() => setShowOptionsFor(null)}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-[scale-in_0.2s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">
-              {categories.find(c => c.id === longPressedCat)?.emoji} {categories.find(c => c.id === longPressedCat)?.name}
+              {categories.find(c => c.id === showOptionsFor)?.emoji} {categories.find(c => c.id === showOptionsFor)?.name}
             </h3>
             
             <div className="space-y-3">
               <button
                 onClick={() => {
-                  setEditingCat(longPressedCat);
-                  setEditName(categories.find(c => c.id === longPressedCat)?.name || '');
-                  setLongPressedCat(null);
+                  setEditingCat(showOptionsFor);
+                  setEditName(categories.find(c => c.id === showOptionsFor)?.name || '');
+                  setShowOptionsFor(null);
                 }}
                 className="w-full px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
@@ -225,10 +227,7 @@ export default function CategoryManager({
               </button>
               
               <button
-                onClick={() => {
-                  handleDeleteCategory(longPressedCat);
-                  setLongPressedCat(null);
-                }}
+                onClick={() => handleDeleteCategory(showOptionsFor)}
                 className="w-full px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <span>🗑️</span>
@@ -236,7 +235,7 @@ export default function CategoryManager({
               </button>
               
               <button
-                onClick={() => setLongPressedCat(null)}
+                onClick={() => setShowOptionsFor(null)}
                 className="w-full px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 active:scale-95 transition-all"
               >
                 ביטול
