@@ -92,7 +92,10 @@ export default function CategoryManager({
 
   // זיהוי דאבל קליק/טאפ
   const handleCategoryClick = (catId: string) => {
-    if (isDragging) return; // אל תבחר אם גוררים
+    // אם אנחנו במצב גרירה, לא נעשה כלום
+    if (isDragging) {
+      return;
+    }
     
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime.current;
@@ -120,7 +123,7 @@ export default function CategoryManager({
       setIsDragging(true);
       setDraggedCat(catId);
       navigator.vibrate?.(50); // רטט קל
-    }, 500);
+    }, 400); // קיצרתי ל-400ms
   };
 
   const handleTouchEnd = () => {
@@ -132,9 +135,12 @@ export default function CategoryManager({
       handleReorder(draggedCat, dragOverCat);
     }
     
-    setIsDragging(false);
-    setDraggedCat(null);
-    setDragOverCat(null);
+    // המתן רגע לפני ביטול מצב הגרירה כדי למנוע קליק
+    setTimeout(() => {
+      setIsDragging(false);
+      setDraggedCat(null);
+      setDragOverCat(null);
+    }, 100);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -274,14 +280,21 @@ export default function CategoryManager({
               }}
             >
               <button
-                onClick={() => handleCategoryClick(cat.id)}
+                onClick={() => !isDragging && handleCategoryClick(cat.id)}
                 onTouchStart={(e) => handleTouchStart(cat.id, e)}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
                 style={{ 
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none'
+                  WebkitTouchCallout: 'none',
+                  animation: isDragging && cat.id !== 'all' ? 'wiggle 0.3s ease-in-out infinite' : 'none',
+                  transform: isBeingDragged 
+                    ? 'scale(1.1) rotate(2deg)' 
+                    : isDragOver && !isBeingDragged 
+                    ? 'translateX(20px)' 
+                    : 'none',
+                  transition: 'transform 0.2s ease-out'
                 }}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
@@ -487,6 +500,18 @@ export default function CategoryManager({
           </div>
         </div>
       )}
+      
+      {/* אנימציות CSS */}
+      <style jsx>{`
+        @keyframes wiggle {
+          0%, 100% { 
+            transform: rotate(-1deg); 
+          }
+          50% { 
+            transform: rotate(1deg); 
+          }
+        }
+      `}</style>
     </div>
   );
 }
