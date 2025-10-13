@@ -227,7 +227,7 @@ export default function CategoryManager({
                       : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                   }`}
                 >
-                  →
+                  ←
                 </button>
                 <button
                   onClick={() => moveCategory(cat.id, 'right')}
@@ -238,7 +238,7 @@ export default function CategoryManager({
                       : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                   }`}
                 >
-                  ←
+                  →
                 </button>
               </div>
             )}

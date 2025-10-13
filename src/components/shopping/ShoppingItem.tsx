@@ -117,14 +117,15 @@ export default function ShoppingItem({
     <div 
       className="relative" 
       ref={containerRef} 
-      style={{ zIndex: showMenu ? 50 : 'auto' }}
+      style={{ zIndex: showMenu ? 100 : 'auto' }}
     >
       {/* רקע אדום מאחורי הכרטיס */}
       {swipeOffset > 0 && (
         <div 
-          className="absolute inset-0 flex items-center justify-start px-6 rounded-2xl transition-colors duration-200"
+          className="absolute inset-0 flex items-center justify-start px-6 rounded-2xl"
           style={{ 
-            background: swipeOffset > 80 ? '#ef4444' : '#fca5a5'
+            background: swipeOffset > 80 ? '#ef4444' : '#fca5a5',
+            transition: 'background 0.2s ease'
           }}
         >
           <div className="flex items-center gap-3">
@@ -138,12 +139,12 @@ export default function ShoppingItem({
 
       {/* הכרטיס עצמו */}
       <div
-        className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+        className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 ${
           isChecked ? 'opacity-60' : ''
         }`}
         style={{
           transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.3s ease-out'
+          transition: isSwiping ? 'none' : 'transform 0.2s ease-out'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -219,7 +220,7 @@ export default function ShoppingItem({
             {showMenu && (
               <>
                 <div 
-                  className="fixed inset-0 z-[90]"
+                  className="fixed inset-0 z-[200]"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
@@ -227,7 +228,7 @@ export default function ShoppingItem({
                 />
                 
                 <div 
-                  className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[100] min-w-[200px] max-h-[400px] overflow-y-auto"
+                  className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[300] min-w-[200px] max-h-[400px] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="text-xs font-bold text-gray-500 px-4 py-2 border-b border-gray-100">
