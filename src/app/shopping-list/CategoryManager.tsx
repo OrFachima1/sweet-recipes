@@ -114,7 +114,7 @@ export default function CategoryManager({
                   onClick={() => onSelectCategory(cat.id)}
                   onDoubleClick={() => handleDoubleClick(cat)}
                   className={`
-                    relative px-4 sm:px-6 py-2 sm:py-3 rounded-t-2xl font-medium transition-all duration-300 flex items-center gap-2 min-w-[120px] sm:min-w-[140px]
+                    relative px-3 sm:px-6 py-2 sm:py-3 rounded-t-2xl font-bold transition-all duration-300 flex flex-col sm:flex-row items-center gap-1 sm:gap-2 min-w-[100px] sm:min-w-[140px]
                     ${isActive 
                       ? 'bg-white shadow-lg -mb-px z-10 scale-105' 
                       : 'bg-blue-100/50 hover:bg-blue-100 shadow-sm'
@@ -124,21 +124,26 @@ export default function CategoryManager({
                     transform: isActive ? 'translateY(2px)' : 'none'
                   }}
                 >
-                  <span className="text-2xl sm:text-3xl">{cat.emoji}</span>
-                  <span 
-                    className={`text-2xl sm:text-3xl font-bold ${isActive ? 'text-gray-800' : 'text-gray-600'}`}
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  >
-                    {cat.name}
-                  </span>
-                  {count > 0 && (
-                    <span className={`
-                      px-2 sm:px-3 py-1 rounded-full text-sm sm:text-base font-bold
-                      ${isActive ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-700'}
-                    `}>
-                      {count}
+                  <span className="text-xl sm:text-2xl">{cat.emoji}</span>
+                  <div className="flex flex-col sm:flex-row items-center gap-1">
+                    <span 
+                      className={`text-lg sm:text-2xl text-center leading-tight ${isActive ? 'text-gray-800' : 'text-gray-600'}`}
+                      style={{ 
+                        fontFamily: 'MyHandwriting, Arial',
+                        WebkitFontSmoothing: 'antialiased'
+                      }}
+                    >
+                      {cat.name}
                     </span>
-                  )}
+                    {count > 0 && (
+                      <span className={`
+                        px-1.5 sm:px-2 py-0.5 rounded-full text-xs sm:text-sm font-bold
+                        ${isActive ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-700'}
+                      `}>
+                        {count}
+                      </span>
+                    )}
+                  </div>
                 </button>
                 
                 {cat.id !== 'all' && cat.id !== 'other' && (
@@ -160,11 +165,14 @@ export default function CategoryManager({
 
           <button
             onClick={handleAddCategory}
-            className="px-4 sm:px-6 py-2 sm:py-3 rounded-t-2xl bg-gradient-to-l from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 shadow-sm flex items-center gap-2 transition-all min-w-[120px] sm:min-w-[140px]"
+            className="px-3 sm:px-6 py-2 sm:py-3 rounded-t-2xl bg-gradient-to-l from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 shadow-sm flex flex-col sm:flex-row items-center gap-1 sm:gap-2 transition-all min-w-[100px] sm:min-w-[140px]"
             style={{ scrollSnapAlign: 'start' }}
           >
-            <span className="text-2xl sm:text-3xl">➕</span>
-            <span className="text-2xl sm:text-3xl text-gray-700 font-bold" style={{ fontFamily: 'MyHandwriting, Arial' }}>
+            <span className="text-xl sm:text-2xl">➕</span>
+            <span className="text-lg sm:text-2xl text-gray-700 font-bold text-center leading-tight" style={{ 
+              fontFamily: 'MyHandwriting, Arial',
+              WebkitFontSmoothing: 'antialiased'
+            }}>
               הוסף
             </span>
           </button>

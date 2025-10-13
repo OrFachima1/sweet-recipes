@@ -33,40 +33,40 @@ export default function ShoppingItem({
       <div className="absolute inset-0 pointer-events-none">
         <div className="h-full border-b border-blue-200/40" style={{ 
           backgroundImage: 'linear-gradient(transparent 95%, #bfdbfe 95%)',
-          backgroundSize: '100% 3.5rem'
+          backgroundSize: '100% 3rem'
         }} />
       </div>
 
       {/* תוכן הפריט */}
       <div 
-        className="relative flex items-center gap-2 sm:gap-4 py-2 sm:py-3 px-3 sm:px-6 hover:bg-blue-50/30 transition-colors"
-        style={{ minHeight: '3.5rem' }}
+        className="relative flex items-center gap-3 py-2 px-3 sm:px-6 hover:bg-blue-50/30 transition-colors"
+        style={{ minHeight: '3rem' }}
       >
         {/* צ'קבוקס */}
         <button
           onClick={onToggleCheck}
-          className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-md border-3 flex items-center justify-center transition-all hover:scale-110 ${
+          className={`flex-shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-lg border-3 flex items-center justify-center transition-all hover:scale-110 ${
             isChecked 
               ? 'bg-gradient-to-br from-green-400 to-emerald-500 border-green-600 shadow-lg' 
               : 'border-gray-400 bg-white hover:border-blue-500'
           }`}
         >
           {isChecked && (
-            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" strokeWidth={4} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}
         </button>
 
         {/* טקסט וכמות */}
-        <div className="flex-1 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 min-h-[2.8rem]">
+        <div className="flex-1 flex items-center gap-2 min-h-[3rem]">
           <span 
-            className={`text-3xl sm:text-4xl leading-relaxed ${
+            className={`text-3xl sm:text-4xl md:text-5xl font-bold leading-tight ${
               isChecked ? 'line-through opacity-40' : 'text-gray-800'
             }`}
             style={{ 
               fontFamily: 'MyHandwriting, Arial',
-              paddingTop: '0.3rem'
+              WebkitFontSmoothing: 'antialiased'
             }}
           >
             {name}
@@ -74,12 +74,12 @@ export default function ShoppingItem({
           
           {qty > 0 && (
             <span 
-              className={`text-2xl sm:text-3xl text-blue-600 font-medium leading-relaxed ${
+              className={`text-2xl sm:text-3xl md:text-4xl text-blue-600 font-bold leading-tight whitespace-nowrap ${
                 isChecked ? 'opacity-40' : ''
               }`}
               style={{ 
                 fontFamily: 'MyHandwriting, Arial',
-                paddingTop: '0.3rem'
+                WebkitFontSmoothing: 'antialiased'
               }}
             >
               {Math.round(qty * 100) / 100} {unit}
@@ -106,7 +106,7 @@ export default function ShoppingItem({
               />
               <div className="absolute left-0 top-12 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-20 min-w-[220px]">
                 <div className="px-4 py-2 bg-gradient-to-l from-blue-50 to-cyan-50 border-b border-blue-200">
-                  <div className="text-sm font-semibold text-gray-700">העבר לקטגוריה:</div>
+                  <div className="text-base font-bold text-gray-700">העבר לקטגוריה:</div>
                 </div>
 
                 <div className="max-h-64 overflow-y-auto">
@@ -117,9 +117,9 @@ export default function ShoppingItem({
                         onChangeCategory(cat.id);
                         setShowMenu(false);
                       }}
-                      className="w-full px-4 py-3 text-right hover:bg-blue-50 transition-colors flex items-center gap-2 text-base"
+                      className="w-full px-4 py-3 text-right hover:bg-blue-50 transition-colors flex items-center gap-2 text-lg font-semibold"
                     >
-                      <span className="text-xl">{cat.emoji}</span>
+                      <span className="text-2xl">{cat.emoji}</span>
                       <span className="text-gray-700">{cat.name}</span>
                     </button>
                   ))}
@@ -133,9 +133,9 @@ export default function ShoppingItem({
                         onDelete();
                         setShowMenu(false);
                       }}
-                      className="w-full px-4 py-3 text-right hover:bg-red-50 text-red-600 font-semibold flex items-center gap-2 text-base"
+                      className="w-full px-4 py-3 text-right hover:bg-red-50 text-red-600 font-bold flex items-center gap-2 text-lg"
                     >
-                      <span>🗑️</span>
+                      <span className="text-xl">🗑️</span>
                       <span>מחק פריט</span>
                     </button>
                   </>
