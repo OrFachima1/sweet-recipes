@@ -33,14 +33,14 @@ export default function ShoppingItem({
       <div className="absolute inset-0 pointer-events-none">
         <div className="h-full border-b border-blue-200/40" style={{ 
           backgroundImage: 'linear-gradient(transparent 95%, #bfdbfe 95%)',
-          backgroundSize: '100% 3rem'
+          backgroundSize: '100% 2.5rem'
         }} />
       </div>
 
       {/* תוכן הפריט */}
       <div 
-        className="relative flex items-center gap-3 py-2 px-3 sm:px-6 hover:bg-blue-50/30 transition-colors"
-        style={{ minHeight: '3rem' }}
+        className="relative flex items-center gap-3 py-1.5 px-3 sm:px-6 hover:bg-blue-50/30 transition-colors"
+        style={{ minHeight: '2.5rem' }}
       >
         {/* צ'קבוקס */}
         <button
@@ -59,9 +59,9 @@ export default function ShoppingItem({
         </button>
 
         {/* טקסט וכמות */}
-        <div className="flex-1 flex items-center gap-2 min-h-[3rem]">
+        <div className="flex-1 flex items-center gap-2 min-h-[2.5rem]">
           <span 
-            className={`text-3xl sm:text-4xl md:text-5xl font-bold leading-tight ${
+            className={`text-4xl sm:text-5xl md:text-6xl font-bold leading-tight ${
               isChecked ? 'line-through opacity-40' : 'text-gray-800'
             }`}
             style={{ 
@@ -74,7 +74,7 @@ export default function ShoppingItem({
           
           {qty > 0 && (
             <span 
-              className={`text-2xl sm:text-3xl md:text-4xl text-blue-600 font-bold leading-tight whitespace-nowrap ${
+              className={`text-3xl sm:text-4xl md:text-5xl text-blue-600 font-bold leading-tight whitespace-nowrap ${
                 isChecked ? 'opacity-40' : ''
               }`}
               style={{ 
@@ -106,7 +106,7 @@ export default function ShoppingItem({
               />
               <div className="absolute left-0 top-12 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-20 min-w-[220px]">
                 <div className="px-4 py-2 bg-gradient-to-l from-blue-50 to-cyan-50 border-b border-blue-200">
-                  <div className="text-base font-bold text-gray-700">העבר לקטגוריה:</div>
+                  <div className="text-lg font-bold text-gray-700">העבר לקטגוריה:</div>
                 </div>
 
                 <div className="max-h-64 overflow-y-auto">
@@ -117,7 +117,7 @@ export default function ShoppingItem({
                         onChangeCategory(cat.id);
                         setShowMenu(false);
                       }}
-                      className="w-full px-4 py-3 text-right hover:bg-blue-50 transition-colors flex items-center gap-2 text-lg font-semibold"
+                      className="w-full px-4 py-3 text-right hover:bg-blue-50 transition-colors flex items-center gap-2 text-xl font-semibold"
                     >
                       <span className="text-2xl">{cat.emoji}</span>
                       <span className="text-gray-700">{cat.name}</span>
@@ -133,9 +133,9 @@ export default function ShoppingItem({
                         onDelete();
                         setShowMenu(false);
                       }}
-                      className="w-full px-4 py-3 text-right hover:bg-red-50 text-red-600 font-bold flex items-center gap-2 text-lg"
+                      className="w-full px-4 py-3 text-right hover:bg-red-50 text-red-600 font-bold flex items-center gap-2 text-xl"
                     >
-                      <span className="text-xl">🗑️</span>
+                      <span className="text-2xl">🗑️</span>
                       <span>מחק פריט</span>
                     </button>
                   </>
