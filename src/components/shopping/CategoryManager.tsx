@@ -321,8 +321,8 @@ export default function CategoryManager({
               {/* חצים לשינוי סדר - רק מציג חץ אם אפשר להזיז */}
               {isEditMode && cat.id !== 'all' && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
-                  {/* חץ ימני ▶ בצד שמאל - רק אם לא אחרון */}
-                  {!isLastInOrder && (
+                  {/* חץ ימני ▶ בצד שמאל - רק אם לא ראשון (יכול לזוז ימינה) */}
+                  {!isFirstInOrder && (
                     <button
                       onClick={(e) => moveLeft(cat.id, e)}
                       onTouchEnd={(e) => moveLeft(cat.id, e)}
@@ -332,8 +332,8 @@ export default function CategoryManager({
                     </button>
                   )}
                   
-                  {/* חץ שמאלי ◀ בצד ימין - רק אם לא ראשון */}
-                  {!isFirstInOrder && (
+                  {/* חץ שמאלי ◀ בצד ימין - רק אם לא אחרון (יכול לזוז שמאלה) */}
+                  {!isLastInOrder && (
                     <button
                       onClick={(e) => moveRight(cat.id, e)}
                       onTouchEnd={(e) => moveRight(cat.id, e)}
