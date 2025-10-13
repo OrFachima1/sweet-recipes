@@ -1,4 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export interface Category {
   id: string;
@@ -17,6 +35,111 @@ interface CategoryManagerProps {
   onDeleteCategory: (id: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   itemCounts: Record<string, number>;
+}
+
+interface SortableCategoryProps {
+  cat: Category;
+  isSelected: boolean;
+  isReorderMode: boolean;
+  itemCount: number;
+  onTap: () => void;
+  onLongPress: () => void;
+  onOptions: () => void;
+}
+
+function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, onLongPress, onOptions }: SortableCategoryProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: cat.id, disabled: !isReorderMode });
+
+  const longPressTimer = useRef<number | null>(null);
+  const [isPressing, setIsPressing] = useState(false);
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isReorderMode) return;
+    setIsPressing(true);
+    longPressTimer.current = window.setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate(50);
+      onLongPress();
+      setIsPressing(false);
+    }, 500);
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (isPressing && !isReorderMode) {
+      onTap();
+    }
+    setIsPressing(false);
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    setIsPressing(false);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
+      className="relative flex-shrink-0"
+    >
+      <button
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onPointerLeave={handlePointerCancel}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (!isReorderMode) onOptions();
+        }}
+        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+          isSelected && !isReorderMode
+            ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
+            : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
+        } ${isReorderMode ? 'wobble cursor-grab active:cursor-grabbing' : ''} ${
+          isDragging ? 'scale-110 shadow-2xl' : ''
+        } ${isPressing ? 'scale-95' : ''}`}
+      >
+        <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+          {cat.emoji}
+        </div>
+        <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+          {cat.name}
+        </div>
+        <div className="text-xs opacity-75 h-4 flex items-center justify-center">
+          {itemCount}
+        </div>
+      </button>
+
+      {isReorderMode && (
+        <button
+          onClick={onOptions}
+          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-95 z-10"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function CategoryManager({
@@ -38,9 +161,24 @@ export default function CategoryManager({
   const [editName, setEditName] = useState('');
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const lastTapTime = useRef<number>(0);
-  const lastTapCat = useRef<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [previousOrder, setPreviousOrder] = useState<Category[]>([]);
+  const undoTimer = useRef<number | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 100,
+        tolerance: 5,
+      },
+    })
+  );
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -95,55 +233,71 @@ export default function CategoryManager({
     }
   };
 
-  const handleCategoryClick = (catId: string) => {
-    if (isReorderMode) return;
-    
-    const now = Date.now();
-    const timeSinceLastTap = now - lastTapTime.current;
-    
-    if (lastTapCat.current === catId && timeSinceLastTap < 300 && catId !== 'all') {
-      setShowOptionsFor(catId);
-      lastTapTime.current = 0;
-      lastTapCat.current = null;
-    } else {
-      onSelectCategory(catId);
-      lastTapTime.current = now;
-      lastTapCat.current = catId;
+  const handleLongPress = () => {
+    setIsReorderMode(true);
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const allCats = filteredCategories;
+      const oldIndex = allCats.findIndex((c) => c.id === active.id);
+      const newIndex = allCats.findIndex((c) => c.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Save for undo
+        setPreviousOrder([...categories]);
+        
+        const reordered = arrayMove(allCats, oldIndex, newIndex).map((cat, idx) => ({
+          ...cat,
+          order: idx
+        }));
+
+        // Add back the 'all' category
+        const allCategory = categories.find(c => c.id === 'all');
+        const finalOrder = allCategory ? [allCategory, ...reordered] : reordered;
+
+        if (onReorderCategories) {
+          onReorderCategories(finalOrder);
+        }
+
+        // Show undo
+        setShowUndo(true);
+        if (undoTimer.current) clearTimeout(undoTimer.current);
+        undoTimer.current = window.setTimeout(() => {
+          setShowUndo(false);
+          setPreviousOrder([]);
+        }, 8000);
+
+        if (navigator.vibrate) navigator.vibrate(20);
+      }
+    }
+
+    setActiveId(null);
+  };
+
+  const handleUndo = () => {
+    if (previousOrder.length > 0 && onReorderCategories) {
+      onReorderCategories(previousOrder);
+      setShowUndo(false);
+      setPreviousOrder([]);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+      if (navigator.vibrate) navigator.vibrate(30);
     }
   };
 
-  const moveCategory = (catId: string, direction: 'left' | 'right') => {
-    const allCats = categories.filter(c => c.id !== 'all');
-    const visibleCats = allCats.filter(c => (itemCounts[c.id] || 0) > 0);
-    const currentIndex = visibleCats.findIndex(c => c.id === catId);
-    
-    if (currentIndex === -1) return;
-    
-    const newIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
-    
-    if (newIndex < 0 || newIndex >= visibleCats.length) return;
-    
-    const newOrder = [...allCats];
-    const fromIdx = allCats.findIndex(c => c.id === catId);
-    const toIdx = allCats.findIndex(c => c.id === visibleCats[newIndex].id);
-    
-    [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
-    
-    const reordered = newOrder.map((cat, idx) => ({
-      ...cat,
-      order: idx
-    }));
-    
-    if (onReorderCategories) {
-      onReorderCategories(reordered);
-    }
-    
-    if (navigator.vibrate) {
-      navigator.vibrate(30);
-    }
+  const handleFinishReorder = () => {
+    setIsReorderMode(false);
+    if (navigator.vibrate) navigator.vibrate(20);
   };
 
-  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🧴', '🧻', '🧊', '🍎', '🥕', '🐟', '🍗', '🥛', '🍳', '🌶️'];
+  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🧴', '🧻', '🧊', '🍎', '🥕', '🍟', '🗒', '🥛', '🍳', '🌶️'];
 
   const filteredCategories = categories.filter(c => {
     if (c.id === 'all') return false;
@@ -152,114 +306,118 @@ export default function CategoryManager({
   });
   
   const allCategory = { id: 'all', name: 'הכל', emoji: '🛒', color: '' };
+  const activeCat = activeId ? filteredCategories.find(c => c.id === activeId) : null;
 
   return (
     <div className="relative">
-      {filteredCategories.length > 1 && (
-        <div className="flex justify-end mb-2 px-2">
+      {isReorderMode && (
+        <div className="flex justify-center mb-3 px-2">
           <button
-            onClick={() => setIsReorderMode(!isReorderMode)}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-              isReorderMode 
-                ? 'bg-rose-500 text-white shadow-lg' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            onClick={handleFinishReorder}
+            className="px-6 py-2 rounded-full bg-rose-500 text-white shadow-lg font-bold hover:bg-rose-600 active:scale-95 transition-all"
           >
-            {isReorderMode ? '✓ סיים סידור' : '↕️ שנה סדר'}
+            ✓ סיום
           </button>
         </div>
       )}
 
-      <div 
-        ref={scrollRef}
-        className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
-        <button
-          onClick={() => handleCategoryClick(allCategory.id)}
-          className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
-            selectedCategory === allCategory.id
-              ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
-              : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
-          }`}
-        >
-          <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-            {allCategory.emoji}
-          </div>
-          <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
-            {allCategory.name}
-          </div>
-          <div className="text-xs opacity-75 h-4 flex items-center justify-center">
-            {Object.values(itemCounts).reduce((sum, count) => sum + count, 0)}
-          </div>
-        </button>
-
-        {filteredCategories.map((cat, index) => (
-          <div key={cat.id} className="relative flex-shrink-0">
-            <button
-              onClick={() => handleCategoryClick(cat.id)}
-              disabled={isReorderMode}
-              className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
-                selectedCategory === cat.id && !isReorderMode
-                  ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
-                  : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
-              } ${isReorderMode ? 'opacity-50' : ''}`}
-            >
-              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-                {cat.emoji}
-              </div>
-              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
-                {cat.name}
-              </div>
-              <div className="text-xs opacity-75 h-4 flex items-center justify-center">
-                {itemCounts[cat.id] || 0}
-              </div>
-            </button>
-
-            {isReorderMode && (
-              <div className="absolute -top-2 -left-2 -right-2 flex justify-between">
-                <button
-                  onClick={() => moveCategory(cat.id, 'left')}
-                  disabled={index === 0}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                    index === 0 
-                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
-                  }`}
-                >
-                  ←
-                </button>
-                <button
-                  onClick={() => moveCategory(cat.id, 'right')}
-                  disabled={index === filteredCategories.length - 1}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                    index === filteredCategories.length - 1
-                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
-                  }`}
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {!isReorderMode && (
+        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center">
           <button
-            onClick={() => setShowAddModal(true)}
-            className="flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 text-green-600 shadow-sm transition-all active:scale-95 border-2 border-dashed border-green-300"
+            onPointerDown={(e) => {
+              if (!isReorderMode) {
+                e.currentTarget.classList.add('scale-95');
+              }
+            }}
+            onPointerUp={(e) => {
+              if (!isReorderMode) {
+                e.currentTarget.classList.remove('scale-95');
+                onSelectCategory(allCategory.id);
+              }
+            }}
+            onPointerCancel={(e) => e.currentTarget.classList.remove('scale-95')}
+            disabled={isReorderMode}
+            className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              selectedCategory === allCategory.id && !isReorderMode
+                ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
+                : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
+            } ${isReorderMode ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-              +
+              {allCategory.emoji}
             </div>
-            <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center">
-              הוסף
+            <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+              {allCategory.name}
             </div>
-            <div className="h-4"></div>
+            <div className="text-xs opacity-75 h-4 flex items-center justify-center">
+              {Object.values(itemCounts).reduce((sum, count) => sum + count, 0)}
+            </div>
           </button>
-        )}
-      </div>
+
+          <SortableContext items={filteredCategories.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+            {filteredCategories.map((cat) => (
+              <SortableCategory
+                key={cat.id}
+                cat={cat}
+                isSelected={selectedCategory === cat.id}
+                isReorderMode={isReorderMode}
+                itemCount={itemCounts[cat.id] || 0}
+                onTap={() => onSelectCategory(cat.id)}
+                onLongPress={handleLongPress}
+                onOptions={() => setShowOptionsFor(cat.id)}
+              />
+            ))}
+          </SortableContext>
+
+          {!isReorderMode && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 text-green-600 shadow-sm transition-all active:scale-95 border-2 border-dashed border-green-300"
+            >
+              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+                +
+              </div>
+              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center">
+                הוסף
+              </div>
+              <div className="h-4"></div>
+            </button>
+          )}
+        </div>
+
+        <DragOverlay>
+          {activeCat ? (
+            <div className="w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-white shadow-2xl scale-110 opacity-90">
+              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+                {activeCat.emoji}
+              </div>
+              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+                {activeCat.name}
+              </div>
+              <div className="text-xs opacity-75 h-4 flex items-center justify-center">
+                {itemCounts[activeCat.id] || 0}
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {showUndo && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-slide-up">
+          <span className="text-sm font-medium">סידור בוצע</span>
+          <button
+            onClick={handleUndo}
+            className="px-4 py-1 bg-rose-500 hover:bg-rose-600 rounded-full text-sm font-bold active:scale-95 transition-all"
+          >
+            ביטול
+          </button>
+        </div>
+      )}
 
       {showOptionsFor && (
         <div 
@@ -267,7 +425,7 @@ export default function CategoryManager({
           onClick={() => setShowOptionsFor(null)}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold mb-4 text-gray-800">אפשרויות</h3>
@@ -306,7 +464,7 @@ export default function CategoryManager({
           onClick={() => setEditingCat(null)}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-2xl font-bold mb-4 text-gray-800">ערוך קטגוריה</h3>
@@ -342,7 +500,7 @@ export default function CategoryManager({
           onClick={() => setShowAddModal(false)}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-2xl font-bold mb-4 text-gray-800">קטגוריה חדשה</h3>
@@ -449,6 +607,51 @@ export default function CategoryManager({
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
+        }
+
+        @keyframes wobble {
+          0%, 100% { transform: rotate(-1.5deg); }
+          50% { transform: rotate(1.5deg); }
+        }
+
+        .wobble {
+          animation: wobble 0.35s ease-in-out infinite;
+          transform-origin: center center;
+        }
+
+        .wobble:nth-child(2) { animation-delay: 0.05s; }
+        .wobble:nth-child(3) { animation-delay: 0.1s; }
+        .wobble:nth-child(4) { animation-delay: 0.15s; }
+        .wobble:nth-child(5) { animation-delay: 0.2s; }
+
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-scale-in {
+          animation: scale-in 0.2s ease-out;
         }
       `}</style>
     </div>
