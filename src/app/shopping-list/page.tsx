@@ -500,10 +500,10 @@ export default function ShoppingListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-20 h-20 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-indigo-600 text-2xl font-bold">טוען...</div>
+          <div className="w-20 h-20 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-rose-600 text-2xl font-bold">טוען...</div>
         </div>
       </div>
     );
@@ -514,10 +514,10 @@ export default function ShoppingListPage() {
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50" dir="rtl">
       
       {/* כותרת קבועה */}
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg">
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <button
@@ -596,7 +596,7 @@ export default function ShoppingListPage() {
           {totalItems > 0 && (
             <div className="relative h-2.5 bg-white/25 rounded-full overflow-hidden">
               <div 
-                className="absolute inset-y-0 right-0 bg-gradient-to-l from-green-400 to-emerald-400 transition-all duration-500 ease-out rounded-full shadow-lg"
+                className="absolute inset-y-0 right-0 bg-gradient-to-l from-emerald-400 to-green-400 transition-all duration-500 ease-out rounded-full shadow-lg"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -630,18 +630,18 @@ export default function ShoppingListPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="🔍 חיפוש..."
-            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
+            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
           />
           <button
             onClick={() => setSortBy(sortBy === 'name' ? 'checked' : 'name')}
-            className="px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 font-semibold text-sm hover:bg-indigo-200 transition-colors whitespace-nowrap"
+            className="px-4 py-2 rounded-xl bg-rose-100 text-rose-700 font-semibold text-sm hover:bg-rose-200 transition-colors whitespace-nowrap"
           >
             {sortBy === 'name' ? '🔤 לפי שם' : '✓ מסומנים למטה'}
           </button>
           {checkedCount > 0 && (
             <button
               onClick={clearCheckedItems}
-              className="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-semibold text-sm hover:bg-red-200 transition-colors whitespace-nowrap"
+              className="px-4 py-2 rounded-xl bg-orange-100 text-orange-700 font-semibold text-sm hover:bg-orange-200 transition-colors whitespace-nowrap"
             >
               🗑️ נקה סומנו
             </button>
@@ -696,7 +696,7 @@ export default function ShoppingListPage() {
       {/* כפתור הוספה */}
       <button
         onClick={() => setShowAddItem(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
       >
         +
       </button>
@@ -713,7 +713,7 @@ export default function ShoppingListPage() {
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
                 autoFocus
               />
               <div className="grid grid-cols-2 gap-3">
@@ -724,7 +724,7 @@ export default function ShoppingListPage() {
                   value={newItemQty}
                   onChange={(e) => setNewItemQty(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
                 />
                 <input
                   type="text"
@@ -732,7 +732,7 @@ export default function ShoppingListPage() {
                   value={newItemUnit}
                   onChange={(e) => setNewItemUnit(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -741,7 +741,7 @@ export default function ShoppingListPage() {
                   disabled={!newItemName.trim()}
                   className={`flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all ${
                     newItemName.trim()
-                      ? 'bg-gradient-to-l from-indigo-500 to-purple-500 text-white hover:shadow-lg active:scale-95'
+                      ? 'bg-gradient-to-l from-rose-500 to-pink-500 text-white hover:shadow-lg active:scale-95'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >

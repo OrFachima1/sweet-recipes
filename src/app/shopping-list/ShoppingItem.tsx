@@ -44,8 +44,8 @@ export default function ShoppingItem({
             flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center 
             transition-all duration-200 active:scale-90
             ${isChecked 
-              ? 'bg-green-500 border-green-600' 
-              : 'border-gray-300 bg-white active:border-indigo-400'
+              ? 'bg-emerald-500 border-emerald-600' 
+              : 'border-gray-300 bg-white active:border-rose-400'
             }
           `}
         >
@@ -56,17 +56,20 @@ export default function ShoppingItem({
           )}
         </button>
 
-        {/* תוכן - שורה אחת */}
-        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        {/* תוכן - שם בימין כמות בשמאל */}
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+          {/* שם המוצר */}
           <span className={`
             text-base font-semibold truncate transition-all duration-200
             ${isChecked ? 'text-gray-400 line-through' : 'text-gray-800'}
           `}>
             {name}
           </span>
+          
+          {/* כמות */}
           <span className={`
-            text-sm font-medium whitespace-nowrap flex-shrink-0
-            ${isChecked ? 'text-gray-400' : 'text-indigo-600'}
+            text-base font-bold whitespace-nowrap flex-shrink-0
+            ${isChecked ? 'text-gray-400' : 'text-rose-600'}
           `}>
             {qty} {unit}
           </span>
@@ -108,7 +111,7 @@ export default function ShoppingItem({
                         onChangeCategory(cat.id);
                         setShowMenu(false);
                       }}
-                      className="w-full text-right px-3 py-2 hover:bg-indigo-50 transition-colors flex items-center gap-2"
+                      className="w-full text-right px-3 py-2 hover:bg-rose-50 transition-colors flex items-center gap-2"
                     >
                       <span className="text-lg">{cat.emoji}</span>
                       <span className="text-sm font-medium text-gray-700">{cat.name}</span>
