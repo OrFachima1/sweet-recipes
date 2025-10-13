@@ -119,6 +119,24 @@ export default function ShoppingItem({
       ref={containerRef} 
       style={{ zIndex: showMenu ? 50 : 'auto' }}
     >
+      {/* רקע אדום מאחורי הכרטיס */}
+      {swipeOffset > 0 && (
+        <div 
+          className="absolute inset-0 flex items-center justify-start px-6 rounded-2xl transition-colors duration-200"
+          style={{ 
+            background: swipeOffset > 80 ? '#ef4444' : '#fca5a5'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🗑️</span>
+            <span className="text-white font-bold text-lg">
+              {swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק ימינה'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* הכרטיס עצמו */}
       <div
         className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
           isChecked ? 'opacity-60' : ''
@@ -131,24 +149,7 @@ export default function ShoppingItem({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* רקע אדום עם טקסט */}
-        {swipeOffset > 0 && (
-          <div 
-            className="absolute inset-0 flex items-center justify-start pr-6 transition-colors duration-200"
-            style={{ 
-              background: swipeOffset > 80 ? '#ef4444' : '#fca5a5'
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🗑️</span>
-              <span className="text-white font-bold text-lg">
-                {swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק ימינה'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 p-4 bg-white">{/* הוספתי bg-white כדי לכסות את הרקע */}
+        <div className="flex items-center gap-3 p-4">
           <button
             onClick={onToggleCheck}
             className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
