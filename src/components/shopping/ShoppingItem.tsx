@@ -47,7 +47,7 @@ export default function ShoppingItem({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping || isDeleting) return;
     const currentX = e.touches[0].clientX;
-    const diff = currentX - startX.current;
+    const diff = currentX - startX.current; // חיובי = ימינה
     
     if (diff > 0) {
       if (Math.abs(diff) > 10) {
@@ -131,19 +131,24 @@ export default function ShoppingItem({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {swipeOffset > 20 && (
+        {/* רקע אדום עם טקסט */}
+        {swipeOffset > 0 && (
           <div 
-            className="absolute right-0 top-0 bottom-0 flex items-center justify-end pr-4"
+            className="absolute inset-0 flex items-center justify-start pr-6 transition-colors duration-200"
             style={{ 
-              width: `${swipeOffset}px`,
               background: swipeOffset > 80 ? '#ef4444' : '#fca5a5'
             }}
           >
-            <span className="text-white text-2xl">🗑️</span>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🗑️</span>
+              <span className="text-white font-bold text-lg">
+                {swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק ימינה'}
+              </span>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center gap-3 p-4">
+        <div className="flex items-center gap-3 p-4 bg-white">{/* הוספתי bg-white כדי לכסות את הרקע */}
           <button
             onClick={onToggleCheck}
             className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
@@ -274,7 +279,7 @@ export default function ShoppingItem({
 
       {showSources && sources && sources.length > 0 && (
         <div className="mt-2 bg-blue-50 rounded-xl p-3 text-sm">
-          <div className="font-semibold text-blue-900 mb-1">מגיע מ:</div>
+          <div className="font-semibold text-blue-900 mb-1">מקורות:</div>
           <ul className="text-blue-700 space-y-1">
             {sources.map((source, idx) => (
               <li key={idx} className="flex items-start gap-2">
