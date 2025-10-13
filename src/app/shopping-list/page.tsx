@@ -384,6 +384,8 @@ export default function ShoppingListPage() {
             <div className="divide-y divide-gray-100">
               {filteredAndSortedItems.map((item, idx) => (
                 <ShoppingItem
+                  currentCategory={item.category}
+                  selectedCategory={selectedCategory}
                   key={idx}
                   name={item.name}
                   qty={item.qty}

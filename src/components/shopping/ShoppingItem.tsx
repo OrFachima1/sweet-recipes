@@ -8,7 +8,9 @@ interface ShoppingItemProps {
   isManual: boolean;
   isChecked: boolean;
   categories: Category[];
-  sources: string[]; // הוספנו את sources
+  sources: string[];
+  currentCategory?: string;
+  selectedCategory: string;
   onToggleCheck: () => void;
   onChangeCategory: (catId: string) => void;
   onDelete?: () => void;
@@ -21,31 +23,33 @@ export default function ShoppingItem({
   isManual,
   isChecked,
   categories,
-  sources, // הוספנו
+  sources,
+  currentCategory,
+  selectedCategory,
   onToggleCheck,
   onChangeCategory,
   onDelete
 }: ShoppingItemProps) {
   const [showMenu, setShowMenu] = useState(false);
-  const [showSources, setShowSources] = useState(false); // חדש
+  const [showSources, setShowSources] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const startX = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (isDeleting) return;
     startX.current = e.touches[0].clientX;
     setIsSwiping(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping) return;
+    if (!isSwiping || isDeleting) return;
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX.current;
     
-    // גלילה לימין (ערכים חיוביים)
     if (diff > 0) {
-      // מונע גלילה של הדף רק אם יש תנועה אופקית משמעותית
       if (Math.abs(diff) > 10) {
         e.preventDefault();
       }
@@ -54,26 +58,19 @@ export default function ShoppingItem({
   };
 
   const handleTouchEnd = () => {
+    if (isDeleting) return;
     setIsSwiping(false);
     
     if (swipeOffset > 80 && onDelete) {
-      // אנימציית מחיקה
-      const deleteAnimation = async () => {
-        // הזזה מלאה לשמאל
+      if (confirm(`האם למחוק את "${name}"?`)) {
+        setIsDeleting(true);
         setSwipeOffset(window.innerWidth);
-        
-        // המתן לסיום האנימציה
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // מחיקה
-        if (confirm(`האם למחוק את "${name}"?`)) {
+        setTimeout(() => {
           onDelete();
-        } else {
-          setSwipeOffset(0);
-        }
-      };
-      
-      deleteAnimation();
+        }, 300);
+      } else {
+        setSwipeOffset(0);
+      }
     } else {
       setSwipeOffset(0);
     }
@@ -81,21 +78,24 @@ export default function ShoppingItem({
 
   const handleDeleteClick = () => {
     if (onDelete && confirm(`האם למחוק את "${name}"?`)) {
-      onDelete();
+      setIsDeleting(true);
+      setTimeout(() => {
+        onDelete();
+      }, 200);
       setShowMenu(false);
     }
   };
 
   const handleCategoryChange = (catId: string) => {
-    console.log('Changing category to:', catId);
     onChangeCategory(catId);
     setShowMenu(false);
   };
 
-  // סינון קטגוריית "הכל" מהרשימה
   const filteredCategories = categories.filter(c => c.id !== 'all');
+  
+  const categoryEmoji = categories.find(c => c.id === currentCategory)?.emoji;
+  const showCategoryEmoji = selectedCategory === 'all' && categoryEmoji;
 
-  // סגירת תפריט בלחיצה מחוץ
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -109,237 +109,180 @@ export default function ShoppingItem({
     }
   }, [showMenu]);
 
-  return (
-    <div className="relative" ref={containerRef} style={{ zIndex: showMenu ? 100 : 1 }}>
-      {/* רקע אדום למחיקה */}
-      <div 
-        className="absolute inset-0 flex items-center justify-start px-6 pointer-events-none"
-        style={{
-          background: `linear-gradient(270deg, 
-            rgba(239, 68, 68, ${Math.min(swipeOffset / 120, 1)}) 0%, 
-            rgba(220, 38, 38, ${Math.min(swipeOffset / 120, 1) * 0.3}) 100%)`,
-          opacity: swipeOffset > 0 ? 1 : 0,
-          transition: isSwiping ? 'none' : 'opacity 0.3s'
-        }}
-      >
-        <div 
-          className="flex items-center gap-3 text-white font-bold text-base"
-          style={{
-            opacity: Math.min(swipeOffset / 60, 1),
-            transform: `scale(${Math.min(0.8 + (swipeOffset / 120) * 0.2, 1)})`
-          }}
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
-          </svg>
-          <span>{swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק למחיקה'}</span>
-        </div>
-      </div>
+  if (isDeleting) {
+    return null;
+  }
 
-      {/* התוכן */}
-      <div 
-        className={`
-          relative flex items-center gap-3 px-4 py-3.5 bg-white
-          ${isChecked ? 'bg-emerald-50/80' : 'hover:bg-rose-50/30'}
-        `}
+  return (
+    <div 
+      className="relative" 
+      ref={containerRef} 
+      style={{ zIndex: showMenu ? 50 : 'auto' }}
+    >
+      <div
+        className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+          isChecked ? 'opacity-60' : ''
+        }`}
         style={{
           transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? 'none' : 'all 0.3s ease-out',
-          opacity: swipeOffset > 120 ? 0 : 1,
-          willChange: isSwiping ? 'transform' : 'auto'
+          transition: isSwiping ? 'none' : 'transform 0.3s ease-out'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* צ'קבוקס */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleCheck();
-          }}
-          className={`
-            flex-shrink-0 w-7 h-7 rounded-lg border-2 transition-all flex items-center justify-center
-            ${isChecked 
-              ? 'bg-emerald-500 border-emerald-500' 
-              : 'border-gray-300 hover:border-rose-400 hover:bg-rose-50'
-            }
-          `}
-        >
-          {isChecked && (
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-        </button>
-
-        {/* פרטי המוצר */}
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-          <div className={`font-semibold text-gray-800 text-base transition-all truncate ${isChecked ? 'line-through opacity-60' : ''}`}>
-            {name}
-          </div>
-          
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {qty > 0 && (
-              <span className={`text-base font-bold whitespace-nowrap ${isChecked ? 'text-gray-400' : 'text-rose-500'}`}>
-                {qty.toFixed(2).replace(/\.?0+$/, '')} {unit}
-              </span>
-            )}
-            {isManual && (
-              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">
-                ידני
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* אייקון סימן שאלה - לפני 3 הנקודות */}
-        {!isManual && sources && sources.length > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowSources(!showSources);
+        {swipeOffset > 20 && (
+          <div 
+            className="absolute right-0 top-0 bottom-0 flex items-center justify-end pr-4"
+            style={{ 
+              width: `${swipeOffset}px`,
+              background: swipeOffset > 80 ? '#ef4444' : '#fca5a5'
             }}
-            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              showSources 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
-            }`}
-            title="הצג מקורות"
           >
-            <span className="text-lg font-bold">?</span>
-          </button>
+            <span className="text-white text-2xl">🗑️</span>
+          </div>
         )}
 
-        {/* כפתור תפריט */}
-        <div className="relative">
+        <div className="flex items-center gap-3 p-4">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="flex-shrink-0 w-10 h-10 rounded-xl hover:bg-gray-100 active:bg-gray-200 flex items-center justify-center transition-colors"
-            aria-label="אפשרויות"
+            onClick={onToggleCheck}
+            className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+              isChecked
+                ? 'bg-gradient-to-br from-rose-500 to-pink-500 border-rose-500'
+                : 'border-gray-300 hover:border-rose-400'
+            }`}
           >
-            <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="5" r="2.5"/>
-              <circle cx="12" cy="12" r="2.5"/>
-              <circle cx="12" cy="19" r="2.5"/>
-            </svg>
+            {isChecked && (
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </button>
 
-          {/* התפריט */}
-          {showMenu && (
-            <>
-              {/* רקע שקוף */}
-              <div 
-                className="fixed inset-0 z-[90]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                }}
-              />
-              
-              {/* התפריט עצמו - absolute ביחס לכפתור */}
-              <div 
-                className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[100] min-w-[200px] max-h-[400px] overflow-y-auto"
-                style={{
-                  animation: 'slideDown 0.15s ease-out'
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="text-xs font-bold text-gray-500 px-4 py-2 border-b border-gray-100">
-                  העבר לקטגוריה
-                </div>
-                
-                <div className="py-1">
-                  {filteredCategories.map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleCategoryChange(cat.id);
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleCategoryChange(cat.id);
-                      }}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleCategoryChange(cat.id);
-                      }}
-                      className="w-full text-right px-4 py-2.5 hover:bg-rose-50 active:bg-rose-100 transition-colors flex items-center gap-3 group"
-                    >
-                      <span className="text-lg group-hover:scale-110 transition-transform">{cat.emoji}</span>
-                      <span className="text-sm font-medium text-gray-700 group-hover:text-rose-700">
-                        {cat.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                
-                {onDelete && (
-                  <>
-                    <div className="h-px bg-gray-200 my-1" />
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDeleteClick();
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDeleteClick();
-                      }}
-                      className="w-full text-right px-4 py-3 hover:bg-red-50 active:bg-red-100 transition-colors flex items-center gap-3 text-red-600 font-semibold text-sm group"
-                    >
-                      <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
-                      </svg>
-                      <span>מחק פריט</span>
-                    </button>
-                  </>
-                )}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <div className="flex-1">
+              <div className={`font-medium ${isChecked ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                {name}
               </div>
+              <div className="text-sm text-gray-500">
+                {qty} {unit}
+                {isManual && <span className="text-xs text-rose-500 mr-2">(ידני)</span>}
+              </div>
+            </div>
+            
+            {showCategoryEmoji && (
+              <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-xl bg-gray-50 rounded-lg">
+                {categoryEmoji}
+              </div>
+            )}
+          </div>
 
-              <style jsx>{`
-                @keyframes slideDown {
-                  from {
-                    opacity: 0;
-                    transform: translateY(-10px);
-                  }
-                  to {
-                    opacity: 1;
-                    transform: translateY(0);
-                  }
-                }
-              `}</style>
-            </>
+          {sources && sources.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSources(!showSources);
+              }}
+              className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                showSources 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+              }`}
+              title="הצג מקורות"
+            >
+              <span className="text-sm font-bold">?</span>
+            </button>
           )}
+
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="flex-shrink-0 w-10 h-10 rounded-xl hover:bg-gray-100 active:bg-gray-200 flex items-center justify-center transition-colors"
+              aria-label="אפשרויות"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="2.5"/>
+                <circle cx="12" cy="12" r="2.5"/>
+                <circle cx="12" cy="19" r="2.5"/>
+              </svg>
+            </button>
+
+            {showMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-[90]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                  }}
+                />
+                
+                <div 
+                  className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[100] min-w-[200px] max-h-[400px] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-xs font-bold text-gray-500 px-4 py-2 border-b border-gray-100">
+                    העבר לקטגוריה
+                  </div>
+                  
+                  <div className="py-1">
+                    {filteredCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCategoryChange(cat.id);
+                        }}
+                        className="w-full text-right px-4 py-2.5 hover:bg-rose-50 active:bg-rose-100 transition-colors flex items-center gap-3 group"
+                      >
+                        <span className="text-lg group-hover:scale-110 transition-transform">{cat.emoji}</span>
+                        <span className="text-sm font-medium text-gray-700 group-hover:text-rose-700">
+                          {cat.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {onDelete && (
+                    <>
+                      <div className="h-px bg-gray-200 my-1" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteClick();
+                        }}
+                        className="w-full text-right px-4 py-2.5 hover:bg-red-50 active:bg-red-100 transition-colors flex items-center gap-3 text-red-600 group"
+                      >
+                        <span className="text-lg group-hover:scale-110 transition-transform">🗑️</span>
+                        <span className="text-sm font-medium">מחק פריט</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* פרטי המקורות - מתחת לרשומה */}
       {showSources && sources && sources.length > 0 && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-t-2 border-blue-200 px-4 py-3">
-          <div className="text-xs font-bold text-blue-700 mb-2">📋 מגיע מ:</div>
-          <div className="space-y-1.5">
+        <div className="mt-2 bg-blue-50 rounded-xl p-3 text-sm">
+          <div className="font-semibold text-blue-900 mb-1">מגיע מ:</div>
+          <ul className="text-blue-700 space-y-1">
             {sources.map((source, idx) => (
-              <div 
-                key={idx}
-                className="text-sm text-gray-700 flex items-start gap-2"
-              >
-                <span className="text-blue-500 font-bold">•</span>
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-blue-400 mt-0.5">•</span>
                 <span>{source}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
     </div>
