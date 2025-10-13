@@ -198,9 +198,9 @@ export default function CategoryManager({
     e.stopPropagation();
     
     const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex > 0) {
+    if (currentIndex < tempOrder.length - 1) {
       const newOrder = [...tempOrder];
-      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
+      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
       setTempOrder(newOrder);
       
       if (navigator.vibrate) {
@@ -214,9 +214,9 @@ export default function CategoryManager({
     e.stopPropagation();
     
     const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex < tempOrder.length - 1) {
+    if (currentIndex > 0) {
       const newOrder = [...tempOrder];
-      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
       setTempOrder(newOrder);
       
       if (navigator.vibrate) {
@@ -241,7 +241,7 @@ export default function CategoryManager({
       {isEditMode && (
         <div className="absolute top-full left-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2">
-            <span className="text-xl animate-bounce">🔀</span>
+            <span className="text-xl">🔀</span>
             <span className="text-sm font-bold">לחץ על החצים לשינוי סדר</span>
           </div>
           <div className="flex gap-2">
@@ -307,22 +307,22 @@ export default function CategoryManager({
             >
               {/* חצים לשינוי סדר - רק במצב עריכה */}
               {isEditMode && cat.id !== 'all' && (
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex gap-1">
+                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
                   {/* חץ שמאלה */}
                   <button
                     onClick={(e) => moveLeft(cat.id, e)}
                     onTouchEnd={(e) => moveLeft(cat.id, e)}
                     disabled={isFirstInOrder}
                     className={`
-                      w-7 h-7 rounded-full flex items-center justify-center text-lg
-                      transition-all shadow-lg
+                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
+                      transition-all shadow-md -translate-x-3
                       ${isFirstInOrder 
-                        ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                       }
                     `}
                   >
-                    👈
+                    ◀
                   </button>
                   
                   {/* חץ ימינה */}
@@ -331,15 +331,15 @@ export default function CategoryManager({
                     onTouchEnd={(e) => moveRight(cat.id, e)}
                     disabled={isLastInOrder}
                     className={`
-                      w-7 h-7 rounded-full flex items-center justify-center text-lg
-                      transition-all shadow-lg
+                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
+                      transition-all shadow-md translate-x-3
                       ${isLastInOrder 
-                        ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                       }
                     `}
                   >
-                    👉
+                    ▶
                   </button>
                 </div>
               )}
@@ -365,7 +365,6 @@ export default function CategoryManager({
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center gap-1.5 whitespace-nowrap relative
-                  ${isEditMode && cat.id !== 'all' ? 'pt-4' : ''}
                   ${isSelected
                     ? 'bg-white text-rose-500 shadow-md scale-105'
                     : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
