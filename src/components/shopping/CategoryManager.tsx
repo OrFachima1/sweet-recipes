@@ -159,25 +159,13 @@ export default function CategoryManager({
       clearTimeout(longPressTimer.current);
     }
     
-    // במצב עריכה - עדכן את הסדר הזמני
-    if (isEditMode && draggedCat && dragOverCat && draggedCat !== dragOverCat) {
-      const fromIndex = tempOrder.findIndex(c => c.id === draggedCat);
-      const toIndex = tempOrder.findIndex(c => c.id === dragOverCat);
-      
-      if (fromIndex !== -1 && toIndex !== -1) {
-        const newOrder = [...tempOrder];
-        const [movedCat] = newOrder.splice(fromIndex, 1);
-        newOrder.splice(toIndex, 0, movedCat);
-        setTempOrder(newOrder);
-      }
-    }
-    
+    // במצב עריכה - פשוט מרפים מהקטגוריה
     setDraggedCat(null);
     setDragOverCat(null);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || !draggedCat) return;
+    if (!isEditMode || !draggedCat) return;
     
     // מונע גלילה בזמן גרירה
     e.preventDefault();
@@ -188,9 +176,20 @@ export default function CategoryManager({
     
     if (catElement) {
       const catId = catElement.dataset.categoryId;
-      // לא מאפשרים לגרור על "הכל"
-      if (catId && catId !== 'all') {
+      // עדכן באיזו קטגוריה אנחנו מעל
+      if (catId && catId !== 'all' && catId !== draggedCat) {
         setDragOverCat(catId);
+        
+        // עדכן את הסדר בזמן אמת
+        const fromIndex = tempOrder.findIndex(c => c.id === draggedCat);
+        const toIndex = tempOrder.findIndex(c => c.id === catId);
+        
+        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+          const newOrder = [...tempOrder];
+          const [movedCat] = newOrder.splice(fromIndex, 1);
+          newOrder.splice(toIndex, 0, movedCat);
+          setTempOrder(newOrder);
+        }
       }
     }
   };
