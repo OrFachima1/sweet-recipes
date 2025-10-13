@@ -36,8 +36,6 @@ export default function CategoryManager({
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
-  const [draggedCat, setDraggedCat] = useState<string | null>(null);
-  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
   const [tempOrder, setTempOrder] = useState<Category[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapTime = useRef<number>(0);
@@ -45,9 +43,8 @@ export default function CategoryManager({
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  
-  // הוספה: למעקב אחרי הגלילה בזמן גרירה
-  const dragScrollRef = useRef({ startX: 0, startScrollLeft: 0 });
+  const [draggedCat, setDraggedCat] = useState<string | null>(null);
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -96,9 +93,7 @@ export default function CategoryManager({
   };
 
   const handleCategoryClick = (catId: string) => {
-    if (isEditMode) {
-      return;
-    }
+    if (isEditMode) return;
     
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime.current;
@@ -117,7 +112,9 @@ export default function CategoryManager({
   const enterEditMode = () => {
     setIsEditMode(true);
     setTempOrder(filteredCategories);
-    navigator.vibrate?.(50);
+    if (navigator.vibrate) {
+      navigator.vibrate([50, 30, 50]);
+    }
   };
 
   const exitEditMode = (save: boolean) => {
@@ -135,28 +132,12 @@ export default function CategoryManager({
   };
 
   const handleTouchStart = (catId: string, e: React.TouchEvent) => {
-    if (!isEditMode) {
-      if (catId === 'all') return;
+    if (!isEditMode && catId !== 'all') {
       e.preventDefault();
       
       longPressTimer.current = setTimeout(() => {
         enterEditMode();
-        setDraggedCat(catId);
-        // שמירת מיקום התחלתי לגלילה הפוכה
-        dragScrollRef.current = {
-          startX: e.touches[0].clientX,
-          startScrollLeft: scrollRef.current?.scrollLeft || 0
-        };
       }, 400);
-    } else {
-      if (catId === 'all') return;
-      e.preventDefault();
-      setDraggedCat(catId);
-      // שמירת מיקום התחלתי לגלילה הפוכה
-      dragScrollRef.current = {
-        startX: e.touches[0].clientX,
-        startScrollLeft: scrollRef.current?.scrollLeft || 0
-      };
     }
   };
 
@@ -164,45 +145,9 @@ export default function CategoryManager({
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
-    
-    setDraggedCat(null);
-    setDragOverCat(null);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isEditMode || !draggedCat) return;
-    
-    e.preventDefault();
-    
-    const touch = e.touches[0];
-    
-    // גלילה הפוכה: כשגוררים שמאלה, הטולבר זז שמאלה
-    if (scrollRef.current) {
-      const deltaX = touch.clientX - dragScrollRef.current.startX;
-      scrollRef.current.scrollLeft = dragScrollRef.current.startScrollLeft - deltaX;
-    }
-    
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    const catElement = element?.closest('[data-category-id]') as HTMLElement;
-    
-    if (catElement) {
-      const catId = catElement.dataset.categoryId;
-      if (catId && catId !== 'all' && catId !== draggedCat) {
-        setDragOverCat(catId);
-        
-        const fromIndex = tempOrder.findIndex(c => c.id === draggedCat);
-        const toIndex = tempOrder.findIndex(c => c.id === catId);
-        
-        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-          const newOrder = [...tempOrder];
-          const [movedCat] = newOrder.splice(fromIndex, 1);
-          newOrder.splice(toIndex, 0, movedCat);
-          setTempOrder(newOrder);
-        }
-      }
-    }
-  };
-
+  // Drag & Drop למחשב
   const handleDragStart = (catId: string, e: React.DragEvent) => {
     if (catId === 'all') {
       e.preventDefault();
@@ -248,6 +193,37 @@ export default function CategoryManager({
     
     onReorderCategories(reordered);
   };
+  // הזזה שמאלה (החלפה עם הקטגוריה משמאל)
+  const moveLeft = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    
+    const currentIndex = tempOrder.findIndex(c => c.id === catId);
+    if (currentIndex > 0) {
+      const newOrder = [...tempOrder];
+      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
+      setTempOrder(newOrder);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate(30);
+      }
+    }
+  };
+
+  // הזזה ימינה (החלפה עם הקטגוריה מימין)
+  const moveRight = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    
+    const currentIndex = tempOrder.findIndex(c => c.id === catId);
+    if (currentIndex < tempOrder.length - 1) {
+      const newOrder = [...tempOrder];
+      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+      setTempOrder(newOrder);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate(30);
+      }
+    }
+  };
 
   const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🬬', '🧴', '🧻', '🧊'];
 
@@ -261,12 +237,12 @@ export default function CategoryManager({
 
   return (
     <div className="relative">
-      {/* הנחיה וכפתור סיום */}
+      {/* סרגל מצב עריכה */}
       {isEditMode && (
         <div className="absolute top-full left-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2">
             <span className="text-xl animate-bounce">🔀</span>
-            <span className="text-sm font-bold">גרור לשינוי סדר</span>
+            <span className="text-sm font-bold">לחץ על החצים לשינוי סדר</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -289,15 +265,13 @@ export default function CategoryManager({
       <div 
         ref={scrollRef}
         className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide scroll-smooth"
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {allCategories.map(cat => {
+        {allCategories.map((cat, index) => {
           const count = itemCounts[cat.id] || 0;
           const isSelected = selectedCategory === cat.id;
           const isEditing = editingCat === cat.id;
-          const isBeingDragged = draggedCat === cat.id;
-          const isDragOver = dragOverCat === cat.id;
+          const isFirstInOrder = isEditMode && index === 0;
+          const isLastInOrder = isEditMode && index === workingCategories.length - 1;
           
           if (isEditing && cat.id !== 'all') {
             return (
@@ -331,6 +305,45 @@ export default function CategoryManager({
                 setIsDragging(false);
               }}
             >
+              {/* חצים לשינוי סדר - רק במצב עריכה */}
+              {isEditMode && cat.id !== 'all' && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex gap-1">
+                  {/* חץ שמאלה */}
+                  <button
+                    onClick={(e) => moveLeft(cat.id, e)}
+                    onTouchEnd={(e) => moveLeft(cat.id, e)}
+                    disabled={isFirstInOrder}
+                    className={`
+                      w-7 h-7 rounded-full flex items-center justify-center text-lg
+                      transition-all shadow-lg
+                      ${isFirstInOrder 
+                        ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                      }
+                    `}
+                  >
+                    👈
+                  </button>
+                  
+                  {/* חץ ימינה */}
+                  <button
+                    onClick={(e) => moveRight(cat.id, e)}
+                    onTouchEnd={(e) => moveRight(cat.id, e)}
+                    disabled={isLastInOrder}
+                    className={`
+                      w-7 h-7 rounded-full flex items-center justify-center text-lg
+                      transition-all shadow-lg
+                      ${isLastInOrder 
+                        ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                      }
+                    `}
+                  >
+                    👉
+                  </button>
+                </div>
+              )}
+              
               <button
                 onClick={() => !isEditMode && handleCategoryClick(cat.id)}
                 onTouchStart={(e) => handleTouchStart(cat.id, e)}
@@ -341,23 +354,24 @@ export default function CategoryManager({
                   WebkitUserSelect: 'none',
                   WebkitTouchCallout: 'none',
                   animation: isEditMode && cat.id !== 'all' ? 'wiggle 0.3s ease-in-out infinite' : 'none',
-                  transform: isBeingDragged 
+                  transform: (draggedCat === cat.id) 
                     ? 'scale(1.15) rotate(3deg)' 
-                    : isDragOver && !isBeingDragged && isEditMode
+                    : (dragOverCat === cat.id && draggedCat !== cat.id)
                     ? 'translateX(30px)' 
                     : 'none',
-                  opacity: isBeingDragged ? 0.7 : 1,
+                  opacity: (draggedCat === cat.id) ? 0.7 : 1,
                   transition: 'all 0.2s ease-out'
                 }}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center gap-1.5 whitespace-nowrap relative
+                  ${isEditMode && cat.id !== 'all' ? 'pt-4' : ''}
                   ${isSelected
                     ? 'bg-white text-rose-500 shadow-md scale-105'
                     : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
                   }
-                  ${isBeingDragged ? 'opacity-50 scale-95' : ''}
-                  ${isDragOver && !isBeingDragged ? 'ring-2 ring-blue-400' : ''}
+                  ${(draggedCat === cat.id) ? 'opacity-50 scale-95' : ''}
+                  ${(dragOverCat === cat.id && draggedCat !== cat.id) ? 'ring-2 ring-blue-400' : ''}
                 `}
               >
                 <span className="text-base">{cat.emoji}</span>
@@ -376,7 +390,7 @@ export default function CategoryManager({
               </button>
               
               {/* אפשרויות עריכה/מחיקה - דסקטופ (hover) */}
-              {cat.id !== 'all' && (
+              {cat.id !== 'all' && !isEditMode && (
                 <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1 z-10">
                   <button
                     onClick={(e) => {
@@ -563,6 +577,15 @@ export default function CategoryManager({
           50% { 
             transform: rotate(1deg); 
           }
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>
