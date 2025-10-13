@@ -32,16 +32,11 @@ export default function CategoryManager({
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [longPressedCat, setLongPressedCat] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showScrollHint, setShowScrollHint] = useState(true);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowScrollHint(false), 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    // טעינת אימוג'ים אחרונים מ-localStorage
     const saved = localStorage.getItem('recentEmojis');
     if (saved) {
       setRecentEmojis(JSON.parse(saved));
@@ -85,21 +80,26 @@ export default function CategoryManager({
     }
   };
 
+  // לחיצה ארוכה למובייל
+  const handleTouchStart = (catId: string) => {
+    if (catId === 'all') return;
+    
+    longPressTimer.current = setTimeout(() => {
+      setLongPressedCat(catId);
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🍬', '🧴', '🧻', '🧊'];
+
   return (
     <div className="relative">
-      {/* רמז גלילה */}
-      {showScrollHint && categories.length > 3 && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
-          <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-white/50 animate-pulse">
-            <div className="flex items-center gap-2 text-xs font-bold text-rose-500">
-              <span>→</span>
-              <span>החלק</span>
-              <span>←</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* קטגוריות */}
       <div 
         ref={scrollRef}
@@ -131,9 +131,12 @@ export default function CategoryManager({
             <div key={cat.id} className="relative flex-shrink-0 group">
               <button
                 onClick={() => onSelectCategory(cat.id)}
+                onTouchStart={() => handleTouchStart(cat.id)}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
-                  flex items-center gap-1.5 whitespace-nowrap
+                  flex items-center gap-1.5 whitespace-nowrap relative
                   ${isSelected
                     ? 'bg-white text-rose-500 shadow-md scale-105'
                     : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
@@ -155,16 +158,16 @@ export default function CategoryManager({
                 )}
               </button>
               
-              {/* אפשרויות עריכה/מחיקה - רק לקטגוריות שאינן "הכל" */}
+              {/* אפשרויות עריכה/מחיקה - דסקטופ (hover) */}
               {cat.id !== 'all' && (
-                <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingCat(cat.id);
                       setEditName(cat.name);
                     }}
-                    className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all"
+                    className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
                     title="ערוך שם"
                   >
                     ✏️
@@ -174,7 +177,7 @@ export default function CategoryManager({
                       e.stopPropagation();
                       handleDeleteCategory(cat.id);
                     }}
-                    className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all"
+                    className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
                     title="מחק קטגוריה"
                   >
                     ×
@@ -193,6 +196,55 @@ export default function CategoryManager({
           +
         </button>
       </div>
+
+      {/* מודל אפשרויות קטגוריה - מובייל (לחיצה ארוכה) */}
+      {longPressedCat && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setLongPressedCat(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">
+              {categories.find(c => c.id === longPressedCat)?.emoji} {categories.find(c => c.id === longPressedCat)?.name}
+            </h3>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setEditingCat(longPressedCat);
+                  setEditName(categories.find(c => c.id === longPressedCat)?.name || '');
+                  setLongPressedCat(null);
+                }}
+                className="w-full px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <span>✏️</span>
+                <span>ערוך שם</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  handleDeleteCategory(longPressedCat);
+                  setLongPressedCat(null);
+                }}
+                className="w-full px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <span>🗑️</span>
+                <span>מחק קטגוריה</span>
+              </button>
+              
+              <button
+                onClick={() => setLongPressedCat(null)}
+                className="w-full px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 active:scale-95 transition-all"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* מודל הוספת קטגוריה */}
       {showAddModal && (
@@ -215,53 +267,59 @@ export default function CategoryManager({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">אימוג'י (הקלד או הדבק)</label>
-                <input
-                  type="text"
-                  value={newCatEmoji}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // לוקח רק את התו האחרון אם יש כמה
-                    const emoji = value.slice(-2); // תומך גם באימוג'ים מורכבים
-                    setNewCatEmoji(emoji);
-                  }}
-                  placeholder="📦"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-3xl text-center"
-                  maxLength={2}
-                />
-              </div>
-
-              {/* אימוג'ים אחרונים */}
-              {recentEmojis.length > 0 && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-2">אימוג'ים אחרונים</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {recentEmojis.map((emoji, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setNewCatEmoji(emoji)}
-                        className={`
-                          w-12 h-12 rounded-lg text-2xl flex items-center justify-center
-                          transition-all active:scale-90
-                          ${newCatEmoji === emoji 
-                            ? 'bg-rose-50 ring-2 ring-rose-300 scale-110' 
-                            : 'bg-gray-100 hover:bg-gray-200'
-                          }
-                        `}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
+                <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אייקון</label>
+                
+                {recentEmojis.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-500 mb-2">לאחרונה:</div>
+                    <div className="grid grid-cols-8 gap-2">
+                      {recentEmojis.map((emoji, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setNewCatEmoji(emoji)}
+                          className={`
+                            w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
+                            ${newCatEmoji === emoji 
+                              ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                              : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                            }
+                          `}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                )}
+
+                <div className="text-xs text-gray-500 mb-2">פופולריים:</div>
+                <div className="grid grid-cols-8 gap-2">
+                  {commonEmojis.map((emoji, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setNewCatEmoji(emoji)}
+                      className={`
+                        w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
+                        ${newCatEmoji === emoji 
+                          ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                          : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                        }
+                      `}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleAddCategory}
                   disabled={!newCatName.trim()}
                   className={`
-                    flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all
+                    flex-1 px-6 py-3 rounded-xl font-bold transition-all
                     ${newCatName.trim()
                       ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -272,7 +330,7 @@ export default function CategoryManager({
                 </button>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-base transition-all active:scale-95"
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold transition-all active:scale-95"
                 >
                   ביטול
                 </button>
@@ -281,16 +339,6 @@ export default function CategoryManager({
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </div>
   );
 }

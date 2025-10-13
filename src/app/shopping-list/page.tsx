@@ -714,14 +714,6 @@ export default function ShoppingListPage() {
             </button>
           )}
         </div>
-        
-        {/* טיפ למובייל */}
-        <div className="md:hidden bg-rose-50 rounded-xl p-3 mb-3 text-sm text-rose-700 flex items-center gap-2">
-          <span className="text-lg">💡</span>
-          <span>
-            <strong>טיפ:</strong> החלק ימינה 👉 למחיקת פריט • לחץ על 3 נקודות לאפשרויות נוספות
-          </span>
-        </div>
       </div>
 
       {/* תוכן */}
