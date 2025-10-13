@@ -38,11 +38,13 @@ export default function CategoryManager({
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
   const [draggedCat, setDraggedCat] = useState<string | null>(null);
   const [dragOverCat, setDragOverCat] = useState<string | null>(null);
+  const [tempOrder, setTempOrder] = useState<Category[]>([]); // סדר זמני בזמן גרירה
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapTime = useRef<number>(0);
   const lastTapCat = useRef<string | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false); // מצב עריכה רציף
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -92,8 +94,8 @@ export default function CategoryManager({
 
   // זיהוי דאבל קליק/טאפ
   const handleCategoryClick = (catId: string) => {
-    // אם אנחנו במצב גרירה, לא נעשה כלום
-    if (isDragging) {
+    // אם אנחנו במצב עריכה, לא נעשה כלום
+    if (isEditMode) {
       return;
     }
     
@@ -111,19 +113,45 @@ export default function CategoryManager({
     }
   };
 
+  // כניסה למצב עריכה
+  const enterEditMode = () => {
+    setIsEditMode(true);
+    setTempOrder(filteredCategories);
+    navigator.vibrate?.(50);
+  };
+
+  // יציאה ממצב עריכה
+  const exitEditMode = (save: boolean) => {
+    if (save && onReorderCategories && tempOrder.length > 0) {
+      const reordered = tempOrder.map((cat, idx) => ({
+        ...cat,
+        order: idx
+      }));
+      onReorderCategories(reordered);
+    }
+    setIsEditMode(false);
+    setDraggedCat(null);
+    setDragOverCat(null);
+    setTempOrder([]);
+  };
+
   // טיפול בלחיצה ארוכה (למובייל)
   const handleTouchStart = (catId: string, e: React.TouchEvent) => {
-    // לא מאפשרים גרירה של "הכל"
-    if (catId === 'all') return;
-    
-    // מונע סימון טקסט
-    e.preventDefault();
-    
-    longPressTimer.current = setTimeout(() => {
-      setIsDragging(true);
+    // במצב רגיל - התחל לחיצה ארוכה
+    if (!isEditMode) {
+      if (catId === 'all') return;
+      e.preventDefault();
+      
+      longPressTimer.current = setTimeout(() => {
+        enterEditMode();
+        setDraggedCat(catId);
+      }, 400);
+    } else {
+      // במצב עריכה - התחל גרירה מיידית
+      if (catId === 'all') return;
+      e.preventDefault();
       setDraggedCat(catId);
-      navigator.vibrate?.(50); // רטט קל
-    }, 400); // קיצרתי ל-400ms
+    }
   };
 
   const handleTouchEnd = () => {
@@ -131,16 +159,21 @@ export default function CategoryManager({
       clearTimeout(longPressTimer.current);
     }
     
-    if (isDragging && draggedCat && dragOverCat && draggedCat !== dragOverCat) {
-      handleReorder(draggedCat, dragOverCat);
+    // במצב עריכה - עדכן את הסדר הזמני
+    if (isEditMode && draggedCat && dragOverCat && draggedCat !== dragOverCat) {
+      const fromIndex = tempOrder.findIndex(c => c.id === draggedCat);
+      const toIndex = tempOrder.findIndex(c => c.id === dragOverCat);
+      
+      if (fromIndex !== -1 && toIndex !== -1) {
+        const newOrder = [...tempOrder];
+        const [movedCat] = newOrder.splice(fromIndex, 1);
+        newOrder.splice(toIndex, 0, movedCat);
+        setTempOrder(newOrder);
+      }
     }
     
-    // המתן רגע לפני ביטול מצב הגרירה כדי למנוע קליק
-    setTimeout(() => {
-      setIsDragging(false);
-      setDraggedCat(null);
-      setDragOverCat(null);
-    }, 100);
+    setDraggedCat(null);
+    setDragOverCat(null);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -219,17 +252,38 @@ export default function CategoryManager({
 
   // "הכל" בסוף הרשימה
   const filteredCategories = categories.filter(c => c.id !== 'all');
+  
+  // במצב עריכה - השתמש בסדר הזמני, אחרת בסדר הרגיל
+  const workingCategories = isEditMode && tempOrder.length > 0 ? tempOrder : filteredCategories;
+  
   const allCategories = [
-    ...filteredCategories,
+    ...workingCategories,
     { id: 'all', name: 'הכל', emoji: '🛒', color: '' }
   ];
 
   return (
     <div className="relative">
-      {/* הנחיה לגרירה */}
-      {isDragging && (
-        <div className="absolute top-full left-0 right-0 bg-blue-500 text-white text-xs font-bold py-2 px-4 text-center z-50">
-          📍 גרור לשינוי סדר הקטגוריות
+      {/* הנחיה וכפתור סיום */}
+      {isEditMode && (
+        <div className="absolute top-full left-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-xl animate-bounce">📍</span>
+            <span className="text-sm font-bold">גרור לשינוי סדר</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exitEditMode(false)}
+              className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 font-bold text-sm transition-all active:scale-95"
+            >
+              ביטול
+            </button>
+            <button
+              onClick={() => exitEditMode(true)}
+              className="px-4 py-2 rounded-lg bg-white text-blue-600 hover:bg-blue-50 font-bold text-sm transition-all active:scale-95"
+            >
+              ✓ סיום
+            </button>
+          </div>
         </div>
       )}
 
@@ -280,7 +334,7 @@ export default function CategoryManager({
               }}
             >
               <button
-                onClick={() => !isDragging && handleCategoryClick(cat.id)}
+                onClick={() => !isEditMode && handleCategoryClick(cat.id)}
                 onTouchStart={(e) => handleTouchStart(cat.id, e)}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
@@ -288,13 +342,14 @@ export default function CategoryManager({
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
                   WebkitTouchCallout: 'none',
-                  animation: isDragging && cat.id !== 'all' ? 'wiggle 0.3s ease-in-out infinite' : 'none',
+                  animation: isEditMode && cat.id !== 'all' ? 'wiggle 0.3s ease-in-out infinite' : 'none',
                   transform: isBeingDragged 
-                    ? 'scale(1.1) rotate(2deg)' 
-                    : isDragOver && !isBeingDragged 
-                    ? 'translateX(20px)' 
+                    ? 'scale(1.15) rotate(3deg)' 
+                    : isDragOver && !isBeingDragged && isEditMode
+                    ? 'translateX(30px)' 
                     : 'none',
-                  transition: 'transform 0.2s ease-out'
+                  opacity: isBeingDragged ? 0.7 : 1,
+                  transition: 'all 0.2s ease-out'
                 }}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
