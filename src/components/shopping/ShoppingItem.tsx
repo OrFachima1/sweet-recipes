@@ -8,6 +8,7 @@ interface ShoppingItemProps {
   isManual: boolean;
   isChecked: boolean;
   categories: Category[];
+  sources: string[]; // הוספנו את sources
   onToggleCheck: () => void;
   onChangeCategory: (catId: string) => void;
   onDelete?: () => void;
@@ -20,17 +21,23 @@ export default function ShoppingItem({
   isManual,
   isChecked,
   categories,
+  sources, // הוספנו
   onToggleCheck,
   onChangeCategory,
   onDelete
 }: ShoppingItemProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [showSources, setShowSources] = useState(false); // חדש
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const startX = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // מנע גלילה של הדף בזמן סוויפ
+    if (Math.abs(e.touches[0].clientX - startX.current) > 10) {
+      e.preventDefault();
+    }
     startX.current = e.touches[0].clientX;
     setIsSwiping(true);
   };
@@ -42,6 +49,8 @@ export default function ShoppingItem({
     
     // גלילה לשמאל (ערכים חיוביים)
     if (diff > 0) {
+      // מנע גלילה של הדף
+      e.preventDefault();
       setSwipeOffset(Math.min(diff, 120));
     }
   };
@@ -182,6 +191,24 @@ export default function ShoppingItem({
           </div>
         </div>
 
+        {/* אייקון סימן שאלה - לפני 3 הנקודות */}
+        {!isManual && sources && sources.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSources(!showSources);
+            }}
+            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+              showSources 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+            }`}
+            title="הצג מקורות"
+          >
+            <span className="text-lg font-bold">?</span>
+          </button>
+        )}
+
         {/* כפתור תפריט */}
         <div className="relative">
           <button
@@ -295,6 +322,24 @@ export default function ShoppingItem({
           )}
         </div>
       </div>
+
+      {/* פרטי המקורות - מתחת לרשומה */}
+      {showSources && sources && sources.length > 0 && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-t-2 border-blue-200 px-4 py-3">
+          <div className="text-xs font-bold text-blue-700 mb-2">📋 מגיע מ:</div>
+          <div className="space-y-1.5">
+            {sources.map((source, idx) => (
+              <div 
+                key={idx}
+                className="text-sm text-gray-700 flex items-start gap-2"
+              >
+                <span className="text-blue-500 font-bold">•</span>
+                <span>{source}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

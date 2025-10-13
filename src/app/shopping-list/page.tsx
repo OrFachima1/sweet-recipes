@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import ShoppingListSettings from '@/components/shopping/ShoppingListSettings';
-import CategoryManager from '@/components/shopping/CategoryManager';
+import CategoryManager, { type Category } from '@/components/shopping/CategoryManager';
 import ShoppingItem from '@/components/shopping/ShoppingItem';
 import ShoppingHeader from '@/components/shopping/ShoppingHeader';
 import { ShoppingToolbar } from '@/components/shopping/ShoppingToolbar';
@@ -134,13 +134,16 @@ export default function ShoppingListPage() {
     return grouped;
   }, [shoppingList, categories]);
 
-  const itemCounts = useMemo(() => {
+    const itemCounts = useMemo(() => {
     const counts: Record<string, number> = { all: shoppingList.length };
     categories.forEach(cat => {
-      counts[cat.id] = groupedList[cat.id]?.length || 0;
+        // רק אם זה לא 'all'
+        if (cat.id !== 'all') {
+        counts[cat.id] = groupedList[cat.id]?.length || 0;
+        }
     });
     return counts;
-  }, [shoppingList, categories, groupedList]);
+    }, [shoppingList, categories, groupedList]);
 
   const filteredAndSortedItems = useMemo(() => {
     let items = selectedCategory === 'all' 
@@ -281,6 +284,20 @@ export default function ShoppingListPage() {
     }
   };
 
+  const handleReorderCategories = async (reorderedCategories: Category[]) => {
+  setCategories(reorderedCategories);
+  
+  try {
+    await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+      categories: reorderedCategories,
+      itemCategories,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('שגיאה בשמירת סדר קטגוריות:', error);
+  }
+};
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100 flex items-center justify-center">
@@ -314,7 +331,7 @@ export default function ShoppingListPage() {
 
       <div className="sticky top-0 z-40 bg-gradient-to-r from-rose-400 to-pink-400 shadow-md">
         <CategoryManager
-          categories={[{ id: 'all', name: 'הכל', emoji: '🛒', color: '' }, ...categories]}
+          categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           onAddCategory={(cat) => {
@@ -328,6 +345,7 @@ export default function ShoppingListPage() {
           }}
           onUpdateCategory={updateCategoryName}
           onDeleteCategory={deleteCategory}
+          onReorderCategories={handleReorderCategories}
           itemCounts={itemCounts}
         />
       </div>
@@ -373,6 +391,7 @@ export default function ShoppingListPage() {
                   isManual={item.sources[0] === 'הוספה ידנית'}
                   isChecked={checkedItems[item.name] || false}
                   categories={categories}
+                  sources={item.sources} 
                   onToggleCheck={() => {
                     const updated = {
                       ...checkedItems,

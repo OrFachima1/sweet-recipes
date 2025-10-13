@@ -5,6 +5,7 @@ export interface Category {
   name: string;
   emoji: string;
   color: string;
+  order?: number; // הוספנו שדה order
 }
 
 interface CategoryManagerProps {
@@ -14,6 +15,7 @@ interface CategoryManagerProps {
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (id: string, name: string) => void;
   onDeleteCategory: (id: string) => void;
+  onReorderCategories?: (categories: Category[]) => void; // חדש
   itemCounts: Record<string, number>;
 }
 
@@ -24,6 +26,7 @@ export default function CategoryManager({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onReorderCategories,
   itemCounts
 }: CategoryManagerProps) {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -33,9 +36,13 @@ export default function CategoryManager({
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
+  const [draggedCat, setDraggedCat] = useState<string | null>(null);
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapTime = useRef<number>(0);
   const lastTapCat = useRef<string | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -57,7 +64,8 @@ export default function CategoryManager({
       id: `cat_${Date.now()}`,
       name: newCatName,
       emoji: newCatEmoji,
-      color: 'from-rose-50 to-pink-50'
+      color: 'from-rose-50 to-pink-50',
+      order: categories.length
     };
     
     onAddCategory(newCat);
@@ -84,36 +92,141 @@ export default function CategoryManager({
 
   // זיהוי דאבל קליק/טאפ
   const handleCategoryClick = (catId: string) => {
+    if (isDragging) return; // אל תבחר אם גוררים
+    
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime.current;
     
-    // אם זה אותה קטגוריה ועבר פחות מ-300ms = דאבל קליק
     if (lastTapCat.current === catId && timeSinceLastTap < 300 && catId !== 'all') {
-      // דאבל קליק - פתח אפשרויות
       setShowOptionsFor(catId);
       lastTapTime.current = 0;
       lastTapCat.current = null;
     } else {
-      // קליק רגיל - בחר קטגוריה
       onSelectCategory(catId);
       lastTapTime.current = now;
       lastTapCat.current = catId;
     }
   };
 
+  // טיפול בלחיצה ארוכה (למובייל)
+  const handleTouchStart = (catId: string, e: React.TouchEvent) => {
+    if (catId === 'all') return;
+    
+    longPressTimer.current = setTimeout(() => {
+      setIsDragging(true);
+      setDraggedCat(catId);
+      navigator.vibrate?.(50); // רטט קל
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+    
+    if (isDragging && draggedCat && dragOverCat && draggedCat !== dragOverCat) {
+      handleReorder(draggedCat, dragOverCat);
+    }
+    
+    setIsDragging(false);
+    setDraggedCat(null);
+    setDragOverCat(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !draggedCat) return;
+    
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    const catElement = element?.closest('[data-category-id]') as HTMLElement;
+    
+    if (catElement) {
+      const catId = catElement.dataset.categoryId;
+      if (catId && catId !== 'all') {
+        setDragOverCat(catId);
+      }
+    }
+  };
+
+  // Drag & Drop למחשב
+  const handleDragStart = (catId: string, e: React.DragEvent) => {
+    if (catId === 'all') {
+      e.preventDefault();
+      return;
+    }
+    setDraggedCat(catId);
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (catId: string, e: React.DragEvent) => {
+    if (catId === 'all' || !draggedCat) return;
+    e.preventDefault();
+    setDragOverCat(catId);
+  };
+
+  const handleDrop = (catId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedCat && catId !== 'all' && draggedCat !== catId) {
+      handleReorder(draggedCat, catId);
+    }
+    setDraggedCat(null);
+    setDragOverCat(null);
+    setIsDragging(false);
+  };
+
+  const handleReorder = (fromId: string, toId: string) => {
+    if (!onReorderCategories) return;
+    
+    const fromIndex = categories.findIndex(c => c.id === fromId);
+    const toIndex = categories.findIndex(c => c.id === toId);
+    
+    if (fromIndex === -1 || toIndex === -1) return;
+    
+    const newCategories = [...categories];
+    const [movedCat] = newCategories.splice(fromIndex, 1);
+    newCategories.splice(toIndex, 0, movedCat);
+    
+    // עדכון order
+    const reordered = newCategories.map((cat, idx) => ({
+      ...cat,
+      order: idx
+    }));
+    
+    onReorderCategories(reordered);
+  };
+
   const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🍬', '🧴', '🧻', '🧊'];
+
+  // סינון "הכל" מהקטגוריות שמגיעות והוספתו בהתחלה
+  const filteredCategories = categories.filter(c => c.id !== 'all');
+  const allCategories = [
+    { id: 'all', name: 'הכל', emoji: '🛒', color: '' },
+    ...filteredCategories
+  ];
 
   return (
     <div className="relative">
+      {/* הנחיה לגרירה */}
+      {isDragging && (
+        <div className="absolute top-full left-0 right-0 bg-blue-500 text-white text-xs font-bold py-2 px-4 text-center z-50">
+          📍 גרור לשינוי סדר הקטגוריות
+        </div>
+      )}
+
       {/* קטגוריות */}
       <div 
         ref={scrollRef}
         className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide scroll-smooth"
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {categories.map(cat => {
+        {allCategories.map(cat => {
           const count = itemCounts[cat.id] || 0;
           const isSelected = selectedCategory === cat.id;
           const isEditing = editingCat === cat.id;
+          const isBeingDragged = draggedCat === cat.id;
+          const isDragOver = dragOverCat === cat.id;
           
           if (isEditing && cat.id !== 'all') {
             return (
@@ -133,9 +246,23 @@ export default function CategoryManager({
           }
           
           return (
-            <div key={cat.id} className="relative flex-shrink-0 group">
+            <div 
+              key={cat.id} 
+              className="relative flex-shrink-0 group"
+              data-category-id={cat.id}
+              draggable={cat.id !== 'all'}
+              onDragStart={(e) => handleDragStart(cat.id, e)}
+              onDragOver={(e) => handleDragOver(cat.id, e)}
+              onDrop={(e) => handleDrop(cat.id, e)}
+              onDragEnd={() => {
+                setDraggedCat(null);
+                setDragOverCat(null);
+                setIsDragging(false);
+              }}
+            >
               <button
                 onClick={() => handleCategoryClick(cat.id)}
+                onTouchStart={(e) => handleTouchStart(cat.id, e)}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center gap-1.5 whitespace-nowrap relative
@@ -143,6 +270,8 @@ export default function CategoryManager({
                     ? 'bg-white text-rose-500 shadow-md scale-105'
                     : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
                   }
+                  ${isBeingDragged ? 'opacity-50 scale-95' : ''}
+                  ${isDragOver && !isBeingDragged ? 'ring-2 ring-blue-400' : ''}
                 `}
               >
                 <span className="text-base">{cat.emoji}</span>
