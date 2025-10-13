@@ -204,10 +204,10 @@ export default function CategoryManager({
       [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
       setTempOrder(newOrder);
       
-      // גלילה אוטומטית שמאלה
+      // גלילה אוטומטית ימינה (הפוך)
       if (scrollRef.current) {
-        const scrollAmount = 100; // כמה לגלול
-        scrollRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        const scrollAmount = 100;
+        scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
       }
       
       if (navigator.vibrate) {
@@ -226,10 +226,10 @@ export default function CategoryManager({
       [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
       setTempOrder(newOrder);
       
-      // גלילה אוטומטית ימינה
+      // גלילה אוטומטית שמאלה (הפוך)
       if (scrollRef.current) {
-        const scrollAmount = 100; // כמה לגלול
-        scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        const scrollAmount = 100;
+        scrollRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
       }
       
       if (navigator.vibrate) {
@@ -318,26 +318,29 @@ export default function CategoryManager({
                 setIsDragging(false);
               }}
             >
-              {/* חצים לשינוי סדר - רק מציג חץ אם אפשר להזיז */}
+              {/* חצים לשינוי סדר - עם מרווח גדול יותר מהקטגוריה */}
               {isEditMode && cat.id !== 'all' && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
-                  {/* חץ ימני ▶ בצד שמאל - רק אם לא ראשון (יכול לזוז ימינה) */}
+                  {/* חץ ימני ▶ בצד שמאל - רק אם לא ראשון */}
                   {!isFirstInOrder && (
                     <button
                       onClick={(e) => moveLeft(cat.id, e)}
                       onTouchEnd={(e) => moveLeft(cat.id, e)}
-                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm -translate-x-4 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
+                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm -translate-x-6 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
                     >
                       ▶
                     </button>
                   )}
                   
-                  {/* חץ שמאלי ◀ בצד ימין - רק אם לא אחרון (יכול לזוז שמאלה) */}
+                  {/* מרווח ריק כדי לשמור על היררכיה */}
+                  {isFirstInOrder && <div className="w-5" />}
+                  
+                  {/* חץ שמאלי ◀ בצד ימין - רק אם לא אחרון */}
                   {!isLastInOrder && (
                     <button
                       onClick={(e) => moveRight(cat.id, e)}
                       onTouchEnd={(e) => moveRight(cat.id, e)}
-                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm translate-x-4 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
+                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm translate-x-6 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
                     >
                       ◀
                     </button>
