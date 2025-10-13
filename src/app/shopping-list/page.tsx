@@ -22,6 +22,16 @@ const fontStyle = `
     font-family: 'MyHandwriting';
     src: url('/Myfont-Regular.ttf') format('truetype');
     font-display: swap;
+    font-weight: normal;
+    font-style: normal;
+  }
+  
+  /* מונע בהוב של גופן */
+  body {
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 `;
 
@@ -487,6 +497,9 @@ export default function ShoppingListPage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: fontStyle }} />
+      {/* Preload הגופן */}
+      <link rel="preload" href="/Myfont-Regular.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+      
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 pb-8" dir="rtl">
         
         {/* כותרת */}
@@ -501,11 +514,11 @@ export default function ShoppingListPage() {
               </button>
               
               <div className="text-center flex-1" style={{ fontFamily: 'MyHandwriting, Arial' }}>
-                <div className="text-5xl sm:text-6xl md:text-7xl font-bold bg-gradient-to-l from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-tight">
+                <div className="text-4xl sm:text-5xl md:text-6xl font-bold bg-gradient-to-l from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-tight">
                   📝 רשימת הקניות שלי
                 </div>
                 {totalItems > 0 && (
-                  <div className="text-3xl sm:text-4xl text-blue-600 font-bold mt-2">
+                  <div className="text-2xl sm:text-3xl text-blue-600 font-bold mt-2">
                     {checkedCount} / {totalItems}
                   </div>
                 )}
@@ -630,7 +643,7 @@ export default function ShoppingListPage() {
                   </div>
                 </div>
               ) : (
-                <div className="py-4">
+                <div className="py-2 space-y-1">
                   {displayedItems.map((item, idx) => (
                     <ShoppingItem
                       key={idx}
@@ -668,14 +681,14 @@ export default function ShoppingListPage() {
         {showAddItem && (
           <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={() => setShowAddItem(false)}>
             <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-3xl sm:text-4xl font-bold mb-4" style={{ fontFamily: 'MyHandwriting, Arial' }}>הוסף פריט</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-4" style={{ fontFamily: 'MyHandwriting, Arial' }}>הוסף פריט</h3>
               <div className="space-y-3">
                 <input
                   type="text"
                   placeholder="שם המוצר"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-xl"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
                   style={{ fontFamily: 'MyHandwriting, Arial' }}
                   autoFocus
                 />
@@ -685,7 +698,7 @@ export default function ShoppingListPage() {
                     placeholder="כמות"
                     value={newItemQty}
                     onChange={(e) => setNewItemQty(e.target.value)}
-                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-xl"
+                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
                     style={{ fontFamily: 'MyHandwriting, Arial' }}
                   />
                   <input
@@ -693,21 +706,21 @@ export default function ShoppingListPage() {
                     placeholder="יחידה"
                     value={newItemUnit}
                     onChange={(e) => setNewItemUnit(e.target.value)}
-                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-xl"
+                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
                     style={{ fontFamily: 'MyHandwriting, Arial' }}
                   />
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={addManualItem}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-l from-blue-500 to-cyan-500 text-white font-bold hover:shadow-lg text-xl"
+                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-l from-blue-500 to-cyan-500 text-white font-bold hover:shadow-lg text-lg"
                     style={{ fontFamily: 'MyHandwriting, Arial' }}
                   >
                     הוסף
                   </button>
                   <button
                     onClick={() => setShowAddItem(false)}
-                    className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-xl"
+                    className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-lg"
                     style={{ fontFamily: 'MyHandwriting, Arial' }}
                   >
                     ביטול
