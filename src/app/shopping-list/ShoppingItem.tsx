@@ -28,7 +28,6 @@ export default function ShoppingItem({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const startX = useRef(0);
-  const currentX = useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -37,19 +36,19 @@ export default function ShoppingItem({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping) return;
-    currentX.current = e.touches[0].clientX;
-    const diff = currentX.current - startX.current;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX.current;
     
     // רק גלילה לימין (ערכים חיוביים)
     if (diff > 0) {
-      setSwipeOffset(Math.min(diff, 120));
+      setSwipeOffset(Math.min(diff, 150));
     }
   };
 
   const handleTouchEnd = () => {
     setIsSwiping(false);
     
-    if (swipeOffset > 80 && onDelete) {
+    if (swipeOffset > 100 && onDelete) {
       // שאלת אישור
       if (confirm(`האם למחוק את "${name}"?`)) {
         onDelete();
@@ -66,23 +65,18 @@ export default function ShoppingItem({
     }
   };
 
-  const deleteProgress = Math.min(swipeOffset / 120, 1);
+  const deleteProgress = Math.min(swipeOffset / 150, 1);
 
   return (
-    <div className="relative group overflow-hidden">
-      {/* רקע אדום למחיקה - רק במובייל */}
+    <div className="relative overflow-hidden">
+      {/* רקע אדום למחיקה */}
       {swipeOffset > 0 && (
         <div 
           className="absolute inset-0 bg-gradient-to-l from-red-500 to-red-400 flex items-center justify-start px-6"
-          style={{
-            opacity: deleteProgress,
-          }}
         >
-          <div className="flex items-center gap-2 text-white font-bold">
-            <span className="text-2xl">🗑️</span>
-            <span className="text-lg">
-              {swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק למחיקה'}
-            </span>
+          <div className="flex items-center gap-3 text-white font-bold text-lg">
+            <span className="text-3xl">←</span>
+            <span>מחיקת מוצר</span>
           </div>
         </div>
       )}
@@ -90,23 +84,17 @@ export default function ShoppingItem({
       {/* התוכן */}
       <div 
         className={`
-          relative flex items-center gap-3 px-4 py-2.5 transition-all duration-200 bg-white
+          relative flex items-center gap-3 px-4 py-2.5 transition-all bg-white
           ${isChecked ? 'bg-emerald-50' : 'hover:bg-rose-50/30'}
-          cursor-pointer
+          ${isSwiping ? '' : 'duration-300'}
         `}
         style={{
           transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.3s ease-out'
+          transition: isSwiping ? 'none' : 'transform 0.3s ease-out, background-color 0.2s'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onClick={(e) => {
-          // קליק על השורה בדסקטופ = toggle checkbox
-          if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'SPAN') {
-            onToggleCheck();
-          }
-        }}
       >
         {/* צ'קבוקס */}
         <button
@@ -119,7 +107,7 @@ export default function ShoppingItem({
             transition-all duration-200 hover:scale-110 active:scale-90
             ${isChecked 
               ? 'bg-emerald-500 border-emerald-600' 
-              : 'border-gray-300 bg-white hover:border-rose-400 active:border-rose-300'
+              : 'border-gray-300 bg-white hover:border-rose-400'
             }
           `}
         >
@@ -132,7 +120,6 @@ export default function ShoppingItem({
 
         {/* תוכן - שם בימין כמות בשמאל */}
         <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-          {/* שם המוצר */}
           <span className={`
             text-base font-semibold truncate transition-all duration-200
             ${isChecked ? 'text-gray-400 line-through' : 'text-gray-800'}
@@ -140,7 +127,6 @@ export default function ShoppingItem({
             {name}
           </span>
           
-          {/* כמות */}
           <span className={`
             text-base font-bold whitespace-nowrap flex-shrink-0
             ${isChecked ? 'text-gray-400' : 'text-rose-500'}
@@ -157,14 +143,15 @@ export default function ShoppingItem({
         )}
 
         {/* תפריט 3 נקודות */}
-        <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="relative flex-shrink-0">
           <button
+            type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
             className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all hover:scale-110 active:scale-90"
-            title="אפשרויות"
           >
             <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="5" r="2"/>
@@ -177,16 +164,21 @@ export default function ShoppingItem({
             <>
               <div 
                 className="fixed inset-0 z-40" 
-                onClick={() => setShowMenu(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowMenu(false);
+                }}
               />
               <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 py-2 z-50 min-w-[200px]">
-                {/* קטגוריות */}
                 <div className="text-xs font-bold text-gray-500 px-3 py-1.5">העבר לקטגוריה</div>
                 <div className="space-y-0.5 max-h-60 overflow-y-auto">
                   {categories.map(cat => (
                     <button
                       key={cat.id}
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         onChangeCategory(cat.id);
                         setShowMenu(false);
@@ -199,12 +191,13 @@ export default function ShoppingItem({
                   ))}
                 </div>
                 
-                {/* מחיקה */}
                 {onDelete && (
                   <>
                     <div className="h-px bg-gray-200 my-1" />
                     <button
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         handleDeleteClick();
                       }}
