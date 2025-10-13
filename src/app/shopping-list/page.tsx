@@ -113,6 +113,8 @@ export default function ShoppingListPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'checked'>('name');
 
   const minSwipeDistance = 50;
 
@@ -377,9 +379,30 @@ export default function ShoppingListPage() {
     return counts;
   }, [shoppingList, categories, groupedList]);
 
-  const displayedItems = selectedCategory === 'all' 
-    ? shoppingList 
-    : groupedList[selectedCategory] || [];
+  const filteredAndSortedItems = useMemo(() => {
+    let items = selectedCategory === 'all' 
+      ? shoppingList 
+      : groupedList[selectedCategory] || [];
+
+    // סינון לפי חיפוש
+    if (searchTerm.trim()) {
+      items = items.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // מיון
+    if (sortBy === 'checked') {
+      items = [...items].sort((a, b) => {
+        const aChecked = checkedItems[a.name] || false;
+        const bChecked = checkedItems[b.name] || false;
+        if (aChecked === bChecked) return 0;
+        return aChecked ? 1 : -1;
+      });
+    }
+
+    return items;
+  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems]);
 
   const addManualItem = () => {
     if (!newItemName.trim()) return;
@@ -443,7 +466,7 @@ export default function ShoppingListPage() {
 
   const deleteCategory = (catId: string) => {
     if (catId === 'other') {
-      alert('לא נית למחוק את הקטגוריה "כללי"');
+      alert('לא ניתן למחוק את הקטגוריה "כללי"');
       return;
     }
     
@@ -465,42 +488,52 @@ export default function ShoppingListPage() {
     });
   };
 
+  const clearCheckedItems = () => {
+    if (confirm('למחוק את כל הפריטים המסומנים?')) {
+      const checkedNames = Object.keys(checkedItems).filter(name => checkedItems[name]);
+      const updatedManual = manualItems.filter(item => !checkedNames.includes(item.name));
+      setManualItems(updatedManual);
+      saveManualItems(updatedManual);
+      setCheckedItems({});
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-20 h-20 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-white text-2xl font-bold">טוען...</div>
+          <div className="w-20 h-20 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-indigo-600 text-2xl font-bold">טוען...</div>
         </div>
       </div>
     );
   }
 
-  const totalItems = displayedItems.length;
-  const checkedCount = displayedItems.filter(i => checkedItems[i.name]).length;
+  const totalItems = filteredAndSortedItems.length;
+  const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" dir="rtl">
       
       {/* כותרת קבועה */}
-      <div className="sticky top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-white/20 shadow-lg">
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <button
               onClick={() => router.push('/')}
-              className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+              className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
             >
               ←
             </button>
             
             <div className="text-center flex-1">
-              <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-lg">
+              <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow-lg">
                 🛒 רשימת קניות
               </h1>
               {totalItems > 0 && (
-                <div className="mt-2 text-white/90 font-bold text-xl">
-                  {checkedCount} מתוך {totalItems}
+                <div className="mt-1 text-white/95 font-bold text-lg">
+                  {checkedCount} / {totalItems}
                 </div>
               )}
             </div>
@@ -509,7 +542,7 @@ export default function ShoppingListPage() {
               <div className="relative">
                 <button
                   onClick={() => setShowDatePicker(!showDatePicker)}
-                  className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+                  className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
                 >
                   📅
                 </button>
@@ -532,7 +565,7 @@ export default function ShoppingListPage() {
                             type="date"
                             value={selectedPeriod.start}
                             onChange={(e) => setSelectedPeriod(prev => ({ ...prev, start: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none"
+                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none"
                           />
                         </div>
                         <div>
@@ -541,7 +574,7 @@ export default function ShoppingListPage() {
                             type="date"
                             value={selectedPeriod.end}
                             onChange={(e) => setSelectedPeriod(prev => ({ ...prev, end: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none"
+                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none"
                           />
                         </div>
                       </div>
@@ -552,7 +585,7 @@ export default function ShoppingListPage() {
 
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+                className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
               >
                 ⚙️
               </button>
@@ -561,9 +594,9 @@ export default function ShoppingListPage() {
 
           {/* פס התקדמות */}
           {totalItems > 0 && (
-            <div className="relative h-3 bg-white/20 rounded-full overflow-hidden">
+            <div className="relative h-2.5 bg-white/25 rounded-full overflow-hidden">
               <div 
-                className="absolute inset-y-0 right-0 bg-gradient-to-l from-green-400 to-emerald-500 transition-all duration-500 ease-out rounded-full"
+                className="absolute inset-y-0 right-0 bg-gradient-to-l from-green-400 to-emerald-400 transition-all duration-500 ease-out rounded-full shadow-lg"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -589,27 +622,56 @@ export default function ShoppingListPage() {
         />
       </div>
 
+      {/* סרגל כלים */}
+      <div className="max-w-6xl mx-auto px-4 pt-4">
+        <div className="bg-white rounded-2xl shadow-md p-3 mb-3 flex gap-2 items-center">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔍 חיפוש..."
+            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
+          />
+          <button
+            onClick={() => setSortBy(sortBy === 'name' ? 'checked' : 'name')}
+            className="px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 font-semibold text-sm hover:bg-indigo-200 transition-colors whitespace-nowrap"
+          >
+            {sortBy === 'name' ? '🔤 לפי שם' : '✓ מסומנים למטה'}
+          </button>
+          {checkedCount > 0 && (
+            <button
+              onClick={clearCheckedItems}
+              className="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-semibold text-sm hover:bg-red-200 transition-colors whitespace-nowrap"
+            >
+              🗑️ נקה סומנו
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* תוכן */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 pb-24">
         <div 
-          className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden"
+          className="bg-white rounded-2xl shadow-xl overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {displayedItems.length === 0 ? (
+          {filteredAndSortedItems.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-8xl mb-6">🛒</div>
-              <div className="text-3xl text-gray-400 font-bold">
-                אין פריטים ברשימה
+              <div className="text-7xl mb-4">
+                {searchTerm ? '🔍' : '🛒'}
               </div>
-              <div className="text-gray-400 mt-2">
-                הוסף פריטים או שנה את הגדרות התקופה
+              <div className="text-2xl text-gray-400 font-bold">
+                {searchTerm ? 'לא נמצאו תוצאות' : 'אין פריטים ברשימה'}
+              </div>
+              <div className="text-gray-400 mt-2 text-sm">
+                {searchTerm ? 'נסה חיפוש אחר' : 'הוסף פריטים או שנה הגדרות'}
               </div>
             </div>
           ) : (
-            <div className="p-4 space-y-2">
-              {displayedItems.map((item, idx) => (
+            <div className="divide-y divide-gray-100">
+              {filteredAndSortedItems.map((item, idx) => (
                 <ShoppingItem
                   key={idx}
                   name={item.name}
@@ -634,7 +696,7 @@ export default function ShoppingListPage() {
       {/* כפתור הוספה */}
       <button
         onClick={() => setShowAddItem(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
       >
         +
       </button>
@@ -643,42 +705,51 @@ export default function ShoppingListPage() {
       {showAddItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddItem(false)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-3xl font-bold mb-6 text-gray-800">הוסף פריט</h3>
-            <div className="space-y-4">
+            <h3 className="text-2xl font-bold mb-5 text-gray-800">הוסף פריט</h3>
+            <div className="space-y-3">
               <input
                 type="text"
                 placeholder="שם המוצר"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
                 autoFocus
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="כמות"
                   value={newItemQty}
                   onChange={(e) => setNewItemQty(e.target.value)}
-                  className="px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                  onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
                 />
                 <input
                   type="text"
-                  placeholder="יחידה"
+                  placeholder="יחידה (גרם, ק״ג...)"
                   value={newItemUnit}
                   onChange={(e) => setNewItemUnit(e.target.value)}
-                  className="px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                  onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
                 />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={addManualItem}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-gradient-to-l from-purple-500 to-pink-500 text-white font-bold text-lg hover:shadow-xl transition-all active:scale-95"
+                  disabled={!newItemName.trim()}
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all ${
+                    newItemName.trim()
+                      ? 'bg-gradient-to-l from-indigo-500 to-purple-500 text-white hover:shadow-lg active:scale-95'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
                 >
                   הוסף
                 </button>
                 <button
                   onClick={() => setShowAddItem(false)}
-                  className="px-6 py-4 rounded-2xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-lg transition-all active:scale-95"
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-base transition-all active:scale-95"
                 >
                   ביטול
                 </button>

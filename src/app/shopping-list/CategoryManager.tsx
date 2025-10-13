@@ -28,7 +28,7 @@ export default function CategoryManager({
 }: CategoryManagerProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-  const [newCatEmoji, setNewCatEmoji] = useState('📦');
+  const [selectedEmoji, setSelectedEmoji] = useState('📦');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollHint, setShowScrollHint] = useState(true);
 
@@ -43,28 +43,28 @@ export default function CategoryManager({
     const newCat: Category = {
       id: `cat_${Date.now()}`,
       name: newCatName,
-      emoji: newCatEmoji,
-      color: 'from-purple-100 to-pink-100'
+      emoji: selectedEmoji,
+      color: 'from-indigo-100 to-purple-100'
     };
     
     onAddCategory(newCat);
     setNewCatName('');
-    setNewCatEmoji('📦');
+    setSelectedEmoji('📦');
     setShowAddModal(false);
   };
 
-  const emojiList = ['🥗', '🍖', '🥛', '🍞', '🧀', '🥕', '🍎', '🥫', '🧴', '🧻', '📦', '🛒'];
+  const emojiList = ['🥗', '🍖', '🥛', '🍞', '🧀', '🥕', '🍎', '🥫', '🧴', '🧻', '🍕', '🍰', '🥤', '🍺', '🌶️', '🥒', '🍅', '🥦', '🐟', '🐔', '🥩', '🧂', '🍯', '🥜', '📦'];
 
   return (
     <div className="relative">
       {/* רמז גלילה */}
       {showScrollHint && categories.length > 3 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
-          <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border-2 border-purple-200 animate-pulse">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-purple-600">←</span>
-              <span className="text-sm font-bold text-gray-700">החלק לניווט</span>
-              <span className="text-sm font-bold text-purple-600">→</span>
+          <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-white/50 animate-pulse">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-600">
+              <span>→</span>
+              <span>החלק</span>
+              <span>←</span>
             </div>
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function CategoryManager({
       {/* קטגוריות */}
       <div 
         ref={scrollRef}
-        className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide scroll-smooth"
+        className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide scroll-smooth"
       >
         {categories.map(cat => {
           const count = itemCounts[cat.id] || 0;
@@ -84,22 +84,22 @@ export default function CategoryManager({
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}
               className={`
-                flex-shrink-0 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all duration-300
-                flex items-center gap-2 whitespace-nowrap border-2
+                flex-shrink-0 px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
+                flex items-center gap-1.5 whitespace-nowrap
                 ${isSelected
-                  ? 'bg-white text-purple-600 border-purple-300 shadow-lg scale-105'
-                  : 'bg-white/40 text-white border-white/30 hover:bg-white/60 hover:scale-105'
+                  ? 'bg-white text-indigo-600 shadow-md scale-105'
+                  : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
                 }
               `}
             >
-              <span className="text-lg">{cat.emoji}</span>
+              <span className="text-base">{cat.emoji}</span>
               <span>{cat.name}</span>
               {count > 0 && (
                 <span className={`
-                  px-2 py-0.5 rounded-full text-xs font-bold
+                  px-1.5 py-0.5 rounded-md text-xs font-bold
                   ${isSelected 
-                    ? 'bg-purple-100 text-purple-600' 
-                    : 'bg-white/50 text-white'
+                    ? 'bg-indigo-100 text-indigo-600' 
+                    : 'bg-white/40 text-white'
                   }
                 `}>
                   {count}
@@ -112,7 +112,7 @@ export default function CategoryManager({
         {/* כפתור הוספה */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex-shrink-0 w-10 h-10 rounded-2xl bg-white/40 hover:bg-white/60 border-2 border-white/30 flex items-center justify-center text-white text-xl transition-all hover:scale-110 active:scale-95"
+          className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/30 hover:bg-white/50 flex items-center justify-center text-white text-lg transition-all active:scale-90"
         >
           +
         </button>
@@ -131,25 +131,26 @@ export default function CategoryManager({
                   type="text"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
                   placeholder="לדוגמה: מוצרי חלב"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-400 focus:outline-none text-base"
                   autoFocus
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אייקון</label>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto p-2 bg-gray-50 rounded-xl">
                   {emojiList.map(emoji => (
                     <button
                       key={emoji}
-                      onClick={() => setNewCatEmoji(emoji)}
+                      onClick={() => setSelectedEmoji(emoji)}
                       className={`
-                        w-full aspect-square rounded-xl text-2xl flex items-center justify-center
-                        transition-all hover:scale-110 active:scale-95
-                        ${newCatEmoji === emoji 
-                          ? 'bg-purple-100 border-2 border-purple-400 shadow-lg' 
-                          : 'bg-gray-100 hover:bg-gray-200'
+                        aspect-square rounded-lg text-2xl flex items-center justify-center
+                        transition-all active:scale-90
+                        ${selectedEmoji === emoji 
+                          ? 'bg-indigo-100 ring-2 ring-indigo-400 scale-110' 
+                          : 'bg-white hover:bg-gray-100'
                         }
                       `}
                     >
@@ -164,9 +165,9 @@ export default function CategoryManager({
                   onClick={handleAddCategory}
                   disabled={!newCatName.trim()}
                   className={`
-                    flex-1 px-6 py-4 rounded-2xl font-bold text-lg transition-all
+                    flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all
                     ${newCatName.trim()
-                      ? 'bg-gradient-to-l from-purple-500 to-pink-500 text-white hover:shadow-xl active:scale-95'
+                      ? 'bg-gradient-to-l from-indigo-500 to-purple-500 text-white hover:shadow-lg active:scale-95'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }
                   `}
@@ -175,7 +176,7 @@ export default function CategoryManager({
                 </button>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="px-6 py-4 rounded-2xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-lg transition-all active:scale-95"
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-base transition-all active:scale-95"
                 >
                   ביטול
                 </button>
