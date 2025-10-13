@@ -366,22 +366,31 @@ const compressed = await compressImage(dataUrl, 1280, 0.8);
     </div>
 
     {/* כפתורים — בצד שמאל, אחד מתחת לשני */}
-    <div className="flex flex-col items-end gap-2">
-      <button
-        onClick={logout}
-        className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
-      >
-        התנתקות
-      </button>
+    <div className="flex flex-col items-stretch gap-2 min-w-[180px]">
+  <button
+    onClick={logout}
+    className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-pink-500 text-white font-bold hover:shadow active:scale-[0.98]"
+  >
+    התנתקות
+  </button>
 
-      <button
-        onClick={() => router.push('/orders')}
-        className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-emerald-500 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center gap-2"
-      >
-        <span className="text-lg">📋</span>
-        <span>למעקב הזמנות</span>
-      </button>
-    </div>
+  <button
+    onClick={() => router.push('/orders')}
+    className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-emerald-500 text-white font-bold hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+  >
+    <span className="text-lg">📋</span>
+    <span>למעקב הזמנות</span>
+  </button>
+
+  {/* כפתור חדש - רשימת קניות */}
+  <button
+    onClick={() => router.push('/shopping-list')}
+    className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-l from-blue-500 to-cyan-500 text-white font-bold hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+  >
+    <span className="text-lg">🛒</span>
+    <span>רשימת קניות</span>
+  </button>
+</div>
   </div>
 </header>
 
