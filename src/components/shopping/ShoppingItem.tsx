@@ -92,20 +92,20 @@ export default function ShoppingItem(props: ShoppingItemProps) {
   };
 
   const animateSetOffset = (value: number, duration = TRANSITION_MS) => {
-    if (!containerRef.current) {
-      setOffset(value);
-      return;
-    }
-    containerRef.current.style.transition = `transform ${duration}ms ${SNAP_BACK_EASING}`;
+  if (!containerRef.current) {
     setOffset(value);
-    // נקפל את הטרנזישן אחרי פרק זמן (מנקה סטייל inline)
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      setTimeout(() => {
-        if (containerRef.current) containerRef.current.style.transition = "";
-      }, duration + 10);
-    });
-  };
+    return;
+  }
+  containerRef.current.style.transition = `transform ${duration}ms ${SNAP_BACK_EASING}`;
+  setOffset(value);
+  if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  rafRef.current = requestAnimationFrame(() => {
+    setTimeout(() => {
+      if (containerRef.current) containerRef.current.style.transition = "";
+    }, duration + 10);
+  });
+};
+
 
   const collapseAndDelete = () => {
     // דחיפת הכרטיס החוצה ולקרוס
@@ -135,27 +135,70 @@ export default function ShoppingItem(props: ShoppingItemProps) {
       setHeightCollapsed(true);
     }, TRANSITION_MS * 2 + 60);
   };
+// --- slideOutThenCollapse: מבצע "זריקה" מחוץ למסך ואז קריסה ---
+const slideOutThenCollapse = (slideDuration = 260) => {
+  if (!containerRef.current) return;
+  setIsRemoving(true);
 
-  const onPointerUp = (e?: React.PointerEvent) => {
-    if (!isDragging || isRemoving) return;
-    setIsDragging(false);
+  // שלח את הכרטיס רחוק ימינה (תשנה ל־negative אם אתה רוצה swipe שמאלה)
+  const offscreenX = window.innerWidth + 200;
+  containerRef.current.style.transition = `transform ${slideDuration}ms ${SNAP_BACK_EASING}, opacity ${Math.min(
+    slideDuration,
+    220
+  )}ms ${SNAP_BACK_EASING}`;
+  setOffset(offscreenX);
+  containerRef.current.style.opacity = "0";
 
-    // שחרור pointer capture
-    try {
-      (e?.target as Element)?.releasePointerCapture?.((e as any)?.pointerId);
-    } catch (err) {}
+  // לאחר שסיים לזרוק — קריסה לגובה
+  setTimeout(() => {
+    if (!containerRef.current) return;
+    containerRef.current.style.transition = `height ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, margin ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, padding ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
+    const h = containerRef.current.offsetHeight;
+    containerRef.current.style.height = `${h}px`;
+    // force reflow
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    containerRef.current.offsetHeight;
+    containerRef.current.style.height = "0px";
+    containerRef.current.style.margin = "0px";
+    containerRef.current.style.padding = "0px";
+    containerRef.current.style.overflow = "hidden";
+  }, slideDuration + 8);
 
-    const v = velocity.current * 1000; // ממיר ל-px/s (approx)
-    const shouldDelete = offset > RELEASE_THRESHOLD || v > 700; // מהירות גבוהה גם מוחקת
+  // בסוף הכל — קריאה לאבא למחוק מה־state/DB
+  setTimeout(() => {
+    onDelete?.();
+  }, slideDuration + TRANSITION_MS + 40);
+};
 
-    if (shouldDelete) {
-      // אנימציה של מחיקה
-      collapseAndDelete();
-    } else {
-      // החזר חזרה
-      animateSetOffset(0);
+ // --- onPointerUp: החלטה מבוססת מרחק ומהירות (fling support) ---
+const onPointerUp = (e?: React.PointerEvent) => {
+  if (!isDragging || isRemoving) return;
+  setIsDragging(false);
+
+  try {
+    (e?.target as Element)?.releasePointerCapture?.((e as any)?.pointerId);
+  } catch (err) {}
+
+  // מהירות ב־px/s
+  const v_px_s = velocity.current * 1000;
+  const shouldDelete = offset > RELEASE_THRESHOLD || v_px_s > 700;
+
+  if (shouldDelete) {
+    // חשב מרחק לנוע עד מחוץ למסך
+    const remainingPx = Math.max(0, window.innerWidth + 200 - offset);
+    // אם יש מהירות גבוהה — השתמש בה כדי לחשב משך (מהירות גבוהה => משך קצר)
+    let slideDuration = 260;
+    if (Math.abs(v_px_s) > 120) {
+      // duration ms = distance (px) / speed (px/ms) = (remainingPx) / (v_px_s/1000)
+      const estimate = (remainingPx / Math.abs(v_px_s)) * 1000;
+      slideDuration = Math.max(100, Math.min(450, Math.round(estimate)));
     }
-  };
+    slideOutThenCollapse(slideDuration);
+  } else {
+    // לא למחוק — חזור חזרה למקום
+    animateSetOffset(0, TRANSITION_MS);
+  }
+};
 
   // תמיכה ב-keyboard accessibility למחיקה
   const onKey = (ev: React.KeyboardEvent) => {
