@@ -33,28 +33,30 @@ export default function ShoppingItem(props: ShoppingItemProps) {
     onDelete,
   } = props;
 
-  // --- מצב ו-refs לשיוט חלק ומהיר --- //
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  // refs & state
+  const wrapperRef = useRef<HTMLDivElement | null>(null); // עטיפה חיצונית - נשתמש בה לקריסה מלאה
+  const containerRef = useRef<HTMLDivElement | null>(null); // הכרטיס המתגרר
+  const bgRef = useRef<HTMLDivElement | null>(null); // רקע האדום שמתחת לכרטיס
+
   const startX = useRef(0);
   const lastX = useRef(0);
   const lastT = useRef(0);
   const velocity = useRef(0);
   const rafRef = useRef<number | null>(null);
 
-  const [offset, setOffset] = useState(0); // px
+  const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [heightCollapsed, setHeightCollapsed] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showSources, setShowSources] = useState(false);
 
-  // --- קבועים למשנה תנועה --- //
-  const MAX_REVEAL = 120; // רוחב אזור הפעולה שמתגלה (למשל כפתור מחיקה)
-  const RELEASE_THRESHOLD = MAX_REVEAL * 0.66; // מעל זה -- נחסל
-  const SNAP_BACK_EASING = "cubic-bezier(.22,.9,.1,1)"; // תחושה "קפיצית" אך חלקה
+  // constants
+  const MAX_REVEAL = 120;
+  const RELEASE_THRESHOLD = MAX_REVEAL * 0.66;
+  const SNAP_BACK_EASING = "cubic-bezier(.22,.9,.1,1)";
   const TRANSITION_MS = 220;
 
-  // --- עזר למדידת מהירות/אינרציה --- //
+  // pointer handlers
   const onPointerDown = (e: React.PointerEvent) => {
     if (isRemoving) return;
     (e.target as Element).setPointerCapture((e as any).pointerId);
@@ -63,148 +65,126 @@ export default function ShoppingItem(props: ShoppingItemProps) {
     lastT.current = performance.now();
     velocity.current = 0;
     setIsDragging(true);
-
-    // ביטול טרנזישן בזמן גרירה
-    if (containerRef.current) {
-      containerRef.current.style.transition = "none";
-    }
+    if (containerRef.current) containerRef.current.style.transition = "none";
+    if (bgRef.current) bgRef.current.style.transition = "none";
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!isDragging || isRemoving) return;
     const x = e.clientX;
-    const dx = x - startX.current; // חיובי = ימינה (RTL: מתאים)
+    const dx = x - startX.current;
     const now = performance.now();
     const dt = Math.max(1, now - lastT.current);
-    // מוערכת מהירות px / ms
     velocity.current = (x - lastX.current) / dt;
     lastX.current = x;
     lastT.current = now;
 
-    // נרשה תזוזה רק בכיוון הרצוי (ימינה)
+    // רק ימינה (שינוי אם תרצה שמאל)
     let target = Math.max(0, dx);
-    // ריפובנד קטן מעל המקסימום (rubberband)
     if (target > MAX_REVEAL) {
       const extra = target - MAX_REVEAL;
-      target = MAX_REVEAL + Math.sqrt(extra) * 10; // ריפ-אפקט
+      target = MAX_REVEAL + Math.sqrt(extra) * 10;
     }
     setOffset(target);
+
+    // עדכון צבע/עוצמת הרקע: יותר תזוזה = גרדיאנט כהה יותר
+    if (bgRef.current) {
+      const t = Math.min(1, target / MAX_REVEAL);
+      // gradient intensity from light to dark
+      bgRef.current.style.opacity = `${Math.min(1, 0.45 + t * 0.6)}`;
+      // shift gradient by t
+      bgRef.current.style.background = `linear-gradient(90deg, rgba(254,202,202,${0.9 * t + 0.1}) 0%, rgba(190,18,60,${0.9 * t + 0.1}) 100%)`;
+    }
   };
 
+  // animate transform and cleanup transition after done
   const animateSetOffset = (value: number, duration = TRANSITION_MS) => {
-  if (!containerRef.current) {
+    if (!containerRef.current) {
+      setOffset(value);
+      return;
+    }
+    containerRef.current.style.transition = `transform ${duration}ms ${SNAP_BACK_EASING}`;
     setOffset(value);
-    return;
-  }
-  containerRef.current.style.transition = `transform ${duration}ms ${SNAP_BACK_EASING}`;
-  setOffset(value);
-  if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  rafRef.current = requestAnimationFrame(() => {
-    setTimeout(() => {
-      if (containerRef.current) containerRef.current.style.transition = "";
-    }, duration + 10);
-  });
-};
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (containerRef.current) containerRef.current.style.transition = "";
+      }, duration + 10);
+    });
+  };
 
-
-  const collapseAndDelete = () => {
-    // דחיפת הכרטיס החוצה ולקרוס
-    if (!containerRef.current) return;
+  // slide out then collapse whole wrapper to avoid any leftover red line
+  const slideOutThenCollapse = (slideDuration = 260) => {
+    if (!containerRef.current || !wrapperRef.current || !bgRef.current) return;
     setIsRemoving(true);
-    // 1. שלח את הכרטיס מחוץ לצג
-    containerRef.current.style.transition = `transform ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, opacity ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
-    setOffset(window.innerWidth); // יוצא למסך לימין
+
+    const offscreenX = window.innerWidth + 200;
+    containerRef.current.style.transition = `transform ${slideDuration}ms ${SNAP_BACK_EASING}, opacity ${Math.min(
+      slideDuration,
+      220
+    )}ms ${SNAP_BACK_EASING}`;
+    // also fade the background a bit quicker so nothing remains visible
+    bgRef.current.style.transition = `opacity ${Math.min(slideDuration, 180)}ms ${SNAP_BACK_EASING}`;
+    setOffset(offscreenX);
     containerRef.current.style.opacity = "0";
-    // 2. אחרי האנימציה, קפוץ לגובה 0 (אנימציה של קריסה)
+    bgRef.current.style.opacity = "0";
+
+    // לאחר ה-slide - קריסה של ה-wrapper (גובה, margin, padding)
     setTimeout(() => {
-      if (!containerRef.current) return;
-      containerRef.current.style.transition = `height ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, margin ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, padding ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
-      containerRef.current.style.height = `${containerRef.current.offsetHeight}px`; // ביסוס
+      if (!wrapperRef.current) return;
+      wrapperRef.current.style.transition = `height ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, margin ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, padding ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
+      const h = wrapperRef.current.offsetHeight;
+      wrapperRef.current.style.height = `${h}px`;
       // force reflow
       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-      containerRef.current.offsetHeight;
-      containerRef.current.style.height = "0px";
-      containerRef.current.style.margin = "0px";
-      containerRef.current.style.padding = "0px";
-      containerRef.current.style.overflow = "hidden";
-    }, TRANSITION_MS + 20);
+      wrapperRef.current.offsetHeight;
+      wrapperRef.current.style.height = "0px";
+      wrapperRef.current.style.margin = "0px";
+      wrapperRef.current.style.padding = "0px";
+      wrapperRef.current.style.overflow = "hidden";
+    }, slideDuration + 8);
 
+    // בסוף — קריאה לחיצוני ומחיקה סופית (או הסתרה מלאה)
     setTimeout(() => {
-      // קריאה לאבא שימחק בפועל (אפשר להחזיר undo שם)
       onDelete?.();
-      setHeightCollapsed(true);
-    }, TRANSITION_MS * 2 + 60);
+      // לעוד הגנה: הסתר את ה-wrapper לגמרי
+      if (wrapperRef.current) wrapperRef.current.style.display = "none";
+    }, slideDuration + TRANSITION_MS + 60);
   };
-// --- slideOutThenCollapse: מבצע "זריקה" מחוץ למסך ואז קריסה ---
-const slideOutThenCollapse = (slideDuration = 260) => {
-  if (!containerRef.current) return;
-  setIsRemoving(true);
 
-  // שלח את הכרטיס רחוק ימינה (תשנה ל־negative אם אתה רוצה swipe שמאלה)
-  const offscreenX = window.innerWidth + 200;
-  containerRef.current.style.transition = `transform ${slideDuration}ms ${SNAP_BACK_EASING}, opacity ${Math.min(
-    slideDuration,
-    220
-  )}ms ${SNAP_BACK_EASING}`;
-  setOffset(offscreenX);
-  containerRef.current.style.opacity = "0";
+  const onPointerUp = (e?: React.PointerEvent) => {
+    if (!isDragging || isRemoving) return;
+    setIsDragging(false);
+    try {
+      (e?.target as Element)?.releasePointerCapture?.((e as any)?.pointerId);
+    } catch (err) {}
 
-  // לאחר שסיים לזרוק — קריסה לגובה
-  setTimeout(() => {
-    if (!containerRef.current) return;
-    containerRef.current.style.transition = `height ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, margin ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, padding ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
-    const h = containerRef.current.offsetHeight;
-    containerRef.current.style.height = `${h}px`;
-    // force reflow
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    containerRef.current.offsetHeight;
-    containerRef.current.style.height = "0px";
-    containerRef.current.style.margin = "0px";
-    containerRef.current.style.padding = "0px";
-    containerRef.current.style.overflow = "hidden";
-  }, slideDuration + 8);
+    const v_px_s = velocity.current * 1000;
+    const shouldDelete = offset > RELEASE_THRESHOLD || Math.abs(v_px_s) > 700;
 
-  // בסוף הכל — קריאה לאבא למחוק מה־state/DB
-  setTimeout(() => {
-    onDelete?.();
-  }, slideDuration + TRANSITION_MS + 40);
-};
-
- // --- onPointerUp: החלטה מבוססת מרחק ומהירות (fling support) ---
-const onPointerUp = (e?: React.PointerEvent) => {
-  if (!isDragging || isRemoving) return;
-  setIsDragging(false);
-
-  try {
-    (e?.target as Element)?.releasePointerCapture?.((e as any)?.pointerId);
-  } catch (err) {}
-
-  // מהירות ב־px/s
-  const v_px_s = velocity.current * 1000;
-  const shouldDelete = offset > RELEASE_THRESHOLD || v_px_s > 700;
-
-  if (shouldDelete) {
-    // חשב מרחק לנוע עד מחוץ למסך
-    const remainingPx = Math.max(0, window.innerWidth + 200 - offset);
-    // אם יש מהירות גבוהה — השתמש בה כדי לחשב משך (מהירות גבוהה => משך קצר)
-    let slideDuration = 260;
-    if (Math.abs(v_px_s) > 120) {
-      // duration ms = distance (px) / speed (px/ms) = (remainingPx) / (v_px_s/1000)
-      const estimate = (remainingPx / Math.abs(v_px_s)) * 1000;
-      slideDuration = Math.max(100, Math.min(450, Math.round(estimate)));
+    if (shouldDelete) {
+      const remainingPx = Math.max(0, window.innerWidth + 200 - offset);
+      let slideDuration = 260;
+      if (Math.abs(v_px_s) > 120) {
+        const estimate = (remainingPx / Math.abs(v_px_s)) * 1000;
+        slideDuration = Math.max(100, Math.min(450, Math.round(estimate)));
+      }
+      slideOutThenCollapse(slideDuration);
+    } else {
+      // החזר חזרה; גם "אפסה" את ה-bg לחצי-אופסיטי
+      animateSetOffset(0, TRANSITION_MS);
+      if (bgRef.current) {
+        bgRef.current.style.transition = `background ${TRANSITION_MS}ms ${SNAP_BACK_EASING}, opacity ${TRANSITION_MS}ms ${SNAP_BACK_EASING}`;
+        bgRef.current.style.opacity = "0";
+      }
     }
-    slideOutThenCollapse(slideDuration);
-  } else {
-    // לא למחוק — חזור חזרה למקום
-    animateSetOffset(0, TRANSITION_MS);
-  }
-};
+  };
 
-  // תמיכה ב-keyboard accessibility למחיקה
+  // keyboard support
   const onKey = (ev: React.KeyboardEvent) => {
     if (ev.key === "Delete" || ev.key === "Backspace") {
       if (confirm(`למחוק את "${name}"?`)) {
-        collapseAndDelete();
+        slideOutThenCollapse(260);
       }
     }
   };
@@ -215,186 +195,253 @@ const onPointerUp = (e?: React.PointerEvent) => {
     };
   }, []);
 
-  if (heightCollapsed) return null;
-
-  // --- עיצוב רקע שנראה מקצועי --- //
-  const showAction = offset > 0;
-  const dangerLabel = offset > RELEASE_THRESHOLD ? "שחרר למחיקה" : "החלק ימינה";
-
-  const filteredCategories = categories.filter((c) => c.id !== "all");
-  const categoryEmoji = categories.find((c) => c.id === currentCategory)?.emoji;
-  const showCategoryEmoji = selectedCategory === "all" && categoryEmoji;
-
+  // don't render if already fully removed (optional safety)
+  // note: we rely on parent onDelete to actually remove item from list
+  // but wrapperRef.display='none' אמור למנוע כל שאריות ויזהיר את ה-DOM
   return (
-    <div
-      className="relative"
-      style={{ zIndex: showMenu ? 100 : "auto", touchAction: "pan-y" }}
-      onKeyDown={onKey}
-    >
-      {/* רקע אדום/וורדרד שנגלה תחת הכרטיס */}
+    <div ref={wrapperRef} className="relative mb-3" style={{ borderRadius: 16, overflow: "visible" }} onKeyDown={onKey}>
+      {/* רקע אדום גרדיאנט מתחת לכרטיס */}
       <div
-        className="absolute inset-0 flex items-center justify-start px-4 rounded-2xl pointer-events-none"
+        ref={bgRef}
         style={{
-          background: offset > RELEASE_THRESHOLD ? "#ef4444" : "#fca5a5",
-          transition: isDragging ? "none" : "background 160ms linear",
-          opacity: showAction ? 1 : 0,
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          borderRadius: 16,
+          pointerEvents: "none",
+          // initial gradient (מעט שקוף) - יתחזק תוך גרירה
+          background: "linear-gradient(90deg, rgba(254,202,202,0.2) 0%, rgba(190,18,60,0.35) 100%)",
+          opacity: 0,
+          transition: "opacity 160ms linear, background 160ms linear",
+        }}
+      />
+
+      {/* אזור הפעולה - כפתור גלוי */}
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: MAX_REVEAL,
+          display: "flex",
+          alignItems: "center",
+          pointerEvents: offset >= 30 ? "auto" : "none",
+          zIndex: 5,
         }}
       >
-        <div className="flex items-center gap-3 pl-2">
-          <span style={{ fontSize: 22 }}>🗑️</span>
-          <span style={{ color: "white", fontWeight: 700 }}>{dangerLabel}</span>
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`האם למחוק את "${name}"?`)) slideOutThenCollapse(260);
+          }}
+          aria-label={`מחק ${name}`}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            background: "linear-gradient(90deg,#ef4444,#b91c1c)",
+            color: "white",
+            fontWeight: 700,
+            boxShadow: "0 6px 14px rgba(185,28,28,0.18)",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          מחק
+        </button>
       </div>
 
-     
-      {/* הכרטיס עצמו — באמצעות pointer events (עבור מגע ועכבר) */}
+      {/* הכרטיס עצמו */}
       <div
         ref={containerRef}
         role="listitem"
         tabIndex={0}
-        className={`relative bg-white rounded-2xl shadow-sm border border-gray-100 ${isChecked ? "opacity-60" : ""}`}
-        style={{
-          transform: `translateX(${offset}px)`,
-          // transition inline מנוהל דרך animateSetOffset / during drag
-          willChange: isDragging ? "transform" : "auto",
-        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        className="relative bg-white rounded-xl shadow-sm border"
+        style={{
+          transform: `translateX(${offset}px)`,
+          willChange: isDragging ? "transform" : "auto",
+          zIndex: 10,
+          padding: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          textAlign: "left", // יישור לשמאל כפי שביקשת
+          border: "1px solid rgba(0,0,0,0.04)",
+        }}
       >
-        <div className="flex items-center gap-3 p-4">
+        <button
+          onClick={onToggleCheck}
+          aria-label="toggle"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            border: isChecked ? "none" : "2px solid rgba(0,0,0,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isChecked ? "linear-gradient(135deg,#ef4444,#b91c1c)" : "white",
+          }}
+        >
+          {isChecked ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M5 12l4 4L19 6" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <div style={{ width: 12, height: 12 }} />
+          )}
+        </button>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, color: isChecked ? "#8b8b8b" : "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {name}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+            {qty} {unit} {isManual ? "· ידני" : ""}
+          </div>
+        </div>
+
+        {sources && sources.length > 0 && (
           <button
-            onClick={onToggleCheck}
-            className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-              isChecked
-                ? "bg-gradient-to-br from-rose-500 to-pink-500 border-rose-500"
-                : "border-gray-300 hover:border-rose-400"
-            }`}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              setShowSources((s) => !s);
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              border: "none",
+              background: showSources ? "#eef2ff" : "transparent",
+              cursor: "pointer",
+            }}
+            title="מקורות"
           >
-            {isChecked && (
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
+            ?
+          </button>
+        )}
+
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={(ev) => {
+              ev.stopPropagation();
+              setShowMenu((s) => !s);
+            }}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 10,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+            aria-label="אפשרויות"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="1.9" />
+              <circle cx="12" cy="12" r="1.9" />
+              <circle cx="12" cy="19" r="1.9" />
+            </svg>
           </button>
 
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <div className="flex-1">
-              <div className={`font-medium ${isChecked ? "line-through text-gray-500" : "text-gray-900"}`}>
-                {name}
-              </div>
-              <div className="text-sm text-gray-500">
-                {qty} {unit}
-                {isManual && <span className="text-xs text-rose-500 mr-2">(ידני)</span>}
-              </div>
-            </div>
+          {showMenu && (
+            <>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                }}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 40,
+                }}
+              />
 
-            {showCategoryEmoji && (
-              <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-xl bg-gray-50 rounded-lg">
-                {categoryEmoji}
-              </div>
-            )}
-          </div>
-
-          {sources && sources.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSources(!showSources);
-              }}
-              className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                showSources ? "bg-blue-500 text-white" : "bg-blue-50 hover:bg-blue-100 text-blue-600"
-              }`}
-              title="הצג מקורות"
-            >
-              <span className="text-sm font-bold">?</span>
-            </button>
-          )}
-
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="flex-shrink-0 w-10 h-10 rounded-xl hover:bg-gray-100 active:bg-gray-200 flex items-center justify-center transition-colors"
-              aria-label="אפשרויות"
-            >
-              <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="5" r="2.5" />
-                <circle cx="12" cy="12" r="2.5" />
-                <circle cx="12" cy="19" r="2.5" />
-              </svg>
-            </button>
-
-            {showMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-[200]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                  }}
-                />
-
-                <div
-                  className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[300] min-w-[200px] max-h-[400px] overflow-y-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="text-xs font-bold text-gray-500 px-4 py-2 border-b border-gray-100">העבר לקטגוריה</div>
-
-                  <div className="py-1">
-                    {filteredCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={(ev) => {
-                          ev.preventDefault();
-                          ev.stopPropagation();
-                          onChangeCategory(cat.id);
-                          setShowMenu(false);
-                        }}
-                        className="w-full text-right px-4 py-2.5 hover:bg-rose-50 active:bg-rose-100 transition-colors flex items-center gap-3 group"
-                      >
-                        <span className="text-lg group-hover:scale-110 transition-transform">{cat.emoji}</span>
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-rose-700">{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {onDelete && (
-                    <>
-                      <div className="h-px bg-gray-200 my-1" />
-                      <button
-                        type="button"
-                        onClick={(ev) => {
-                          ev.preventDefault();
-                          ev.stopPropagation();
-                          if (confirm(`האם למחוק את "${name}"?`)) collapseAndDelete();
-                        }}
-                        className="w-full text-right px-4 py-2.5 hover:bg-red-50 active:bg-red-100 transition-colors flex items-center gap-3 text-red-600 group"
-                      >
-                        <span className="text-lg group-hover:scale-110 transition-transform">🗑️</span>
-                        <span className="text-sm font-medium">מחק פריט</span>
-                      </button>
-                    </>
-                  )}
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "110%",
+                  background: "white",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                  zIndex: 50,
+                  minWidth: 180,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ padding: 8, fontSize: 12, color: "#6b7280", borderBottom: "1px solid rgba(0,0,0,0.03)" }}>העבר לקטגוריה</div>
+                <div>
+                  {categories.filter((c) => c.id !== "all").map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={(ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        onChangeCategory(cat.id);
+                        setShowMenu(false);
+                      }}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        width: "100%",
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "right",
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>{cat.emoji}</span>
+                      <span style={{ fontSize: 14, color: "#111827" }}>{cat.name}</span>
+                    </button>
+                  ))}
                 </div>
-              </>
-            )}
-          </div>
+
+                <div style={{ height: 1, background: "rgba(0,0,0,0.03)" }} />
+                <button
+                  onClick={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    if (confirm(`האם למחוק את "${name}"?`)) slideOutThenCollapse(260);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    textAlign: "right",
+                    background: "transparent",
+                    border: "none",
+                    color: "#b91c1c",
+                    cursor: "pointer",
+                  }}
+                >
+                  מחק פריט
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
+      {/* מקורות (expand) */}
       {showSources && sources && sources.length > 0 && (
-        <div className="mt-2 bg-blue-50 rounded-xl p-3 text-sm">
-          <div className="font-semibold text-blue-900 mb-1">מקורות:</div>
-          <ul className="text-blue-700 space-y-1">
-            {sources.map((source, idx) => (
-              <li key={idx} className="flex items-start gap-2">
-                <span className="text-blue-400 mt-0.5">•</span>
-                <span>{source}</span>
+        <div style={{ marginTop: 8, background: "#eef2ff", padding: 10, borderRadius: 10 }}>
+          <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>מקורות</div>
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {sources.map((s, i) => (
+              <li key={i} style={{ color: "#1e293b", fontSize: 13 }}>
+                {s}
               </li>
             ))}
           </ul>
