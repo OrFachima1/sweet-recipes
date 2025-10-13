@@ -306,17 +306,17 @@ export default function CategoryManager({
                 setIsDragging(false);
               }}
             >
-              {/* חצים לשינוי סדר - החץ בצד שמאל מצביע ימינה והחץ בצד ימין מצביע שמאלה */}
+              {/* חצים לשינוי סדר - קטנים יותר ובצד */}
               {isEditMode && cat.id !== 'all' && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
                   {/* חץ ימני ▶ בצד שמאל - מזיז את הקטגוריה ימינה */}
                   <button
-                    onClick={(e) => moveRight(cat.id, e)}
-                    onTouchEnd={(e) => moveRight(cat.id, e)}
+                    onClick={(e) => moveLeft(cat.id, e)}
+                    onTouchEnd={(e) => moveLeft(cat.id, e)}
                     disabled={isLastInOrder}
                     className={`
-                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md -translate-x-3 text-xs
+                      pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center
+                      transition-all shadow-sm -translate-x-2 text-[10px]
                       ${isLastInOrder 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
@@ -328,12 +328,12 @@ export default function CategoryManager({
                   
                   {/* חץ שמאלי ◀ בצד ימין - מזיז את הקטגוריה שמאלה */}
                   <button
-                    onClick={(e) => moveLeft(cat.id, e)}
-                    onTouchEnd={(e) => moveLeft(cat.id, e)}
+                    onClick={(e) => moveRight(cat.id, e)}
+                    onTouchEnd={(e) => moveRight(cat.id, e)}
                     disabled={isFirstInOrder}
                     className={`
-                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md translate-x-3 text-xs
+                      pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center
+                      transition-all shadow-sm translate-x-2 text-[10px]
                       ${isFirstInOrder 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
