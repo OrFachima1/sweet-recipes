@@ -5,7 +5,7 @@ export interface Category {
   name: string;
   emoji: string;
   color: string;
-  order?: number; // הוספנו שדה order
+  order?: number;
 }
 
 interface CategoryManagerProps {
@@ -15,7 +15,7 @@ interface CategoryManagerProps {
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (id: string, name: string) => void;
   onDeleteCategory: (id: string) => void;
-  onReorderCategories?: (categories: Category[]) => void; // חדש
+  onReorderCategories?: (categories: Category[]) => void;
   itemCounts: Record<string, number>;
 }
 
@@ -38,13 +38,16 @@ export default function CategoryManager({
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
   const [draggedCat, setDraggedCat] = useState<string | null>(null);
   const [dragOverCat, setDragOverCat] = useState<string | null>(null);
-  const [tempOrder, setTempOrder] = useState<Category[]>([]); // סדר זמני בזמן גרירה
+  const [tempOrder, setTempOrder] = useState<Category[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapTime = useRef<number>(0);
   const lastTapCat = useRef<string | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false); // מצב עריכה רציף
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // הוספה: למעקב אחרי הגלילה בזמן גרירה
+  const dragScrollRef = useRef({ startX: 0, startScrollLeft: 0 });
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
@@ -92,9 +95,7 @@ export default function CategoryManager({
     }
   };
 
-  // זיהוי דאבל קליק/טאפ
   const handleCategoryClick = (catId: string) => {
-    // אם אנחנו במצב עריכה, לא נעשה כלום
     if (isEditMode) {
       return;
     }
@@ -113,14 +114,12 @@ export default function CategoryManager({
     }
   };
 
-  // כניסה למצב עריכה
   const enterEditMode = () => {
     setIsEditMode(true);
     setTempOrder(filteredCategories);
     navigator.vibrate?.(50);
   };
 
-  // יציאה ממצב עריכה
   const exitEditMode = (save: boolean) => {
     if (save && onReorderCategories && tempOrder.length > 0) {
       const reordered = tempOrder.map((cat, idx) => ({
@@ -135,9 +134,7 @@ export default function CategoryManager({
     setTempOrder([]);
   };
 
-  // טיפול בלחיצה ארוכה (למובייל)
   const handleTouchStart = (catId: string, e: React.TouchEvent) => {
-    // במצב רגיל - התחל לחיצה ארוכה
     if (!isEditMode) {
       if (catId === 'all') return;
       e.preventDefault();
@@ -145,12 +142,21 @@ export default function CategoryManager({
       longPressTimer.current = setTimeout(() => {
         enterEditMode();
         setDraggedCat(catId);
+        // שמירת מיקום התחלתי לגלילה הפוכה
+        dragScrollRef.current = {
+          startX: e.touches[0].clientX,
+          startScrollLeft: scrollRef.current?.scrollLeft || 0
+        };
       }, 400);
     } else {
-      // במצב עריכה - התחל גרירה מיידית
       if (catId === 'all') return;
       e.preventDefault();
       setDraggedCat(catId);
+      // שמירת מיקום התחלתי לגלילה הפוכה
+      dragScrollRef.current = {
+        startX: e.touches[0].clientX,
+        startScrollLeft: scrollRef.current?.scrollLeft || 0
+      };
     }
   };
 
@@ -159,7 +165,6 @@ export default function CategoryManager({
       clearTimeout(longPressTimer.current);
     }
     
-    // במצב עריכה - פשוט מרפים מהקטגוריה
     setDraggedCat(null);
     setDragOverCat(null);
   };
@@ -167,20 +172,24 @@ export default function CategoryManager({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isEditMode || !draggedCat) return;
     
-    // מונע גלילה בזמן גרירה
     e.preventDefault();
     
     const touch = e.touches[0];
+    
+    // גלילה הפוכה: כשגוררים שמאלה, הטולבר זז שמאלה
+    if (scrollRef.current) {
+      const deltaX = touch.clientX - dragScrollRef.current.startX;
+      scrollRef.current.scrollLeft = dragScrollRef.current.startScrollLeft - deltaX;
+    }
+    
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     const catElement = element?.closest('[data-category-id]') as HTMLElement;
     
     if (catElement) {
       const catId = catElement.dataset.categoryId;
-      // עדכן באיזו קטגוריה אנחנו מעל
       if (catId && catId !== 'all' && catId !== draggedCat) {
         setDragOverCat(catId);
         
-        // עדכן את הסדר בזמן אמת
         const fromIndex = tempOrder.findIndex(c => c.id === draggedCat);
         const toIndex = tempOrder.findIndex(c => c.id === catId);
         
@@ -194,9 +203,7 @@ export default function CategoryManager({
     }
   };
 
-  // Drag & Drop למחשב
   const handleDragStart = (catId: string, e: React.DragEvent) => {
-    // לא מאפשרים גרירה של "הכל"
     if (catId === 'all') {
       e.preventDefault();
       return;
@@ -207,7 +214,6 @@ export default function CategoryManager({
   };
 
   const handleDragOver = (catId: string, e: React.DragEvent) => {
-    // לא מאפשרים לגרור על "הכל"
     if (!draggedCat || catId === 'all') return;
     e.preventDefault();
     setDragOverCat(catId);
@@ -215,7 +221,6 @@ export default function CategoryManager({
 
   const handleDrop = (catId: string, e: React.DragEvent) => {
     e.preventDefault();
-    // לא מאפשרים drop על "הכל"
     if (draggedCat && catId !== 'all' && draggedCat !== catId) {
       handleReorder(draggedCat, catId);
     }
@@ -227,7 +232,6 @@ export default function CategoryManager({
   const handleReorder = (fromId: string, toId: string) => {
     if (!onReorderCategories) return;
     
-    // עובדים רק עם הקטגוריות בלי "הכל"
     const fromIndex = filteredCategories.findIndex(c => c.id === fromId);
     const toIndex = filteredCategories.findIndex(c => c.id === toId);
     
@@ -237,22 +241,17 @@ export default function CategoryManager({
     const [movedCat] = newCategories.splice(fromIndex, 1);
     newCategories.splice(toIndex, 0, movedCat);
     
-    // עדכון order
     const reordered = newCategories.map((cat, idx) => ({
       ...cat,
       order: idx
     }));
     
-    // שמירה בלי "הכל"
     onReorderCategories(reordered);
   };
 
-  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🍬', '🧴', '🧻', '🧊'];
+  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🬬', '🧴', '🧻', '🧊'];
 
-  // "הכל" בסוף הרשימה
   const filteredCategories = categories.filter(c => c.id !== 'all');
-  
-  // במצב עריכה - השתמש בסדר הזמני, אחרת בסדר הרגיל
   const workingCategories = isEditMode && tempOrder.length > 0 ? tempOrder : filteredCategories;
   
   const allCategories = [
@@ -266,7 +265,7 @@ export default function CategoryManager({
       {isEditMode && (
         <div className="absolute top-full left-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2">
-            <span className="text-xl animate-bounce">📍</span>
+            <span className="text-xl animate-bounce">🔀</span>
             <span className="text-sm font-bold">גרור לשינוי סדר</span>
           </div>
           <div className="flex gap-2">
