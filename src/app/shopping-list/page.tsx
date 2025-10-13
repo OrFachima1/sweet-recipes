@@ -575,6 +575,7 @@ export default function ShoppingListPage() {
             <button
               onClick={() => router.push('/')}
               className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
+              title="חזרה לדף הבית"
             >
               ←
             </button>
@@ -595,6 +596,7 @@ export default function ShoppingListPage() {
                 <button
                   onClick={() => setShowDatePicker(!showDatePicker)}
                   className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
+                  title="בחירת תקופה ואיפוס"
                 >
                   📅
                 </button>
@@ -614,6 +616,7 @@ export default function ShoppingListPage() {
                         <button
                           onClick={resetAll}
                           className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-600 text-sm font-semibold hover:bg-rose-200 transition-colors flex items-center gap-1"
+                          title="מאפס סימונים ומחיקות"
                         >
                           <span>🔄</span>
                           <span>אפס הכל</span>
@@ -647,6 +650,7 @@ export default function ShoppingListPage() {
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-xl transition-all hover:scale-110 active:scale-95"
+                title="הגדרות מתכונים"
               >
                 ⚙️
               </button>
@@ -685,17 +689,18 @@ export default function ShoppingListPage() {
 
       {/* סרגל כלים */}
       <div className="max-w-6xl mx-auto px-4 pt-4">
-        <div className="bg-white rounded-2xl shadow-md p-3 mb-3 flex gap-2 items-center">
+        <div className="bg-white rounded-2xl shadow-md p-3 mb-3 flex gap-2 items-center flex-wrap">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="🔍 חיפוש..."
-            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
+            className="flex-1 min-w-[200px] px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
           />
           <button
             onClick={() => setSortBy(sortBy === 'name' ? 'checked' : 'name')}
             className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 font-semibold text-sm hover:bg-rose-100 transition-colors whitespace-nowrap"
+            title={sortBy === 'name' ? 'לחץ כדי להעביר מסומנים למטה' : 'לחץ כדי למיין לפי שם'}
           >
             {sortBy === 'name' ? '🔤 לפי שם' : '✓ מסומנים למטה'}
           </button>
@@ -703,10 +708,19 @@ export default function ShoppingListPage() {
             <button
               onClick={clearCheckedItems}
               className="px-4 py-2 rounded-xl bg-orange-50 text-orange-600 font-semibold text-sm hover:bg-orange-100 transition-colors whitespace-nowrap"
+              title="מוחק את הפריטים הידניים המסומנים"
             >
               🗑️ נקה סומנו
             </button>
           )}
+        </div>
+        
+        {/* טיפ למובייל */}
+        <div className="md:hidden bg-rose-50 rounded-xl p-3 mb-3 text-sm text-rose-700 flex items-center gap-2">
+          <span className="text-lg">💡</span>
+          <span>
+            <strong>טיפ:</strong> החלק ימינה 👉 למחיקת פריט • לחץ על 3 נקודות לאפשרויות נוספות
+          </span>
         </div>
       </div>
 
@@ -762,6 +776,7 @@ export default function ShoppingListPage() {
       <button
         onClick={() => setShowAddItem(true)}
         className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+        title="הוסף פריט ידני לרשימה"
       >
         +
       </button>
