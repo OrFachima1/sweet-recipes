@@ -44,7 +44,7 @@ export default function CategoryManager({
       id: `cat_${Date.now()}`,
       name: newCatName,
       emoji: selectedEmoji,
-      color: 'from-rose-100 to-pink-100'
+      color: 'from-rose-50 to-pink-50'
     };
     
     onAddCategory(newCat);
@@ -61,7 +61,7 @@ export default function CategoryManager({
       {showScrollHint && categories.length > 3 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
           <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg border border-white/50 animate-pulse">
-            <div className="flex items-center gap-2 text-xs font-bold text-rose-600">
+            <div className="flex items-center gap-2 text-xs font-bold text-rose-500">
               <span>→</span>
               <span>החלק</span>
               <span>←</span>
@@ -87,7 +87,7 @@ export default function CategoryManager({
                 flex-shrink-0 px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                 flex items-center gap-1.5 whitespace-nowrap
                 ${isSelected
-                  ? 'bg-white text-rose-600 shadow-md scale-105'
+                  ? 'bg-white text-rose-500 shadow-md scale-105'
                   : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
                 }
               `}
@@ -98,7 +98,7 @@ export default function CategoryManager({
                 <span className={`
                   px-1.5 py-0.5 rounded-md text-xs font-bold
                   ${isSelected 
-                    ? 'bg-rose-100 text-rose-600' 
+                    ? 'bg-rose-50 text-rose-500' 
                     : 'bg-white/40 text-white'
                   }
                 `}>
@@ -133,7 +133,7 @@ export default function CategoryManager({
                   onChange={(e) => setNewCatName(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
                   placeholder="לדוגמה: מוצרי חלב"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
                   autoFocus
                 />
               </div>
@@ -149,7 +149,7 @@ export default function CategoryManager({
                         aspect-square rounded-lg text-2xl flex items-center justify-center
                         transition-all active:scale-90
                         ${selectedEmoji === emoji 
-                          ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                          ? 'bg-rose-50 ring-2 ring-rose-300 scale-110' 
                           : 'bg-white hover:bg-gray-100'
                         }
                       `}
@@ -167,7 +167,7 @@ export default function CategoryManager({
                   className={`
                     flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all
                     ${newCatName.trim()
-                      ? 'bg-gradient-to-l from-rose-500 to-pink-500 text-white hover:shadow-lg active:scale-95'
+                      ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }
                   `}

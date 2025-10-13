@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Category } from './CategoryManager';
 
 interface ShoppingItemProps {
@@ -25,17 +25,66 @@ export default function ShoppingItem({
   onDelete
 }: ShoppingItemProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const startX = useRef(0);
+  const currentX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    currentX.current = e.touches[0].clientX;
+    const diff = currentX.current - startX.current;
+    
+    // רק גלילה לימין (ערכים חיוביים)
+    if (diff > 0) {
+      setSwipeOffset(Math.min(diff, 100));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    
+    if (swipeOffset > 60 && onDelete) {
+      // מחיקה!
+      onDelete();
+    }
+    
+    setSwipeOffset(0);
+  };
+
+  const deleteProgress = Math.min(swipeOffset / 100, 1);
 
   return (
-    <div className="relative group">
+    <div className="relative group overflow-hidden">
+      {/* רקע אדום למחיקה */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-l from-red-500 to-red-400 flex items-center justify-start px-6"
+        style={{
+          opacity: deleteProgress,
+          transform: `translateX(${-100 + deleteProgress * 100}%)`
+        }}
+      >
+        <span className="text-white text-xl font-bold">🗑️ מחק</span>
+      </div>
+
+      {/* התוכן */}
       <div 
         className={`
-          flex items-center gap-3 px-4 py-2.5 transition-all duration-200
-          ${isChecked 
-            ? 'bg-green-50' 
-            : 'bg-white hover:bg-indigo-50/50'
-          }
+          relative flex items-center gap-3 px-4 py-2.5 transition-all duration-200 bg-white
+          ${isChecked ? 'bg-emerald-50' : 'hover:bg-rose-50/30'}
         `}
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s ease-out'
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* צ'קבוקס */}
         <button
@@ -45,7 +94,7 @@ export default function ShoppingItem({
             transition-all duration-200 active:scale-90
             ${isChecked 
               ? 'bg-emerald-500 border-emerald-600' 
-              : 'border-gray-300 bg-white active:border-rose-400'
+              : 'border-gray-300 bg-white active:border-rose-300'
             }
           `}
         >
@@ -69,7 +118,7 @@ export default function ShoppingItem({
           {/* כמות */}
           <span className={`
             text-base font-bold whitespace-nowrap flex-shrink-0
-            ${isChecked ? 'text-gray-400' : 'text-rose-600'}
+            ${isChecked ? 'text-gray-400' : 'text-rose-500'}
           `}>
             {qty} {unit}
           </span>

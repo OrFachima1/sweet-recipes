@@ -115,6 +115,7 @@ export default function ShoppingListPage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'checked'>('name');
+  const [deletedItems, setDeletedItems] = useState<string[]>([]);
 
   const minSwipeDistance = 50;
 
@@ -215,6 +216,16 @@ export default function ShoppingListPage() {
         setManualItems(manualDoc.data().items || []);
       }
 
+      const checkedDoc = await getDoc(doc(db, 'orderSettings', 'checkedShoppingItems'));
+      if (checkedDoc.exists()) {
+        setCheckedItems(checkedDoc.data().checked || {});
+      }
+
+      const deletedDoc = await getDoc(doc(db, 'orderSettings', 'deletedShoppingItems'));
+      if (deletedDoc.exists()) {
+        setDeletedItems(deletedDoc.data().deleted || []);
+      }
+
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -266,6 +277,28 @@ export default function ShoppingListPage() {
       });
     } catch (error) {
       console.error('שגיאה בשמירת פריטים:', error);
+    }
+  };
+
+  const saveCheckedItems = async (checked: Record<string, boolean>) => {
+    try {
+      await setDoc(doc(db, 'orderSettings', 'checkedShoppingItems'), {
+        checked,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('שגיאה בשמירת סימונים:', error);
+    }
+  };
+
+  const saveDeletedItems = async (deleted: string[]) => {
+    try {
+      await setDoc(doc(db, 'orderSettings', 'deletedShoppingItems'), {
+        deleted,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('שגיאה בשמירת מחיקות:', error);
     }
   };
 
@@ -353,8 +386,10 @@ export default function ShoppingListPage() {
     }
     
     const allItems = [...Object.values(aggregated), ...manualItems];
-    return allItems.sort((a, b) => a.name.localeCompare(b.name, 'he'));
-  }, [menuItems, recipes, orders, ingredientMappings, recipeSettings, itemCategories, manualItems]);
+    return allItems
+      .filter(item => !deletedItems.includes(normalizeIngredientName(item.name)))
+      .sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  }, [menuItems, recipes, orders, ingredientMappings, recipeSettings, itemCategories, manualItems, deletedItems]);
 
   const groupedList = useMemo(() => {
     const grouped: Record<string, ShoppingListItem[]> = {};
@@ -495,15 +530,32 @@ export default function ShoppingListPage() {
       setManualItems(updatedManual);
       saveManualItems(updatedManual);
       setCheckedItems({});
+      saveCheckedItems({});
+    }
+  };
+
+  const deleteItem = (itemName: string) => {
+    const normalized = normalizeIngredientName(itemName);
+    const updated = [...deletedItems, normalized];
+    setDeletedItems(updated);
+    saveDeletedItems(updated);
+  };
+
+  const resetAll = async () => {
+    if (confirm('לאפס את כל הרשימה? (סימונים ומחיקות יוסרו)')) {
+      setCheckedItems({});
+      setDeletedItems([]);
+      await saveCheckedItems({});
+      await saveDeletedItems([]);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-20 h-20 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-rose-600 text-2xl font-bold">טוען...</div>
+          <div className="w-20 h-20 border-4 border-rose-300 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-rose-500 text-2xl font-bold">טוען...</div>
         </div>
       </div>
     );
@@ -514,10 +566,10 @@ export default function ShoppingListPage() {
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100" dir="rtl">
       
       {/* כותרת קבועה */}
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-rose-400 to-pink-400 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <button
@@ -557,7 +609,16 @@ export default function ShoppingListPage() {
                       className="absolute left-0 top-14 bg-white rounded-3xl shadow-2xl p-5 z-50 min-w-[280px]"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="text-lg font-bold text-gray-800 mb-3">בחר תקופה</div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-lg font-bold text-gray-800">בחר תקופה</div>
+                        <button
+                          onClick={resetAll}
+                          className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-600 text-sm font-semibold hover:bg-rose-200 transition-colors flex items-center gap-1"
+                        >
+                          <span>🔄</span>
+                          <span>אפס הכל</span>
+                        </button>
+                      </div>
                       <div className="space-y-3">
                         <div>
                           <label className="block text-sm font-semibold text-gray-600 mb-1">מתאריך:</label>
@@ -630,18 +691,18 @@ export default function ShoppingListPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="🔍 חיפוש..."
-            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
+            className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
           />
           <button
             onClick={() => setSortBy(sortBy === 'name' ? 'checked' : 'name')}
-            className="px-4 py-2 rounded-xl bg-rose-100 text-rose-700 font-semibold text-sm hover:bg-rose-200 transition-colors whitespace-nowrap"
+            className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 font-semibold text-sm hover:bg-rose-100 transition-colors whitespace-nowrap"
           >
             {sortBy === 'name' ? '🔤 לפי שם' : '✓ מסומנים למטה'}
           </button>
           {checkedCount > 0 && (
             <button
               onClick={clearCheckedItems}
-              className="px-4 py-2 rounded-xl bg-orange-100 text-orange-700 font-semibold text-sm hover:bg-orange-200 transition-colors whitespace-nowrap"
+              className="px-4 py-2 rounded-xl bg-orange-50 text-orange-600 font-semibold text-sm hover:bg-orange-100 transition-colors whitespace-nowrap"
             >
               🗑️ נקה סומנו
             </button>
@@ -680,12 +741,16 @@ export default function ShoppingListPage() {
                   isManual={item.sources[0] === 'הוספה ידנית'}
                   isChecked={checkedItems[item.name] || false}
                   categories={categories}
-                  onToggleCheck={() => setCheckedItems(prev => ({
-                    ...prev,
-                    [item.name]: !prev[item.name]
-                  }))}
+                  onToggleCheck={() => {
+                    const updated = {
+                      ...checkedItems,
+                      [item.name]: !checkedItems[item.name]
+                    };
+                    setCheckedItems(updated);
+                    saveCheckedItems(updated);
+                  }}
                   onChangeCategory={(catId) => moveItemToCategory(item.name, catId)}
-                  onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : undefined}
+                  onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : () => deleteItem(item.name)}
                 />
               ))}
             </div>
@@ -696,7 +761,7 @@ export default function ShoppingListPage() {
       {/* כפתור הוספה */}
       <button
         onClick={() => setShowAddItem(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
       >
         +
       </button>
@@ -713,7 +778,7 @@ export default function ShoppingListPage() {
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
                 autoFocus
               />
               <div className="grid grid-cols-2 gap-3">
@@ -724,7 +789,7 @@ export default function ShoppingListPage() {
                   value={newItemQty}
                   onChange={(e) => setNewItemQty(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
                 />
                 <input
                   type="text"
@@ -732,7 +797,7 @@ export default function ShoppingListPage() {
                   value={newItemUnit}
                   onChange={(e) => setNewItemUnit(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addManualItem()}
-                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-400 focus:outline-none text-base"
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -741,7 +806,7 @@ export default function ShoppingListPage() {
                   disabled={!newItemName.trim()}
                   className={`flex-1 px-6 py-3 rounded-xl font-bold text-base transition-all ${
                     newItemName.trim()
-                      ? 'bg-gradient-to-l from-rose-500 to-pink-500 text-white hover:shadow-lg active:scale-95'
+                      ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >
