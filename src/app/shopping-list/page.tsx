@@ -17,24 +17,6 @@ import CategoryManager from './CategoryManager';
 import ShoppingItem from './ShoppingItem';
 import type { Category } from './CategoryManager';
 
-const fontStyle = `
-  @font-face {
-    font-family: 'MyHandwriting';
-    src: url('/Myfont-Regular.ttf') format('truetype');
-    font-display: swap;
-    font-weight: normal;
-    font-style: normal;
-  }
-  
-  /* מונע בהוב של גופן */
-  body {
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-`;
-
 interface Recipe {
   id: string;
   title: string;
@@ -461,7 +443,7 @@ export default function ShoppingListPage() {
 
   const deleteCategory = (catId: string) => {
     if (catId === 'other') {
-      alert('לא ניתן למחוק את הקטגוריה "כללי"');
+      alert('לא נית למחוק את הקטגוריה "כללי"');
       return;
     }
     
@@ -485,272 +467,236 @@ export default function ShoppingListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
-        <div className="text-4xl" style={{ fontFamily: 'MyHandwriting, Arial' }}>טוען...</div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-white text-2xl font-bold">טוען...</div>
+        </div>
       </div>
     );
   }
 
   const totalItems = displayedItems.length;
   const checkedCount = displayedItems.filter(i => checkedItems[i.name]).length;
+  const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: fontStyle }} />
-      {/* Preload הגופן */}
-      <link rel="preload" href="/Myfont-Regular.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500" dir="rtl">
       
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 pb-8" dir="rtl">
-        
-        {/* כותרת */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-20 border-b-2 border-blue-200">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => router.push('/')}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow flex items-center justify-center text-xl sm:text-2xl hover:scale-105 transition-transform"
-              >
-                ←
-              </button>
-              
-              <div className="text-center flex-1" style={{ fontFamily: 'MyHandwriting, Arial' }}>
-                <div className="text-4xl sm:text-5xl md:text-6xl font-bold bg-gradient-to-l from-blue-600 to-cyan-600 bg-clip-text text-transparent leading-tight">
-                  📝 רשימת הקניות שלי
-                </div>
-                {totalItems > 0 && (
-                  <div className="text-2xl sm:text-3xl text-blue-600 font-bold mt-2">
-                    {checkedCount} / {totalItems}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow flex items-center justify-center text-xl sm:text-2xl hover:scale-105 transition-transform"
-                  >
-                    📅
-                  </button>
-
-                  {showDatePicker && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-30" 
-                        onClick={() => setShowDatePicker(false)}
-                      />
-                      <div 
-                        className="absolute left-0 top-14 bg-white rounded-2xl shadow-2xl border-2 border-blue-200 p-4 z-40 min-w-[280px]"
-                        style={{ fontFamily: 'system-ui' }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="text-lg font-bold text-blue-900 mb-3">בחר תקופה</div>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">מתאריך:</label>
-                            <input
-                              type="date"
-                              value={selectedPeriod.start}
-                              onChange={(e) => setSelectedPeriod(prev => ({ ...prev, start: e.target.value }))}
-                              className="w-full px-3 py-2 rounded-lg border-2 border-blue-200 focus:border-blue-400 focus:outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">עד תאריך:</label>
-                            <input
-                              type="date"
-                              value={selectedPeriod.end}
-                              onChange={(e) => setSelectedPeriod(prev => ({ ...prev, end: e.target.value }))}
-                              className="w-full px-3 py-2 rounded-lg border-2 border-blue-200 focus:border-blue-400 focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow flex items-center justify-center text-xl sm:text-2xl hover:scale-105 transition-transform"
-                >
-                  ⚙️
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <CategoryManager
-            categories={[{ id: 'all', name: 'הכל', emoji: '🛒', color: '' }, ...categories]}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            onAddCategory={(cat) => {
-              const updated = [...categories, cat];
-              setCategories(updated);
-              setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
-                categories: updated,
-                itemCategories,
-                updatedAt: new Date().toISOString()
-              });
-            }}
-            onUpdateCategory={(id, name) => updateCategoryName(id, name)}
-            onDeleteCategory={deleteCategory}
-            itemCounts={itemCounts}
-          />
-        </div>
-
-        {/* דף המחברת */}
-        <div className="max-w-6xl mx-auto mt-4 px-4">
-          <div 
-            className="bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-300" 
-            style={{
-              boxShadow: '0 10px 40px -10px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)'
-            }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            {/* חורים של מחברת */}
-            <div className="h-8 sm:h-10 bg-gradient-to-b from-gray-50 to-white border-b-2 border-red-400 flex items-center gap-6 sm:gap-12 px-4 sm:px-8 overflow-x-auto scrollbar-hide">
-              {[...Array(8)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex-shrink-0"
-                  style={{
-                    background: 'linear-gradient(145deg, #e5e7eb, #d1d5db)',
-                    boxShadow: 'inset 2px 2px 5px rgba(0,0,0,0.2), inset -2px -2px 5px rgba(255,255,255,0.7)',
-                    border: '2px solid #9ca3af'
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* תוכן */}
-            <div className="relative" style={{
-              background: 'linear-gradient(to right, #fef3f2 0%, #fef3f2 40px, white 40px)',
-            }}>
-              <div className="absolute right-0 top-0 bottom-0 w-px bg-red-400 hidden sm:block" style={{ right: '60px' }} />
-              <div className="absolute right-0 top-0 bottom-0 w-px bg-red-400 sm:hidden" style={{ right: '40px' }} />
-              
-              {displayedItems.length === 0 ? (
-                <div className="text-center py-24">
-                  <div className="text-6xl mb-4">🛒</div>
-                  <div 
-                    className="text-4xl sm:text-5xl text-gray-400"
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  >
-                    אין פריטים ברשימה
-                  </div>
-                </div>
-              ) : (
-                <div className="py-2 space-y-1">
-                  {displayedItems.map((item, idx) => (
-                    <ShoppingItem
-                      key={idx}
-                      name={item.name}
-                      qty={item.qty}
-                      unit={item.unit}
-                      isManual={item.sources[0] === 'הוספה ידנית'}
-                      isChecked={checkedItems[item.name] || false}
-                      categories={categories}
-                      onToggleCheck={() => setCheckedItems(prev => ({
-                        ...prev,
-                        [item.name]: !prev[item.name]
-                      }))}
-                      onChangeCategory={(catId) => moveItemToCategory(item.name, catId)}
-                      onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : undefined}
-                    />
-                  ))}
+      {/* כותרת קבועה */}
+      <div className="sticky top-0 z-50 bg-white/10 backdrop-blur-xl border-b border-white/20 shadow-lg">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => router.push('/')}
+              className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+            >
+              ←
+            </button>
+            
+            <div className="text-center flex-1">
+              <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-lg">
+                🛒 רשימת קניות
+              </h1>
+              {totalItems > 0 && (
+                <div className="mt-2 text-white/90 font-bold text-xl">
+                  {checkedCount} מתוך {totalItems}
                 </div>
               )}
             </div>
 
-            <div className="h-6 bg-gradient-to-t from-gray-100 to-white" />
-          </div>
-        </div>
+            <div className="flex gap-2">
+              <div className="relative">
+                <button
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+                >
+                  📅
+                </button>
 
-        {/* כפתור הוספה */}
-        <button
-          onClick={() => setShowAddItem(true)}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all z-30"
-        >
-          ➕
-        </button>
-
-        {/* מודל הוספת פריט */}
-        {showAddItem && (
-          <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={() => setShowAddItem(false)}>
-            <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-4" style={{ fontFamily: 'MyHandwriting, Arial' }}>הוסף פריט</h3>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="שם המוצר"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
-                  style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  autoFocus
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    placeholder="כמות"
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value)}
-                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="יחידה"
-                    value={newItemUnit}
-                    onChange={(e) => setNewItemUnit(e.target.value)}
-                    className="px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-lg"
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={addManualItem}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-l from-blue-500 to-cyan-500 text-white font-bold hover:shadow-lg text-lg"
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  >
-                    הוסף
-                  </button>
-                  <button
-                    onClick={() => setShowAddItem(false)}
-                    className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-lg"
-                    style={{ fontFamily: 'MyHandwriting, Arial' }}
-                  >
-                    ביטול
-                  </button>
-                </div>
+                {showDatePicker && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowDatePicker(false)}
+                    />
+                    <div 
+                      className="absolute left-0 top-14 bg-white rounded-3xl shadow-2xl p-5 z-50 min-w-[280px]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="text-lg font-bold text-gray-800 mb-3">בחר תקופה</div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-600 mb-1">מתאריך:</label>
+                          <input
+                            type="date"
+                            value={selectedPeriod.start}
+                            onChange={(e) => setSelectedPeriod(prev => ({ ...prev, start: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-600 mb-1">עד תאריך:</label>
+                          <input
+                            type="date"
+                            value={selectedPeriod.end}
+                            onChange={(e) => setSelectedPeriod(prev => ({ ...prev, end: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
+
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm hover:bg-white/30 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+              >
+                ⚙️
+              </button>
             </div>
           </div>
-        )}
 
-        <ShoppingListSettings
-          show={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          menuItems={allMenuItems}
-          recipes={recipes}
-          recipeLinks={recipeLinks}
-          onSave={handleSaveSettings}
-          initialSettings={recipeSettings}
+          {/* פס התקדמות */}
+          {totalItems > 0 && (
+            <div className="relative h-3 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="absolute inset-y-0 right-0 bg-gradient-to-l from-green-400 to-emerald-500 transition-all duration-500 ease-out rounded-full"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        <CategoryManager
+          categories={[{ id: 'all', name: 'הכל', emoji: '🛒', color: '' }, ...categories]}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          onAddCategory={(cat) => {
+            const updated = [...categories, cat];
+            setCategories(updated);
+            setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+              categories: updated,
+              itemCategories,
+              updatedAt: new Date().toISOString()
+            });
+          }}
+          onUpdateCategory={(id, name) => updateCategoryName(id, name)}
+          onDeleteCategory={deleteCategory}
+          itemCounts={itemCounts}
         />
       </div>
 
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-    </>
+      {/* תוכן */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div 
+          className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {displayedItems.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-8xl mb-6">🛒</div>
+              <div className="text-3xl text-gray-400 font-bold">
+                אין פריטים ברשימה
+              </div>
+              <div className="text-gray-400 mt-2">
+                הוסף פריטים או שנה את הגדרות התקופה
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 space-y-2">
+              {displayedItems.map((item, idx) => (
+                <ShoppingItem
+                  key={idx}
+                  name={item.name}
+                  qty={item.qty}
+                  unit={item.unit}
+                  isManual={item.sources[0] === 'הוספה ידנית'}
+                  isChecked={checkedItems[item.name] || false}
+                  categories={categories}
+                  onToggleCheck={() => setCheckedItems(prev => ({
+                    ...prev,
+                    [item.name]: !prev[item.name]
+                  }))}
+                  onChangeCategory={(catId) => moveItemToCategory(item.name, catId)}
+                  onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* כפתור הוספה */}
+      <button
+        onClick={() => setShowAddItem(true)}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+      >
+        +
+      </button>
+
+      {/* מודל הוספה */}
+      {showAddItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddItem(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl transform transition-all" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-3xl font-bold mb-6 text-gray-800">הוסף פריט</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="שם המוצר"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                autoFocus
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  placeholder="כמות"
+                  value={newItemQty}
+                  onChange={(e) => setNewItemQty(e.target.value)}
+                  className="px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                />
+                <input
+                  type="text"
+                  placeholder="יחידה"
+                  value={newItemUnit}
+                  onChange={(e) => setNewItemUnit(e.target.value)}
+                  className="px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={addManualItem}
+                  className="flex-1 px-6 py-4 rounded-2xl bg-gradient-to-l from-purple-500 to-pink-500 text-white font-bold text-lg hover:shadow-xl transition-all active:scale-95"
+                >
+                  הוסף
+                </button>
+                <button
+                  onClick={() => setShowAddItem(false)}
+                  className="px-6 py-4 rounded-2xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-lg transition-all active:scale-95"
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ShoppingListSettings
+        show={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        menuItems={allMenuItems}
+        recipes={recipes}
+        recipeLinks={recipeLinks}
+        onSave={handleSaveSettings}
+        initialSettings={recipeSettings}
+      />
+    </div>
   );
 }

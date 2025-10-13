@@ -1,5 +1,4 @@
-"use client";
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export interface Category {
   id: string;
@@ -13,7 +12,7 @@ interface CategoryManagerProps {
   selectedCategory: string;
   onSelectCategory: (id: string) => void;
   onAddCategory: (category: Category) => void;
-  onUpdateCategory: (id: string, name: string, emoji: string) => void;
+  onUpdateCategory: (id: string, name: string) => void;
   onDeleteCategory: (id: string) => void;
   itemCounts: Record<string, number>;
 }
@@ -27,157 +26,164 @@ export default function CategoryManager({
   onDeleteCategory,
   itemCounts
 }: CategoryManagerProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editEmoji, setEditEmoji] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('📦');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollHint, setShowScrollHint] = useState(true);
 
-  const handleDoubleClick = (cat: Category) => {
-    setEditingId(cat.id);
-    setEditName(cat.name);
-    setEditEmoji(cat.emoji);
-  };
-
-  const saveEdit = () => {
-    if (editingId && editName.trim()) {
-      onUpdateCategory(editingId, editName, editEmoji);
-      setEditingId(null);
-    }
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => setShowScrollHint(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleAddCategory = () => {
-    const name = prompt('שם קטגוריה חדשה:');
-    const emoji = prompt('אימוג׳י (אופציונלי):') || '📌';
+    if (!newCatName.trim()) return;
     
-    if (name?.trim()) {
-      const newCat: Category = {
-        id: `custom_${Date.now()}`,
-        name: name.trim(),
-        emoji: emoji,
-        color: 'from-purple-100 to-pink-100'
-      };
-      onAddCategory(newCat);
-    }
+    const newCat: Category = {
+      id: `cat_${Date.now()}`,
+      name: newCatName,
+      emoji: newCatEmoji,
+      color: 'from-purple-100 to-pink-100'
+    };
+    
+    onAddCategory(newCat);
+    setNewCatName('');
+    setNewCatEmoji('📦');
+    setShowAddModal(false);
   };
+
+  const emojiList = ['🥗', '🍖', '🥛', '🍞', '🧀', '🥕', '🍎', '🥫', '🧴', '🧻', '📦', '🛒'];
 
   return (
     <div className="relative">
-      {/* אינדיקטור סוויפ במובייל */}
-      <div className="sm:hidden text-center py-2 text-xs text-gray-400 flex items-center justify-center gap-2">
-        <span>←</span>
-        <span>החלק לניווט בין קטגוריות</span>
-        <span>→</span>
-      </div>
-      
-      <div className="overflow-x-auto pb-2 px-4 scrollbar-hide" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        <div 
-          className="flex gap-2 min-w-max"
-          style={{ 
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch'
-          }}
-        >
-          {categories.map(cat => {
-            const count = itemCounts[cat.id] || 0;
-            const isEditing = editingId === cat.id;
-            const isActive = selectedCategory === cat.id;
-            
-            if (isEditing) {
-              return (
-                <div key={cat.id} className="flex gap-1 bg-white px-2 py-1 rounded-full shadow-lg" style={{ scrollSnapAlign: 'start' }}>
-                  <input
-                    type="text"
-                    value={editEmoji}
-                    onChange={(e) => setEditEmoji(e.target.value)}
-                    className="w-8 text-center text-sm border rounded"
-                    maxLength={2}
-                  />
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveEdit();
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    className="w-24 text-sm border rounded px-2"
-                    autoFocus
-                  />
-                  <button onClick={saveEdit} className="text-green-600 font-bold px-2">✓</button>
-                  <button onClick={() => setEditingId(null)} className="text-red-600 font-bold px-2">✗</button>
-                </div>
-              );
-            }
+      {/* רמז גלילה */}
+      {showScrollHint && categories.length > 3 && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+          <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border-2 border-purple-200 animate-pulse">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-purple-600">←</span>
+              <span className="text-sm font-bold text-gray-700">החלק לניווט</span>
+              <span className="text-sm font-bold text-purple-600">→</span>
+            </div>
+          </div>
+        </div>
+      )}
 
-            return (
-              <div key={cat.id} className="relative group" style={{ scrollSnapAlign: 'start' }}>
+      {/* קטגוריות */}
+      <div 
+        ref={scrollRef}
+        className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide scroll-smooth"
+      >
+        {categories.map(cat => {
+          const count = itemCounts[cat.id] || 0;
+          const isSelected = selectedCategory === cat.id;
+          
+          return (
+            <button
+              key={cat.id}
+              onClick={() => onSelectCategory(cat.id)}
+              className={`
+                flex-shrink-0 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all duration-300
+                flex items-center gap-2 whitespace-nowrap border-2
+                ${isSelected
+                  ? 'bg-white text-purple-600 border-purple-300 shadow-lg scale-105'
+                  : 'bg-white/40 text-white border-white/30 hover:bg-white/60 hover:scale-105'
+                }
+              `}
+            >
+              <span className="text-lg">{cat.emoji}</span>
+              <span>{cat.name}</span>
+              {count > 0 && (
+                <span className={`
+                  px-2 py-0.5 rounded-full text-xs font-bold
+                  ${isSelected 
+                    ? 'bg-purple-100 text-purple-600' 
+                    : 'bg-white/50 text-white'
+                  }
+                `}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* כפתור הוספה */}
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex-shrink-0 w-10 h-10 rounded-2xl bg-white/40 hover:bg-white/60 border-2 border-white/30 flex items-center justify-center text-white text-xl transition-all hover:scale-110 active:scale-95"
+        >
+          +
+        </button>
+      </div>
+
+      {/* מודל הוספת קטגוריה */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-4 text-gray-800">קטגוריה חדשה</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">שם הקטגוריה</label>
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="לדוגמה: מוצרי חלב"
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אייקון</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {emojiList.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => setNewCatEmoji(emoji)}
+                      className={`
+                        w-full aspect-square rounded-xl text-2xl flex items-center justify-center
+                        transition-all hover:scale-110 active:scale-95
+                        ${newCatEmoji === emoji 
+                          ? 'bg-purple-100 border-2 border-purple-400 shadow-lg' 
+                          : 'bg-gray-100 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => onSelectCategory(cat.id)}
-                  onDoubleClick={() => handleDoubleClick(cat)}
+                  onClick={handleAddCategory}
+                  disabled={!newCatName.trim()}
                   className={`
-                    relative px-4 sm:px-6 py-2.5 sm:py-3 rounded-t-2xl font-bold transition-all duration-300 flex flex-col items-center justify-center gap-1 w-[110px] sm:w-[150px]
-                    ${isActive 
-                      ? 'bg-white shadow-lg -mb-px z-10 scale-105' 
-                      : 'bg-blue-100/50 hover:bg-blue-100 shadow-sm'
+                    flex-1 px-6 py-4 rounded-2xl font-bold text-lg transition-all
+                    ${newCatName.trim()
+                      ? 'bg-gradient-to-l from-purple-500 to-pink-500 text-white hover:shadow-xl active:scale-95'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }
                   `}
-                  style={{
-                    transform: isActive ? 'translateY(2px)' : 'none'
-                  }}
                 >
-                  <span className="text-2xl sm:text-3xl">{cat.emoji}</span>
-                  <div className="flex flex-col items-center gap-0.5 w-full">
-                    <span 
-                      className={`text-2xl sm:text-3xl text-center leading-tight ${isActive ? 'text-gray-800' : 'text-gray-600'}`}
-                      style={{ 
-                        fontFamily: 'MyHandwriting, Arial',
-                        WebkitFontSmoothing: 'antialiased'
-                      }}
-                    >
-                      {cat.name}
-                    </span>
-                    {count > 0 && (
-                      <span className={`
-                        px-2 py-0.5 rounded-full text-xs font-bold mt-0.5
-                        ${isActive ? 'bg-blue-500 text-white' : 'bg-blue-200 text-blue-700'}
-                      `}>
-                        {count}
-                      </span>
-                    )}
-                  </div>
+                  הוסף
                 </button>
-                
-                {cat.id !== 'all' && cat.id !== 'other' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`למחוק את הקטגוריה "${cat.name}"?`)) {
-                        onDeleteCategory(cat.id);
-                      }
-                    }}
-                    className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-opacity z-20"
-                  >
-                    ✕
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="px-6 py-4 rounded-2xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-lg transition-all active:scale-95"
+                >
+                  ביטול
+                </button>
               </div>
-            );
-          })}
-
-          <button
-            onClick={handleAddCategory}
-            className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-t-2xl bg-gradient-to-l from-green-100 to-emerald-100 hover:from-green-200 hover:to-emerald-200 shadow-sm flex flex-col items-center justify-center gap-1 transition-all w-[110px] sm:w-[150px]"
-            style={{ scrollSnapAlign: 'start' }}
-          >
-            <span className="text-2xl sm:text-3xl">➕</span>
-            <span className="text-2xl sm:text-3xl text-gray-700 font-bold text-center leading-tight" style={{ 
-              fontFamily: 'MyHandwriting, Arial',
-              WebkitFontSmoothing: 'antialiased'
-            }}>
-              הוסף
-            </span>
-          </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
