@@ -32,29 +32,29 @@ export default function CategoryManager({
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatEmoji, setNewCatEmoji] = useState('📦');
+  const [customEmoji, setCustomEmoji] = useState('');
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
-  const [tempOrder, setTempOrder] = useState<Category[]>([]);
+  const [isReorderMode, setIsReorderMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTapTime = useRef<number>(0);
   const lastTapCat = useRef<string | null>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [draggedCat, setDraggedCat] = useState<string | null>(null);
-  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentEmojis');
     if (saved) {
-      setRecentEmojis(JSON.parse(saved));
+      try {
+        setRecentEmojis(JSON.parse(saved));
+      } catch {
+        setRecentEmojis([]);
+      }
     }
   }, []);
 
   const saveRecentEmoji = (emoji: string) => {
-    const updated = [emoji, ...recentEmojis.filter(e => e !== emoji)].slice(0, 8);
+    const updated = [emoji, ...recentEmojis.filter(e => e !== emoji)].slice(0, 10);
     setRecentEmojis(updated);
     localStorage.setItem('recentEmojis', JSON.stringify(updated));
   };
@@ -62,18 +62,21 @@ export default function CategoryManager({
   const handleAddCategory = () => {
     if (!newCatName.trim()) return;
     
+    const finalEmoji = customEmoji.trim() || newCatEmoji;
+    
     const newCat: Category = {
       id: `cat_${Date.now()}`,
       name: newCatName,
-      emoji: newCatEmoji,
+      emoji: finalEmoji,
       color: 'from-rose-50 to-pink-50',
       order: categories.length
     };
     
     onAddCategory(newCat);
-    saveRecentEmoji(newCatEmoji);
+    saveRecentEmoji(finalEmoji);
     setNewCatName('');
     setNewCatEmoji('📦');
+    setCustomEmoji('');
     setShowAddModal(false);
   };
 
@@ -93,7 +96,7 @@ export default function CategoryManager({
   };
 
   const handleCategoryClick = (catId: string) => {
-    if (isEditMode) return;
+    if (isReorderMode) return;
     
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime.current;
@@ -109,364 +112,186 @@ export default function CategoryManager({
     }
   };
 
-  const enterEditMode = () => {
-    setIsEditMode(true);
-    setTempOrder(filteredCategories);
-    if (navigator.vibrate) {
-      navigator.vibrate([50, 30, 50]);
-    }
-  };
-
-  const exitEditMode = (save: boolean) => {
-    if (save && onReorderCategories && tempOrder.length > 0) {
-      const reordered = tempOrder.map((cat, idx) => ({
-        ...cat,
-        order: idx
-      }));
-      onReorderCategories(reordered);
-    }
-    setIsEditMode(false);
-    setDraggedCat(null);
-    setDragOverCat(null);
-    setTempOrder([]);
-  };
-
-  const handleTouchStart = (catId: string, e: React.TouchEvent) => {
-    if (!isEditMode && catId !== 'all') {
-      e.preventDefault();
-      
-      longPressTimer.current = setTimeout(() => {
-        enterEditMode();
-      }, 400);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-    }
-  };
-
-  // Drag & Drop למחשב
-  const handleDragStart = (catId: string, e: React.DragEvent) => {
-    if (catId === 'all') {
-      e.preventDefault();
-      return;
-    }
-    setDraggedCat(catId);
-    setIsDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (catId: string, e: React.DragEvent) => {
-    if (!draggedCat || catId === 'all') return;
-    e.preventDefault();
-    setDragOverCat(catId);
-  };
-
-  const handleDrop = (catId: string, e: React.DragEvent) => {
-    e.preventDefault();
-    if (draggedCat && catId !== 'all' && draggedCat !== catId) {
-      handleReorder(draggedCat, catId);
-    }
-    setDraggedCat(null);
-    setDragOverCat(null);
-    setIsDragging(false);
-  };
-
-  const handleReorder = (fromId: string, toId: string) => {
-    if (!onReorderCategories) return;
+  const moveCategory = (catId: string, direction: 'left' | 'right') => {
+    const allCats = categories.filter(c => c.id !== 'all');
+    const visibleCats = allCats.filter(c => (itemCounts[c.id] || 0) > 0);
+    const currentIndex = visibleCats.findIndex(c => c.id === catId);
     
-    const fromIndex = filteredCategories.findIndex(c => c.id === fromId);
-    const toIndex = filteredCategories.findIndex(c => c.id === toId);
+    if (currentIndex === -1) return;
     
-    if (fromIndex === -1 || toIndex === -1) return;
+    const newIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
     
-    const newCategories = [...filteredCategories];
-    const [movedCat] = newCategories.splice(fromIndex, 1);
-    newCategories.splice(toIndex, 0, movedCat);
+    if (newIndex < 0 || newIndex >= visibleCats.length) return;
     
-    const reordered = newCategories.map((cat, idx) => ({
+    const newOrder = [...allCats];
+    const fromIdx = allCats.findIndex(c => c.id === catId);
+    const toIdx = allCats.findIndex(c => c.id === visibleCats[newIndex].id);
+    
+    [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
+    
+    const reordered = newOrder.map((cat, idx) => ({
       ...cat,
       order: idx
     }));
     
-    onReorderCategories(reordered);
-  };
-
-  // הזזה שמאלה ברשימה
-  const moveLeft = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
+    if (onReorderCategories) {
+      onReorderCategories(reordered);
+    }
     
-    const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex > 0) {
-      const newOrder = [...tempOrder];
-      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
-      setTempOrder(newOrder);
-      
-      // גלילה אוטומטית ימינה (הפוך)
-      if (scrollRef.current) {
-        const scrollAmount = 100;
-        scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      }
-      
-      if (navigator.vibrate) {
-        navigator.vibrate(30);
-      }
+    if (navigator.vibrate) {
+      navigator.vibrate(30);
     }
   };
 
-  // הזזה ימינה ברשימה
-  const moveRight = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
-    
-    const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex < tempOrder.length - 1) {
-      const newOrder = [...tempOrder];
-      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
-      setTempOrder(newOrder);
-      
-      // גלילה אוטומטית שמאלה (הפוך)
-      if (scrollRef.current) {
-        const scrollAmount = 100;
-        scrollRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-      }
-      
-      if (navigator.vibrate) {
-        navigator.vibrate(30);
-      }
-    }
-  };
+  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🧴', '🧻', '🧊', '🍎', '🥕', '🐟', '🍗', '🥛', '🍳', '🌶️'];
 
-  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🬬', '🧴', '🧻', '🧊'];
-
-  const filteredCategories = categories.filter(c => c.id !== 'all');
-  const workingCategories = isEditMode && tempOrder.length > 0 ? tempOrder : filteredCategories;
+  const filteredCategories = categories.filter(c => {
+    if (c.id === 'all') return false;
+    const count = itemCounts[c.id] || 0;
+    return count > 0;
+  });
   
-  const allCategories = [
-    ...workingCategories,
-    { id: 'all', name: 'הכל', emoji: '🛒', color: '' }
-  ];
+  const allCategory = { id: 'all', name: 'הכל', emoji: '🛒', color: '' };
 
   return (
     <div className="relative">
-      {/* סרגל מצב עריכה */}
-      {isEditMode && (
-        <div className="absolute top-full left-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 z-50 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔀</span>
-            <span className="text-sm font-bold">לחץ על החצים לשינוי סדר</span>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => exitEditMode(false)}
-              className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 font-bold text-sm transition-all active:scale-95"
-            >
-              ביטול
-            </button>
-            <button
-              onClick={() => exitEditMode(true)}
-              className="px-4 py-2 rounded-lg bg-white text-blue-600 hover:bg-blue-50 font-bold text-sm transition-all active:scale-95"
-            >
-              ✓ סיום
-            </button>
-          </div>
+      {filteredCategories.length > 1 && (
+        <div className="flex justify-end mb-2 px-2">
+          <button
+            onClick={() => setIsReorderMode(!isReorderMode)}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+              isReorderMode 
+                ? 'bg-rose-500 text-white shadow-lg' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {isReorderMode ? '✓ סיים סידור' : '↕️ שנה סדר'}
+          </button>
         </div>
       )}
 
-      {/* קטגוריות */}
       <div 
         ref={scrollRef}
-        className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide scroll-smooth"
+        className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {allCategories.map((cat, index) => {
-          const count = itemCounts[cat.id] || 0;
-          const isSelected = selectedCategory === cat.id;
-          const isEditing = editingCat === cat.id;
-          const isFirstInOrder = isEditMode && index === 0;
-          const isLastInOrder = isEditMode && index === workingCategories.length - 1;
-          
-          if (isEditing && cat.id !== 'all') {
-            return (
-              <div key={cat.id} className="flex-shrink-0 flex items-center gap-1 bg-white rounded-xl px-2 py-1">
-                <span className="text-base">{cat.emoji}</span>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleEditCategory(cat.id)}
-                  onBlur={() => handleEditCategory(cat.id)}
-                  className="w-24 px-2 py-1 text-sm border-b border-rose-300 focus:outline-none"
-                  autoFocus
-                />
-              </div>
-            );
-          }
-          
-          return (
-            <div 
-              key={cat.id} 
-              className="relative flex-shrink-0 group"
-              data-category-id={cat.id}
-              draggable={cat.id !== 'all'}
-              onDragStart={(e) => handleDragStart(cat.id, e)}
-              onDragOver={(e) => handleDragOver(cat.id, e)}
-              onDrop={(e) => handleDrop(cat.id, e)}
-              onDragEnd={() => {
-                setDraggedCat(null);
-                setDragOverCat(null);
-                setIsDragging(false);
-              }}
-            >
-              {/* חצים לשינוי סדר - עם מרווח גדול יותר מהקטגוריה */}
-              {isEditMode && cat.id !== 'all' && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
-                  {/* חץ ימני ▶ בצד שמאל - רק אם לא ראשון */}
-                  {!isFirstInOrder && (
-                    <button
-                      onClick={(e) => moveLeft(cat.id, e)}
-                      onTouchEnd={(e) => moveLeft(cat.id, e)}
-                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm -translate-x-6 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
-                    >
-                      ▶
-                    </button>
-                  )}
-                  
-                  {/* מרווח ריק כדי לשמור על היררכיה */}
-                  {isFirstInOrder && <div className="w-5" />}
-                  
-                  {/* חץ שמאלי ◀ בצד ימין - רק אם לא אחרון */}
-                  {!isLastInOrder && (
-                    <button
-                      onClick={(e) => moveRight(cat.id, e)}
-                      onTouchEnd={(e) => moveRight(cat.id, e)}
-                      className="pointer-events-auto w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm translate-x-6 text-[10px] bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
-                    >
-                      ◀
-                    </button>
-                  )}
-                </div>
-              )}
-              
-              <button
-                onClick={() => !isEditMode && handleCategoryClick(cat.id)}
-                onTouchStart={(e) => handleTouchStart(cat.id, e)}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchEnd}
-                style={{ 
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none',
-                  animation: isEditMode && cat.id !== 'all' ? 'wiggle 0.3s ease-in-out infinite' : 'none',
-                  transform: (draggedCat === cat.id) 
-                    ? 'scale(1.15) rotate(3deg)' 
-                    : (dragOverCat === cat.id && draggedCat !== cat.id)
-                    ? 'translateX(30px)' 
-                    : 'none',
-                  opacity: (draggedCat === cat.id) ? 0.7 : 1,
-                  transition: 'all 0.2s ease-out'
-                }}
-                className={`
-                  px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
-                  flex items-center gap-1.5 whitespace-nowrap relative
-                  ${isSelected
-                    ? 'bg-white text-rose-500 shadow-md scale-105'
-                    : 'bg-white/30 text-white hover:bg-white/50 active:scale-95'
-                  }
-                  ${(draggedCat === cat.id) ? 'opacity-50 scale-95' : ''}
-                  ${(dragOverCat === cat.id && draggedCat !== cat.id) ? 'ring-2 ring-blue-400' : ''}
-                `}
-              >
-                <span className="text-base">{cat.emoji}</span>
-                <span>{cat.name}</span>
-                {count > 0 && (
-                  <span className={`
-                    px-1.5 py-0.5 rounded-md text-xs font-bold
-                    ${isSelected 
-                      ? 'bg-rose-50 text-rose-500' 
-                      : 'bg-white/40 text-white'
-                    }
-                  `}>
-                    {count}
-                  </span>
-                )}
-              </button>
-              
-              {/* אפשרויות עריכה/מחיקה - דסקטופ */}
-              {cat.id !== 'all' && !isEditMode && (
-                <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1 z-10">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingCat(cat.id);
-                      setEditName(cat.name);
-                    }}
-                    className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCategory(cat.id);
-                    }}
-                    className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* כפתור הוספה */}
         <button
-          onClick={() => setShowAddModal(true)}
-          className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/30 hover:bg-white/50 flex items-center justify-center text-white text-lg transition-all active:scale-90"
+          onClick={() => handleCategoryClick(allCategory.id)}
+          className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            selectedCategory === allCategory.id
+              ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
+              : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
+          }`}
         >
-          +
+          <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+            {allCategory.emoji}
+          </div>
+          <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+            {allCategory.name}
+          </div>
+          <div className="text-xs opacity-75 h-4 flex items-center justify-center">
+            {Object.values(itemCounts).reduce((sum, count) => sum + count, 0)}
+          </div>
         </button>
+
+        {filteredCategories.map((cat, index) => (
+          <div key={cat.id} className="relative flex-shrink-0">
+            <button
+              onClick={() => handleCategoryClick(cat.id)}
+              disabled={isReorderMode}
+              className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+                selectedCategory === cat.id && !isReorderMode
+                  ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
+                  : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
+              } ${isReorderMode ? 'opacity-50' : ''}`}
+            >
+              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+                {cat.emoji}
+              </div>
+              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+                {cat.name}
+              </div>
+              <div className="text-xs opacity-75 h-4 flex items-center justify-center">
+                {itemCounts[cat.id] || 0}
+              </div>
+            </button>
+
+            {isReorderMode && (
+              <div className="absolute -top-2 -left-2 -right-2 flex justify-between">
+                <button
+                  onClick={() => moveCategory(cat.id, 'left')}
+                  disabled={index === 0}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                    index === 0 
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                  }`}
+                >
+                  →
+                </button>
+                <button
+                  onClick={() => moveCategory(cat.id, 'right')}
+                  disabled={index === filteredCategories.length - 1}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                    index === filteredCategories.length - 1
+                      ? 'bg-gray-300 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                  }`}
+                >
+                  ←
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {!isReorderMode && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 text-green-600 shadow-sm transition-all active:scale-95 border-2 border-dashed border-green-300"
+          >
+            <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
+              +
+            </div>
+            <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center">
+              הוסף
+            </div>
+            <div className="h-4"></div>
+          </button>
+        )}
       </div>
 
-      {/* מודל אפשרויות - מובייל */}
       {showOptionsFor && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
           onClick={() => setShowOptionsFor(null)}
         >
           <div 
             className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">
-              {categories.find(c => c.id === showOptionsFor)?.emoji} {categories.find(c => c.id === showOptionsFor)?.name}
-            </h3>
-            
-            <div className="space-y-3">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">אפשרויות</h3>
+            <div className="space-y-2">
               <button
                 onClick={() => {
                   setEditingCat(showOptionsFor);
-                  setEditName(categories.find(c => c.id === showOptionsFor)?.name || '');
+                  const cat = categories.find(c => c.id === showOptionsFor);
+                  setEditName(cat?.name || '');
                   setShowOptionsFor(null);
                 }}
-                className="w-full px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium transition-all active:scale-95"
               >
-                <span>✏️</span>
-                <span>ערוך שם</span>
+                ✏️ ערוך שם
               </button>
-              
               <button
                 onClick={() => handleDeleteCategory(showOptionsFor)}
-                className="w-full px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95"
               >
-                <span>🗑️</span>
-                <span>מחק קטגוריה</span>
+                🗑️ מחק קטגוריה
               </button>
-              
               <button
                 onClick={() => setShowOptionsFor(null)}
-                className="w-full px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 active:scale-95 transition-all"
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium transition-all active:scale-95"
               >
                 ביטול
               </button>
@@ -475,10 +300,51 @@ export default function CategoryManager({
         </div>
       )}
 
-      {/* מודל הוספת קטגוריה */}
+      {editingCat && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setEditingCat(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-2xl font-bold mb-4 text-gray-800">ערוך קטגוריה</h3>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleEditCategory(editingCat)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleEditCategory(editingCat)}
+                className="flex-1 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-medium transition-all active:scale-95"
+              >
+                שמור
+              </button>
+              <button
+                onClick={() => setEditingCat(null)}
+                className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all active:scale-95"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-2xl font-bold mb-4 text-gray-800">קטגוריה חדשה</h3>
             
             <div className="space-y-4">
@@ -488,66 +354,89 @@ export default function CategoryManager({
                   type="text"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
-                  placeholder="לדוגמה: מוצרי חלב"
+                  onKeyPress={(e) => e.key === 'Enter' && !customEmoji && handleAddCategory()}
+                  placeholder="לדוגמא: מוצרי חלב"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אייקון</label>
-                
-                {recentEmojis.length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-2">לאחרונה:</div>
-                    <div className="grid grid-cols-8 gap-2">
-                      {recentEmojis.map((emoji, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setNewCatEmoji(emoji)}
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
-                            newCatEmoji === emoji ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
-                          }`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-xs text-gray-500 mb-2">פופולריים:</div>
-                <div className="grid grid-cols-8 gap-2">
-                  {commonEmojis.map((emoji, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setNewCatEmoji(emoji)}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
-                        newCatEmoji === emoji ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">אימוג'י מותאם אישית (אופציונלי)</label>
+                <input
+                  type="text"
+                  value={customEmoji}
+                  onChange={(e) => setCustomEmoji(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                  placeholder="הדבק או הקלד אימוג'י כאן... 😊"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 bg-blue-50 focus:border-blue-400 focus:outline-none text-base"
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 העתק אימוג'י מכל מקום והדבק כאן
+                </p>
               </div>
 
-              <div className="flex gap-3 pt-2">
+              {!customEmoji && recentEmojis.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">אימוג'ים אחרונים</label>
+                  <div className="grid grid-cols-10 gap-2">
+                    {recentEmojis.map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setNewCatEmoji(emoji)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                          newCatEmoji === emoji 
+                            ? 'bg-purple-100 ring-2 ring-purple-400 scale-110' 
+                            : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!customEmoji && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">אימוג'ים פופולריים</label>
+                  <div className="grid grid-cols-8 gap-2">
+                    {commonEmojis.map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setNewCatEmoji(emoji)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                          newCatEmoji === emoji 
+                            ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                            : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
                 <button
                   onClick={handleAddCategory}
                   disabled={!newCatName.trim()}
-                  className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
-                    newCatName.trim() ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  הוסף
+                  ✓ צור קטגוריה
                 </button>
                 <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold transition-all active:scale-95"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewCatName('');
+                    setNewCatEmoji('📦');
+                    setCustomEmoji('');
+                  }}
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all active:scale-95"
                 >
                   ביטול
                 </button>
@@ -556,20 +445,10 @@ export default function CategoryManager({
           </div>
         </div>
       )}
-      
+
       <style jsx>{`
-        @keyframes wiggle {
-          0%, 100% { transform: rotate(-1deg); }
-          50% { transform: rotate(1deg); }
-        }
-        
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
-        }
-        
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
         }
       `}</style>
     </div>

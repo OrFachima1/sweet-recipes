@@ -222,10 +222,6 @@ export default function ShoppingListPage() {
   };
 
   const deleteCategory = (catId: string) => {
-    if (catId === 'other') {
-      alert('לא ניתן למחוק את הקטגוריה "כללי"');
-      return;
-    }
     
     const updated = categories.filter(c => c.id !== catId);
     setCategories(updated);
@@ -273,16 +269,23 @@ export default function ShoppingListPage() {
   };
 
   const handleSaveSettings = async (settings: any[]) => {
-    try {
-      await setDoc(doc(db, 'orderSettings', 'shoppingListSettings'), {
-        settings,
-        updatedAt: new Date().toISOString()
-      });
-      setRecipeSettings(settings);
-    } catch (error) {
-      console.error('שגיאה בשמירת הגדרות:', error);
-    }
-  };
+  try {
+    // קודם שומרים ל-Firebase
+    await setDoc(doc(db, 'orderSettings', 'shoppingListSettings'), {
+      settings,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // רק אחרי שהשמירה הצליחה - מעדכנים את ה-state
+    setRecipeSettings(settings);
+    
+    console.log('✅ הגדרות נשמרו בהצלחה');
+  } catch (error) {
+    console.error('❌ שגיאה בשמירת הגדרות:', error);
+    // זורק את השגיאה הלאה כדי ש-handleSave ב-ShoppingListSettings יטפל בה
+    throw error;
+  }
+};
 
   const handleReorderCategories = async (reorderedCategories: Category[]) => {
   setCategories(reorderedCategories);
