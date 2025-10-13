@@ -34,10 +34,6 @@ export default function ShoppingItem({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // מנע גלילה של הדף בזמן סוויפ
-    if (Math.abs(e.touches[0].clientX - startX.current) > 10) {
-      e.preventDefault();
-    }
     startX.current = e.touches[0].clientX;
     setIsSwiping(true);
   };
@@ -45,12 +41,14 @@ export default function ShoppingItem({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping) return;
     const currentX = e.touches[0].clientX;
-    const diff = startX.current - currentX;
+    const diff = currentX - startX.current;
     
-    // גלילה לשמאל (ערכים חיוביים)
+    // גלילה לימין (ערכים חיוביים)
     if (diff > 0) {
-      // מנע גלילה של הדף
-      e.preventDefault();
+      // מונע גלילה של הדף רק אם יש תנועה אופקית משמעותית
+      if (Math.abs(diff) > 10) {
+        e.preventDefault();
+      }
       setSwipeOffset(Math.min(diff, 120));
     }
   };
@@ -94,6 +92,9 @@ export default function ShoppingItem({
     setShowMenu(false);
   };
 
+  // סינון קטגוריית "הכל" מהרשימה
+  const filteredCategories = categories.filter(c => c.id !== 'all');
+
   // סגירת תפריט בלחיצה מחוץ
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,11 +113,11 @@ export default function ShoppingItem({
     <div className="relative" ref={containerRef} style={{ zIndex: showMenu ? 100 : 1 }}>
       {/* רקע אדום למחיקה */}
       <div 
-        className="absolute inset-0 flex items-center justify-end px-6 pointer-events-none"
+        className="absolute inset-0 flex items-center justify-start px-6 pointer-events-none"
         style={{
-          background: `linear-gradient(90deg, 
-            rgba(220, 38, 38, ${Math.min(swipeOffset / 120, 1) * 0.3}) 0%,
-            rgba(239, 68, 68, ${Math.min(swipeOffset / 120, 1)}) 100%)`,
+          background: `linear-gradient(270deg, 
+            rgba(239, 68, 68, ${Math.min(swipeOffset / 120, 1)}) 0%, 
+            rgba(220, 38, 38, ${Math.min(swipeOffset / 120, 1) * 0.3}) 100%)`,
           opacity: swipeOffset > 0 ? 1 : 0,
           transition: isSwiping ? 'none' : 'opacity 0.3s'
         }}
@@ -128,23 +129,24 @@ export default function ShoppingItem({
             transform: `scale(${Math.min(0.8 + (swipeOffset / 120) * 0.2, 1)})`
           }}
         >
-          <span>{swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק למחיקה'}</span>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
           </svg>
+          <span>{swipeOffset > 80 ? 'שחרר למחיקה' : 'החלק למחיקה'}</span>
         </div>
       </div>
 
       {/* התוכן */}
       <div 
         className={`
-          relative flex items-center gap-3 px-4 py-3.5 transition-all bg-white
+          relative flex items-center gap-3 px-4 py-3.5 bg-white
           ${isChecked ? 'bg-emerald-50/80' : 'hover:bg-rose-50/30'}
         `}
         style={{
-          transform: `translateX(-${swipeOffset}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
-          opacity: swipeOffset > 120 ? 0 : 1
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isSwiping ? 'none' : 'all 0.3s ease-out',
+          opacity: swipeOffset > 120 ? 0 : 1,
+          willChange: isSwiping ? 'transform' : 'auto'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -251,7 +253,7 @@ export default function ShoppingItem({
                 </div>
                 
                 <div className="py-1">
-                  {categories.map(cat => (
+                  {filteredCategories.map(cat => (
                     <button
                       key={cat.id}
                       type="button"
