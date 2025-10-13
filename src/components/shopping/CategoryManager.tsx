@@ -193,8 +193,7 @@ export default function CategoryManager({
     
     onReorderCategories(reordered);
   };
-
-  // הזזה שמאלה (החלפה עם הקטגוריה הימנית)
+  // הזזה שמאלה (החלפה עם הקטגוריה משמאל)
   const moveLeft = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     
@@ -210,7 +209,7 @@ export default function CategoryManager({
     }
   };
 
-  // הזזה ימינה (החלפה עם הקטגוריה השמאלית)
+  // הזזה ימינה (החלפה עם הקטגוריה מימין)
   const moveRight = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     
@@ -313,11 +312,11 @@ export default function CategoryManager({
                   <button
                     onClick={(e) => moveLeft(cat.id, e)}
                     onTouchEnd={(e) => moveLeft(cat.id, e)}
-                    disabled={isLastInOrder}
+                    disabled={isFirstInOrder}
                     className={`
                       pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md -translate-x-3 text-xs
-                      ${isLastInOrder 
+                      transition-all shadow-md -translate-x-3
+                      ${isFirstInOrder 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                       }
@@ -330,11 +329,11 @@ export default function CategoryManager({
                   <button
                     onClick={(e) => moveRight(cat.id, e)}
                     onTouchEnd={(e) => moveRight(cat.id, e)}
-                    disabled={isFirstInOrder}
+                    disabled={isLastInOrder}
                     className={`
                       pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md translate-x-3 text-xs
-                      ${isFirstInOrder 
+                      transition-all shadow-md translate-x-3
+                      ${isLastInOrder 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
                       }
@@ -428,7 +427,145 @@ export default function CategoryManager({
         </button>
       </div>
 
-      {/* כל שאר המודלים - אותו דבר */}
+      {/* מודל אפשרויות קטגוריה - מובייל (דאבל קליק) */}
+      {showOptionsFor && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowOptionsFor(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-[scale-in_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">
+              {categories.find(c => c.id === showOptionsFor)?.emoji} {categories.find(c => c.id === showOptionsFor)?.name}
+            </h3>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setEditingCat(showOptionsFor);
+                  setEditName(categories.find(c => c.id === showOptionsFor)?.name || '');
+                  setShowOptionsFor(null);
+                }}
+                className="w-full px-6 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <span>✏️</span>
+                <span>ערוך שם</span>
+              </button>
+              
+              <button
+                onClick={() => handleDeleteCategory(showOptionsFor)}
+                className="w-full px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <span>🗑️</span>
+                <span>מחק קטגוריה</span>
+              </button>
+              
+              <button
+                onClick={() => setShowOptionsFor(null)}
+                className="w-full px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 active:scale-95 transition-all"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* מודל הוספת קטגוריה */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-4 text-gray-800">קטגוריה חדשה</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">שם הקטגוריה</label>
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                  placeholder="לדוגמה: מוצרי חלב"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אייקון</label>
+                
+                {recentEmojis.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-500 mb-2">לאחרונה:</div>
+                    <div className="grid grid-cols-8 gap-2">
+                      {recentEmojis.map((emoji, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setNewCatEmoji(emoji)}
+                          className={`
+                            w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
+                            ${newCatEmoji === emoji 
+                              ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                              : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                            }
+                          `}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-500 mb-2">פופולריים:</div>
+                <div className="grid grid-cols-8 gap-2">
+                  {commonEmojis.map((emoji, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setNewCatEmoji(emoji)}
+                      className={`
+                        w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
+                        ${newCatEmoji === emoji 
+                          ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                          : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                        }
+                      `}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleAddCategory}
+                  disabled={!newCatName.trim()}
+                  className={`
+                    flex-1 px-6 py-3 rounded-xl font-bold transition-all
+                    ${newCatName.trim()
+                      ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  הוסף
+                </button>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold transition-all active:scale-95"
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* אנימציות CSS */}
       <style jsx>{`
