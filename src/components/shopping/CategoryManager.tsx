@@ -193,14 +193,15 @@ export default function CategoryManager({
     
     onReorderCategories(reordered);
   };
-  // הזזה שמאלה (החלפה עם הקטגוריה משמאל)
+
+  // הזזה שמאלה ברשימה
   const moveLeft = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     
     const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex < tempOrder.length - 1) {
+    if (currentIndex > 0) {
       const newOrder = [...tempOrder];
-      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
       setTempOrder(newOrder);
       
       if (navigator.vibrate) {
@@ -209,14 +210,14 @@ export default function CategoryManager({
     }
   };
 
-  // הזזה ימינה (החלפה עם הקטגוריה מימין)
+  // הזזה ימינה ברשימה
   const moveRight = (catId: string, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     
     const currentIndex = tempOrder.findIndex(c => c.id === catId);
-    if (currentIndex > 0) {
+    if (currentIndex < tempOrder.length - 1) {
       const newOrder = [...tempOrder];
-      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
+      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
       setTempOrder(newOrder);
       
       if (navigator.vibrate) {
@@ -305,34 +306,17 @@ export default function CategoryManager({
                 setIsDragging(false);
               }}
             >
-              {/* חצים לשינוי סדר - רק במצב עריכה */}
+              {/* חצים לשינוי סדר - החץ בצד שמאל מצביע ימינה והחץ בצד ימין מצביע שמאלה */}
               {isEditMode && cat.id !== 'all' && (
                 <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none z-20">
-                  {/* חץ שמאלה */}
-                  <button
-                    onClick={(e) => moveLeft(cat.id, e)}
-                    onTouchEnd={(e) => moveLeft(cat.id, e)}
-                    disabled={isFirstInOrder}
-                    className={`
-                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md -translate-x-3
-                      ${isFirstInOrder 
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                        : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
-                      }
-                    `}
-                  >
-                    ◀
-                  </button>
-                  
-                  {/* חץ ימינה */}
+                  {/* חץ ימני ▶ בצד שמאל - מזיז את הקטגוריה ימינה */}
                   <button
                     onClick={(e) => moveRight(cat.id, e)}
                     onTouchEnd={(e) => moveRight(cat.id, e)}
                     disabled={isLastInOrder}
                     className={`
                       pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
-                      transition-all shadow-md translate-x-3
+                      transition-all shadow-md -translate-x-3 text-xs
                       ${isLastInOrder 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
@@ -340,6 +324,23 @@ export default function CategoryManager({
                     `}
                   >
                     ▶
+                  </button>
+                  
+                  {/* חץ שמאלי ◀ בצד ימין - מזיז את הקטגוריה שמאלה */}
+                  <button
+                    onClick={(e) => moveLeft(cat.id, e)}
+                    onTouchEnd={(e) => moveLeft(cat.id, e)}
+                    disabled={isFirstInOrder}
+                    className={`
+                      pointer-events-auto w-6 h-6 rounded-full flex items-center justify-center
+                      transition-all shadow-md translate-x-3 text-xs
+                      ${isFirstInOrder 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                      }
+                    `}
+                  >
+                    ◀
                   </button>
                 </div>
               )}
@@ -388,7 +389,7 @@ export default function CategoryManager({
                 )}
               </button>
               
-              {/* אפשרויות עריכה/מחיקה - דסקטופ (hover) */}
+              {/* אפשרויות עריכה/מחיקה - דסקטופ */}
               {cat.id !== 'all' && !isEditMode && (
                 <div className="hidden md:flex absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1 z-10">
                   <button
@@ -398,7 +399,6 @@ export default function CategoryManager({
                       setEditName(cat.name);
                     }}
                     className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
-                    title="ערוך שם"
                   >
                     ✏️
                   </button>
@@ -408,7 +408,6 @@ export default function CategoryManager({
                       handleDeleteCategory(cat.id);
                     }}
                     className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:scale-110 transition-all shadow-md"
-                    title="מחק קטגוריה"
                   >
                     ×
                   </button>
@@ -427,14 +426,14 @@ export default function CategoryManager({
         </button>
       </div>
 
-      {/* מודל אפשרויות קטגוריה - מובייל (דאבל קליק) */}
+      {/* מודל אפשרויות - מובייל */}
       {showOptionsFor && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowOptionsFor(null)}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-[scale-in_0.2s_ease-out]"
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">
@@ -505,13 +504,9 @@ export default function CategoryManager({
                           key={idx}
                           type="button"
                           onClick={() => setNewCatEmoji(emoji)}
-                          className={`
-                            w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
-                            ${newCatEmoji === emoji 
-                              ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
-                              : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
-                            }
-                          `}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                            newCatEmoji === emoji ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                          }`}
                         >
                           {emoji}
                         </button>
@@ -527,13 +522,9 @@ export default function CategoryManager({
                       key={idx}
                       type="button"
                       onClick={() => setNewCatEmoji(emoji)}
-                      className={`
-                        w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all
-                        ${newCatEmoji === emoji 
-                          ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
-                          : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
-                        }
-                      `}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                        newCatEmoji === emoji ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                      }`}
                     >
                       {emoji}
                     </button>
@@ -545,13 +536,9 @@ export default function CategoryManager({
                 <button
                   onClick={handleAddCategory}
                   disabled={!newCatName.trim()}
-                  className={`
-                    flex-1 px-6 py-3 rounded-xl font-bold transition-all
-                    ${newCatName.trim()
-                      ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }
-                  `}
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
+                    newCatName.trim() ? 'bg-gradient-to-l from-rose-400 to-pink-400 text-white hover:shadow-lg active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
                 >
                   הוסף
                 </button>
@@ -567,15 +554,10 @@ export default function CategoryManager({
         </div>
       )}
       
-      {/* אנימציות CSS */}
       <style jsx>{`
         @keyframes wiggle {
-          0%, 100% { 
-            transform: rotate(-1deg); 
-          }
-          50% { 
-            transform: rotate(1deg); 
-          }
+          0%, 100% { transform: rotate(-1deg); }
+          50% { transform: rotate(1deg); }
         }
         
         .scrollbar-hide::-webkit-scrollbar {
