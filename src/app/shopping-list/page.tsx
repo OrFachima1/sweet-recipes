@@ -364,10 +364,7 @@ export default function ShoppingListPage() {
       <div className="max-w-6xl mx-auto px-4 pb-24">
         <div 
           className="bg-white rounded-2xl shadow-xl overflow-visible"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
+                 >
           {filteredAndSortedItems.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-7xl mb-4">

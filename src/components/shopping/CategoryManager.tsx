@@ -110,7 +110,11 @@ export default function CategoryManager({
 
   // טיפול בלחיצה ארוכה (למובייל)
   const handleTouchStart = (catId: string, e: React.TouchEvent) => {
+    // לא מאפשרים גרירה של "הכל"
     if (catId === 'all') return;
+    
+    // מונע סימון טקסט
+    e.preventDefault();
     
     longPressTimer.current = setTimeout(() => {
       setIsDragging(true);
@@ -136,12 +140,16 @@ export default function CategoryManager({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || !draggedCat) return;
     
+    // מונע גלילה בזמן גרירה
+    e.preventDefault();
+    
     const touch = e.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     const catElement = element?.closest('[data-category-id]') as HTMLElement;
     
     if (catElement) {
       const catId = catElement.dataset.categoryId;
+      // לא מאפשרים לגרור על "הכל"
       if (catId && catId !== 'all') {
         setDragOverCat(catId);
       }
@@ -150,6 +158,7 @@ export default function CategoryManager({
 
   // Drag & Drop למחשב
   const handleDragStart = (catId: string, e: React.DragEvent) => {
+    // לא מאפשרים גרירה של "הכל"
     if (catId === 'all') {
       e.preventDefault();
       return;
@@ -160,13 +169,15 @@ export default function CategoryManager({
   };
 
   const handleDragOver = (catId: string, e: React.DragEvent) => {
-    if (catId === 'all' || !draggedCat) return;
+    // לא מאפשרים לגרור על "הכל"
+    if (!draggedCat || catId === 'all') return;
     e.preventDefault();
     setDragOverCat(catId);
   };
 
   const handleDrop = (catId: string, e: React.DragEvent) => {
     e.preventDefault();
+    // לא מאפשרים drop על "הכל"
     if (draggedCat && catId !== 'all' && draggedCat !== catId) {
       handleReorder(draggedCat, catId);
     }
@@ -178,12 +189,13 @@ export default function CategoryManager({
   const handleReorder = (fromId: string, toId: string) => {
     if (!onReorderCategories) return;
     
-    const fromIndex = categories.findIndex(c => c.id === fromId);
-    const toIndex = categories.findIndex(c => c.id === toId);
+    // עובדים רק עם הקטגוריות בלי "הכל"
+    const fromIndex = filteredCategories.findIndex(c => c.id === fromId);
+    const toIndex = filteredCategories.findIndex(c => c.id === toId);
     
     if (fromIndex === -1 || toIndex === -1) return;
     
-    const newCategories = [...categories];
+    const newCategories = [...filteredCategories];
     const [movedCat] = newCategories.splice(fromIndex, 1);
     newCategories.splice(toIndex, 0, movedCat);
     
@@ -193,16 +205,17 @@ export default function CategoryManager({
       order: idx
     }));
     
+    // שמירה בלי "הכל"
     onReorderCategories(reordered);
   };
 
   const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🍬', '🧴', '🧻', '🧊'];
 
-  // סינון "הכל" מהקטגוריות שמגיעות והוספתו בהתחלה
+  // "הכל" בסוף הרשימה
   const filteredCategories = categories.filter(c => c.id !== 'all');
   const allCategories = [
-    { id: 'all', name: 'הכל', emoji: '🛒', color: '' },
-    ...filteredCategories
+    ...filteredCategories,
+    { id: 'all', name: 'הכל', emoji: '🛒', color: '' }
   ];
 
   return (
@@ -263,6 +276,13 @@ export default function CategoryManager({
               <button
                 onClick={() => handleCategoryClick(cat.id)}
                 onTouchStart={(e) => handleTouchStart(cat.id, e)}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                style={{ 
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none'
+                }}
                 className={`
                   px-4 py-1.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center gap-1.5 whitespace-nowrap relative
