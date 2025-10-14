@@ -350,6 +350,7 @@ export default function ShoppingListPage() {
           onDeleteCategory={deleteCategory}
           onReorderCategories={handleReorderCategories}
           itemCounts={itemCounts}
+          totalItems={totalItems}
         />
       </div>
 

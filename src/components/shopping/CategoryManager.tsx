@@ -35,6 +35,7 @@ interface CategoryManagerProps {
   onDeleteCategory: (id: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   itemCounts: Record<string, number>;
+  totalItems: number;
 }
 
 interface SortableCategoryProps {
@@ -237,7 +238,8 @@ export default function CategoryManager({
   onUpdateCategory,
   onDeleteCategory,
   onReorderCategories,
-  itemCounts
+  itemCounts,
+  totalItems  
 }: CategoryManagerProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
@@ -505,7 +507,7 @@ export default function CategoryManager({
                     textAlign: 'center',
                   }}
                 >
-                  {Object.values(safeItemCounts).reduce((sum, count) => sum + count, 0)}
+                  {totalItems}  {/* 👈 שנה מהחישוב הישן */}
                 </div>
               </div>
             </div>
