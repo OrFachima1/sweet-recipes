@@ -145,6 +145,9 @@ export default function ShoppingListPage() {
     return counts;
     }, [shoppingList, categories, groupedList]);
 
+  const totalItemsCount = shoppingList.length;
+
+
   const filteredAndSortedItems = useMemo(() => {
     let items = selectedCategory === 'all' 
       ? shoppingList 
@@ -270,6 +273,7 @@ export default function ShoppingListPage() {
     await saveCheckedItems({});
   }
 };
+
   const deleteItem = (itemName: string) => {
     const normalized = normalizeIngredientName(itemName);
     const updated = [...deletedItems, normalized];
@@ -329,7 +333,6 @@ export default function ShoppingListPage() {
       </div>
     );
   }
-
   const totalItems = filteredAndSortedItems.length;
   const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
@@ -368,7 +371,7 @@ export default function ShoppingListPage() {
           onDeleteCategory={deleteCategory}
           onReorderCategories={handleReorderCategories}
           itemCounts={itemCounts}
-          totalItems={totalItems}
+          totalItems={totalItemsCount}
         />
       </div>
 

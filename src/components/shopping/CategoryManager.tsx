@@ -80,7 +80,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
         if (navigator.vibrate) navigator.vibrate(50);
         onLongPress();
         setIsPressing(false);
-        tapCount.current = 0; // Reset tap count
+        tapCount.current = 0;
       }, 600);
     }
   };
@@ -161,6 +161,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
         className={`relative ${
           isReorderMode ? 'wobble-active cursor-grab active:cursor-grabbing' : 'cursor-pointer'
         } ${isDragging ? 'scale-105' : ''} ${isPressing ? 'scale-95' : ''} 
+        ${isSelected && !isReorderMode ? 'selected-category' : ''}
         transition-transform duration-200 hover:scale-105`}
         style={{ 
           transition: isDragging ? 'none' : 'transform 0.2s ease',
@@ -439,6 +440,15 @@ export default function CategoryManager({
         .wobble-active:nth-of-type(5) { animation-delay: 0.12s !important; }
         .wobble-active:nth-of-type(6) { animation-delay: 0.15s !important; }
         .wobble-active:nth-of-type(7) { animation-delay: 0.18s !important; }
+
+        /* Selected category highlight - simple scale */
+        .selected-category {
+          transform: scale(1.15) !important;
+          transition: transform 0.3s ease-out !important;
+          filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.8)) 
+                  drop-shadow(0 0 40px rgba(0, 255, 255, 0.5))
+                  drop-shadow(0 0 60px rgba(0, 255, 255, 0.3)) !important;
+        }
       `}</style>
 
       {isReorderMode && (
@@ -468,7 +478,7 @@ export default function CategoryManager({
                 if (isReorderMode) return;
                 onSelectCategory(allCategory.id);
               }}
-              className={`relative ${isReorderMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'} transition-transform duration-200`}
+              className={`relative ${isReorderMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'} ${selectedCategory === 'all' && !isReorderMode ? 'selected-category' : ''} transition-transform duration-200`}
               style={{ transition: 'transform 0.2s ease' }}
             >
               <div className="relative">
@@ -507,7 +517,7 @@ export default function CategoryManager({
                     textAlign: 'center',
                   }}
                 >
-                  {totalItems}  {/* 👈 שנה מהחישוב הישן */}
+                  {totalItems}
                 </div>
               </div>
             </div>
@@ -687,7 +697,6 @@ export default function CategoryManager({
             <h3 className="text-2xl font-bold mb-6 text-gray-800">ערוך קטגוריה</h3>
             
             <div className="space-y-5">
-              {/* Category Name */}
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-2">שם הקטגוריה</label>
                 <input
@@ -700,7 +709,6 @@ export default function CategoryManager({
                 />
               </div>
 
-              {/* Emoji Picker */}
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אימוג'י</label>
                 <div className="flex items-center gap-3 mb-3">
@@ -723,7 +731,6 @@ export default function CategoryManager({
                   />
                 </div>
                 
-                {/* Recent Emojis */}
                 {recentEmojis.length > 0 && (
                   <div className="mb-3">
                     <p className="text-xs font-semibold text-gray-600 mb-2">אימוג'ים אחרונים</p>
@@ -746,7 +753,6 @@ export default function CategoryManager({
                   </div>
                 )}
 
-                {/* Common Emojis */}
                 <div>
                   <p className="text-xs font-semibold text-gray-600 mb-2">אימוג'ים פופולריים</p>
                   <div className="grid grid-cols-8 gap-2">
@@ -768,7 +774,6 @@ export default function CategoryManager({
                 </div>
               </div>
 
-              {/* Delete Button */}
               <button
                 onClick={() => {
                   setEditingCat(null);
@@ -780,7 +785,6 @@ export default function CategoryManager({
                 <span>מחק קטגוריה</span>
               </button>
 
-              {/* Action Buttons */}
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => handleEditCategory(editingCat)}

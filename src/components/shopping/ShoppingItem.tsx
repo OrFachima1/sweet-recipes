@@ -577,7 +577,7 @@ export default function ShoppingItem(props: ShoppingItemProps) {
 
         {showSources && sources && sources.length > 0 && (
           <div className="mt-2 bg-blue-50 rounded-xl p-3 text-sm">
-            <div className="font-semibold text-blue-900 mb-1">מקורות:</div>
+            <div className="font-semibold text-blue-900 mb-1">מגיע מ:</div>
             <ul className="text-blue-700 space-y-1">
               {sources.map((source, idx) => (
                 <li key={idx} className="flex items-start gap-2">
