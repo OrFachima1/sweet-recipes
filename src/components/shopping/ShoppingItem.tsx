@@ -57,7 +57,7 @@ export default function ShoppingItem(props: ShoppingItemProps) {
   const [showSources, setShowSources] = useState(false);
 
   const MAX_REVEAL = 120;
-  const RELEASE_THRESHOLD = MAX_REVEAL * 2; // 90 פיקסלים
+  const RELEASE_THRESHOLD = MAX_REVEAL * 0.9; // 90 פיקסלים
   const SNAP_BACK_EASING = "cubic-bezier(.22,.9,.1,1)";
   const TRANSITION_MS = 220;
   const UNDO_TIMEOUT = 4000;
