@@ -59,6 +59,9 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
 
   const longPressTimer = useRef<number | null>(null);
   const [isPressing, setIsPressing] = useState(false);
+  const lastTapTime = useRef<number>(0);
+  const clickCount = useRef<number>(0);
+  const clickTimer = useRef<number | null>(null);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -82,9 +85,43 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
       longPressTimer.current = null;
     }
     if (isPressing && !isReorderMode) {
-      onTap();
+      // Check for double tap
+      const now = Date.now();
+      const timeSinceLastTap = now - lastTapTime.current;
+      
+      if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+        // Double tap detected
+        onOptions();
+        lastTapTime.current = 0;
+      } else {
+        // Single tap
+        onTap();
+        lastTapTime.current = now;
+      }
     }
     setIsPressing(false);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isReorderMode) return;
+    
+    clickCount.current += 1;
+
+    if (clickCount.current === 1) {
+      // First click - wait to see if there's a second click
+      clickTimer.current = window.setTimeout(() => {
+        // Single click
+        onTap();
+        clickCount.current = 0;
+      }, 300);
+    } else if (clickCount.current === 2) {
+      // Double click
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+      }
+      onOptions();
+      clickCount.current = 0;
+    }
   };
 
   const handlePointerCancel = () => {
@@ -122,13 +159,15 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
         onPointerUp={!isReorderMode ? handlePointerUp : undefined}
         onPointerCancel={!isReorderMode ? handlePointerCancel : undefined}
         onPointerLeave={!isReorderMode ? handlePointerCancel : undefined}
+        onClick={!isReorderMode ? handleClick : undefined}
         onContextMenu={(e) => {
           e.preventDefault();
           if (!isReorderMode) onOptions();
         }}
         className={`relative ${
           isReorderMode ? 'wobble-active cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-        } ${isDragging ? 'scale-105' : ''} ${isPressing ? 'scale-95' : ''}`}
+        } ${isDragging ? 'scale-105' : ''} ${isPressing ? 'scale-95' : ''} 
+        transition-transform duration-200 hover:scale-105`}
         style={{ 
           transition: isDragging ? 'none' : 'transform 0.2s ease',
           touchAction: isReorderMode ? 'none' : 'auto'
@@ -214,6 +253,7 @@ export default function CategoryManager({
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editEmoji, setEditEmoji] = useState('');
   const [showOptionsFor, setShowOptionsFor] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -287,9 +327,12 @@ export default function CategoryManager({
   const handleEditCategory = (catId: string) => {
     if (editName.trim() && catId !== 'all') {
       onUpdateCategory(catId, editName);
+      // Note: Emoji update would need to be handled by parent component
+      // You might need to add onUpdateEmoji prop
     }
     setEditingCat(null);
     setEditName('');
+    setEditEmoji('');
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -425,8 +468,11 @@ export default function CategoryManager({
         <div className="flex gap-4 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center">
           <div className="flex-shrink-0 select-none">
             <div
-              onClick={() => !isReorderMode && onSelectCategory(allCategory.id)}
-              className={`relative ${isReorderMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              onClick={(e) => {
+                if (isReorderMode) return;
+                onSelectCategory(allCategory.id);
+              }}
+              className={`relative ${isReorderMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'} transition-transform duration-200`}
               style={{ transition: 'transform 0.2s ease' }}
             >
               <div className="relative">
@@ -495,7 +541,7 @@ export default function CategoryManager({
             <div className="flex-shrink-0 select-none">
               <div
                 onClick={() => setShowAddModal(true)}
-                className="cursor-pointer active:scale-95"
+                className="cursor-pointer active:scale-95 hover:scale-105 transition-transform duration-200"
                 style={{ transition: 'transform 0.2s ease' }}
               >
                 <div className="relative">
@@ -594,24 +640,29 @@ export default function CategoryManager({
             className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-4 text-gray-800">אפשרויות</h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-800">אפשרויות קטגוריה</h3>
             <div className="space-y-2">
               <button
                 onClick={() => {
-                  setEditingCat(showOptionsFor);
                   const cat = categories.find(c => c.id === showOptionsFor);
-                  setEditName(cat?.name || '');
+                  if (cat) {
+                    setEditingCat(showOptionsFor);
+                    setEditName(cat.name);
+                    setEditEmoji(cat.emoji);
+                  }
                   setShowOptionsFor(null);
                 }}
-                className="w-full py-3 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium transition-all active:scale-95"
+                className="w-full py-3 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                ✏️ ערוך שם
+                <span style={{ fontSize: '20px' }}>✏️</span>
+                <span>ערוך קטגוריה</span>
               </button>
               <button
                 onClick={() => handleDeleteCategory(showOptionsFor)}
-                className="w-full py-3 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95"
+                className="w-full py-3 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                🗑️ מחק קטגוריה
+                <span style={{ fontSize: '20px' }}>🗑️</span>
+                <span>מחק קטגוריה</span>
               </button>
               <button
                 onClick={() => setShowOptionsFor(null)}
@@ -627,34 +678,132 @@ export default function CategoryManager({
       {editingCat && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setEditingCat(null)}
+          onClick={() => {
+            setEditingCat(null);
+            setEditName('');
+            setEditEmoji('');
+          }}
         >
           <div 
-            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-scale-in"
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-scale-in max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-2xl font-bold mb-4 text-gray-800">ערוך קטגוריה</h3>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleEditCategory(editingCat)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base mb-4"
-              autoFocus
-            />
-            <div className="flex gap-2">
+            <h3 className="text-2xl font-bold mb-6 text-gray-800">ערוך קטגוריה</h3>
+            
+            <div className="space-y-5">
+              {/* Category Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">שם הקטגוריה</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleEditCategory(editingCat)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-rose-300 focus:outline-none text-base"
+                  autoFocus
+                />
+              </div>
+
+              {/* Emoji Picker */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">בחר אימוג'י</label>
+                <div className="flex items-center gap-3 mb-3">
+                  <div 
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl"
+                    style={{
+                      background: getColorForCategory(editingCat).bg,
+                      border: `2px solid ${getColorForCategory(editingCat).border}`,
+                    }}
+                  >
+                    {editEmoji}
+                  </div>
+                  <input
+                    type="text"
+                    value={editEmoji}
+                    onChange={(e) => setEditEmoji(e.target.value)}
+                    placeholder="הדבק אימוג'י..."
+                    className="flex-1 px-4 py-3 rounded-xl border-2 border-blue-200 bg-blue-50 focus:border-blue-400 focus:outline-none text-base"
+                    maxLength={10}
+                  />
+                </div>
+                
+                {/* Recent Emojis */}
+                {recentEmojis.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">אימוג'ים אחרונים</p>
+                    <div className="grid grid-cols-10 gap-2">
+                      {recentEmojis.map((emoji, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setEditEmoji(emoji)}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                            editEmoji === emoji 
+                              ? 'bg-purple-100 ring-2 ring-purple-400 scale-110' 
+                              : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Common Emojis */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-2">אימוג'ים פופולריים</p>
+                  <div className="grid grid-cols-8 gap-2">
+                    {commonEmojis.map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setEditEmoji(emoji)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                          editEmoji === emoji 
+                            ? 'bg-rose-100 ring-2 ring-rose-400 scale-110' 
+                            : 'bg-gray-100 hover:bg-gray-200 active:scale-95'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delete Button */}
               <button
-                onClick={() => handleEditCategory(editingCat)}
-                className="flex-1 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-medium transition-all active:scale-95"
+                onClick={() => {
+                  setEditingCat(null);
+                  handleDeleteCategory(editingCat);
+                }}
+                className="w-full py-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                שמור
+                <span style={{ fontSize: '18px' }}>🗑️</span>
+                <span>מחק קטגוריה</span>
               </button>
-              <button
-                onClick={() => setEditingCat(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all active:scale-95"
-              >
-                ביטול
-              </button>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => handleEditCategory(editingCat)}
+                  disabled={!editName.trim()}
+                  className="flex-1 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  💾 שמור שינויים
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingCat(null);
+                    setEditName('');
+                    setEditEmoji('');
+                  }}
+                  className="px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all active:scale-95"
+                >
+                  ביטול
+                </button>
+              </div>
             </div>
           </div>
         </div>
