@@ -31,7 +31,7 @@ interface CategoryManagerProps {
   selectedCategory: string;
   onSelectCategory: (id: string) => void;
   onAddCategory: (category: Category) => void;
-  onUpdateCategory: (id: string, name: string) => void;
+  onUpdateCategory: (id: string, name: string, emoji?: string) => void;
   onDeleteCategory: (id: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   itemCounts: Record<string, number>;
@@ -60,8 +60,8 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
   const longPressTimer = useRef<number | null>(null);
   const [isPressing, setIsPressing] = useState(false);
   const lastTapTime = useRef<number>(0);
-  const clickCount = useRef<number>(0);
-  const clickTimer = useRef<number | null>(null);
+  const tapCount = useRef<number>(0);
+  const tapTimer = useRef<number | null>(null);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -72,56 +72,50 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isReorderMode) return;
     setIsPressing(true);
-    longPressTimer.current = window.setTimeout(() => {
-      if (navigator.vibrate) navigator.vibrate(50);
-      onLongPress();
-      setIsPressing(false);
-    }, 600);
+    
+    // Long press only for touch
+    if (e.pointerType === 'touch') {
+      longPressTimer.current = window.setTimeout(() => {
+        if (navigator.vibrate) navigator.vibrate(50);
+        onLongPress();
+        setIsPressing(false);
+        tapCount.current = 0; // Reset tap count
+      }, 600);
+    }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    if (isPressing && !isReorderMode) {
-      // Check for double tap
-      const now = Date.now();
-      const timeSinceLastTap = now - lastTapTime.current;
-      
-      if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
-        // Double tap detected
-        onOptions();
-        lastTapTime.current = 0;
-      } else {
+    
+    if (!isPressing || isReorderMode) {
+      setIsPressing(false);
+      return;
+    }
+    
+    // Handle taps/clicks for both touch and mouse
+    tapCount.current += 1;
+    
+    if (tapCount.current === 1) {
+      // First tap - wait to see if there's a second one
+      tapTimer.current = window.setTimeout(() => {
         // Single tap
         onTap();
-        lastTapTime.current = now;
-      }
-    }
-    setIsPressing(false);
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (isReorderMode) return;
-    
-    clickCount.current += 1;
-
-    if (clickCount.current === 1) {
-      // First click - wait to see if there's a second click
-      clickTimer.current = window.setTimeout(() => {
-        // Single click
-        onTap();
-        clickCount.current = 0;
+        tapCount.current = 0;
       }, 300);
-    } else if (clickCount.current === 2) {
-      // Double click
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
+    } else if (tapCount.current === 2) {
+      // Double tap detected
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+        tapTimer.current = null;
       }
       onOptions();
-      clickCount.current = 0;
+      tapCount.current = 0;
     }
+    
+    setIsPressing(false);
   };
 
   const handlePointerCancel = () => {
@@ -159,7 +153,6 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
         onPointerUp={!isReorderMode ? handlePointerUp : undefined}
         onPointerCancel={!isReorderMode ? handlePointerCancel : undefined}
         onPointerLeave={!isReorderMode ? handlePointerCancel : undefined}
-        onClick={!isReorderMode ? handleClick : undefined}
         onContextMenu={(e) => {
           e.preventDefault();
           if (!isReorderMode) onOptions();
@@ -326,9 +319,10 @@ export default function CategoryManager({
 
   const handleEditCategory = (catId: string) => {
     if (editName.trim() && catId !== 'all') {
-      onUpdateCategory(catId, editName);
-      // Note: Emoji update would need to be handled by parent component
-      // You might need to add onUpdateEmoji prop
+      onUpdateCategory(catId, editName, editEmoji || undefined);
+      if (editEmoji) {
+        saveRecentEmoji(editEmoji);
+      }
     }
     setEditingCat(null);
     setEditName('');
