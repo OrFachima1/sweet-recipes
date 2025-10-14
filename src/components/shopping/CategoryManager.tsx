@@ -111,11 +111,11 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
           e.preventDefault();
           if (!isReorderMode) onOptions();
         }}
-        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none touch-none ${
           isSelected && !isReorderMode
             ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
             : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
-        } ${isReorderMode ? 'wobble cursor-grab active:cursor-grabbing' : ''} ${
+        } ${isReorderMode ? 'wobble-active cursor-grab active:cursor-grabbing' : ''} ${
           isDragging ? 'scale-110 shadow-2xl' : ''
         } ${isPressing ? 'scale-95' : ''}`}
       >
@@ -314,12 +314,35 @@ export default function CategoryManager({
         <div className="flex justify-center mb-3 px-2">
           <button
             onClick={handleFinishReorder}
-            className="px-6 py-2 rounded-full bg-rose-500 text-white shadow-lg font-bold hover:bg-rose-600 active:scale-95 transition-all"
+            className="px-6 py-2 rounded-full bg-rose-500 text-white shadow-lg font-bold hover:bg-rose-600 active:scale-95 transition-all animate-pulse"
           >
             ✓ סיום
           </button>
         </div>
       )}
+
+      <style>{`
+        @keyframes wobble {
+          0% { transform: rotate(-2deg); }
+          25% { transform: rotate(2deg); }
+          50% { transform: rotate(-2deg); }
+          75% { transform: rotate(2deg); }
+          100% { transform: rotate(-2deg); }
+        }
+
+        .wobble-active {
+          animation: wobble 0.35s ease-in-out infinite !important;
+          transform-origin: center center !important;
+        }
+
+        .wobble-active:nth-of-type(1) { animation-delay: 0s !important; }
+        .wobble-active:nth-of-type(2) { animation-delay: 0.05s !important; }
+        .wobble-active:nth-of-type(3) { animation-delay: 0.1s !important; }
+        .wobble-active:nth-of-type(4) { animation-delay: 0.15s !important; }
+        .wobble-active:nth-of-type(5) { animation-delay: 0.2s !important; }
+        .wobble-active:nth-of-type(6) { animation-delay: 0.25s !important; }
+        .wobble-active:nth-of-type(7) { animation-delay: 0.3s !important; }
+      `}</style>
 
       <DndContext
         sensors={sensors}
@@ -327,7 +350,7 @@ export default function CategoryManager({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center">
+        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center select-none">
           <button
             onPointerDown={(e) => {
               if (!isReorderMode) {
@@ -342,7 +365,7 @@ export default function CategoryManager({
             }}
             onPointerCancel={(e) => e.currentTarget.classList.remove('scale-95')}
             disabled={isReorderMode}
-            className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+            className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none ${
               selectedCategory === allCategory.id && !isReorderMode
                 ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
                 : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
@@ -609,20 +632,17 @@ export default function CategoryManager({
           display: none;
         }
 
-        @keyframes wobble {
-          0%, 100% { transform: rotate(-1.5deg); }
-          50% { transform: rotate(1.5deg); }
+        .select-none {
+          user-select: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          -webkit-touch-callout: none;
         }
 
-        .wobble {
-          animation: wobble 0.35s ease-in-out infinite;
-          transform-origin: center center;
+        .touch-none {
+          touch-action: none;
         }
-
-        .wobble:nth-child(2) { animation-delay: 0.05s; }
-        .wobble:nth-child(3) { animation-delay: 0.1s; }
-        .wobble:nth-child(4) { animation-delay: 0.15s; }
-        .wobble:nth-child(5) { animation-delay: 0.2s; }
 
         @keyframes slide-up {
           from {
