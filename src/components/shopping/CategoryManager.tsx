@@ -73,7 +73,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
       if (navigator.vibrate) navigator.vibrate(50);
       onLongPress();
       setIsPressing(false);
-    }, 500);
+    }, 800);
   };
 
   const handlePointerUp = () => {
@@ -111,7 +111,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
           e.preventDefault();
           if (!isReorderMode) onOptions();
         }}
-        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none touch-none ${
+        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none ${
           isSelected && !isReorderMode
             ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
             : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
@@ -350,7 +350,7 @@ export default function CategoryManager({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center select-none">
+        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center select-none" style={{ touchAction: 'pan-x' }}>
           <button
             onPointerDown={(e) => {
               if (!isReorderMode) {
@@ -638,10 +638,6 @@ export default function CategoryManager({
           -moz-user-select: none;
           -ms-user-select: none;
           -webkit-touch-callout: none;
-        }
-
-        .touch-none {
-          touch-action: none;
         }
 
         @keyframes slide-up {
