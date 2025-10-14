@@ -248,17 +248,28 @@ export default function ShoppingListPage() {
     });
   };
 
-  const clearCheckedItems = () => {
-    if (confirm('למחוק את כל הפריטים המסומנים?')) {
-      const checkedNames = Object.keys(checkedItems).filter(name => checkedItems[name]);
-      const updatedManual = manualItems.filter(item => !checkedNames.includes(item.name));
-      setManualItems(updatedManual);
-      saveManualItems(updatedManual);
-      setCheckedItems({});
-      saveCheckedItems({});
-    }
-  };
-
+  const clearCheckedItems = async () => {
+  if (confirm('למחוק את כל הפריטים המסומנים מהרשימה?')) {
+    // מצא את כל שמות הפריטים המסומנים
+    const checkedNames = Object.keys(checkedItems).filter(name => checkedItems[name]);
+    
+    // הוסף את כל הפריטים המסומנים לרשימת המחיקות
+    const normalizedCheckedNames = checkedNames.map(name => normalizeIngredientName(name));
+    const updatedDeleted = [...new Set([...deletedItems, ...normalizedCheckedNames])];
+    
+    // מחק גם פריטים ידניים שסומנו
+    const updatedManual = manualItems.filter(item => !checkedNames.includes(item.name));
+    
+    // עדכן את ה-state ושמור
+    setDeletedItems(updatedDeleted);
+    setManualItems(updatedManual);
+    setCheckedItems({});
+    
+    await saveDeletedItems(updatedDeleted);
+    await saveManualItems(updatedManual);
+    await saveCheckedItems({});
+  }
+};
   const deleteItem = (itemName: string) => {
     const normalized = normalizeIngredientName(itemName);
     const updated = [...deletedItems, normalized];
