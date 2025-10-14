@@ -430,13 +430,13 @@ export default function ShoppingItem(props: ShoppingItemProps) {
             </button>
 
             <div className="flex-1 min-w-0 flex items-center gap-2">
-              <div className="flex-1">
+              <div className="flex-1 flex items-center justify-between gap-3">
                 <div className={`font-medium ${isChecked ? "line-through text-gray-500" : "text-gray-900"}`}>
                   {name}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {qty} {unit}
                   {isManual && <span className="text-xs text-rose-500 mr-2">(ידני)</span>}
+                </div>
+                <div className="text-sm text-gray-500 whitespace-nowrap">
+                  {qty} {unit}
                 </div>
               </div>
 

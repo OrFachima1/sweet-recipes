@@ -62,7 +62,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? 'none' : transition,
     opacity: isDragging ? 0.5 : 1,
   };
 
@@ -73,7 +73,7 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
       if (navigator.vibrate) navigator.vibrate(50);
       onLongPress();
       setIsPressing(false);
-    }, 800);
+    }, 600);
   };
 
   const handlePointerUp = () => {
@@ -95,45 +95,100 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
     setIsPressing(false);
   };
 
+  const gradients = [
+    { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
+    { border: '#f093fb', bg: 'rgba(240, 147, 251, 0.1)' },
+    { border: '#4facfe', bg: 'rgba(79, 172, 254, 0.1)' },
+    { border: '#43e97b', bg: 'rgba(67, 233, 123, 0.1)' },
+    { border: '#fa709a', bg: 'rgba(250, 112, 154, 0.1)' },
+    { border: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.1)' },
+    { border: '#a29bfe', bg: 'rgba(162, 155, 254, 0.1)' },
+    { border: '#fd79a8', bg: 'rgba(253, 121, 168, 0.1)' },
+  ];
+
+  const gradientIndex = parseInt(cat.id.replace(/\D/g, '')) % gradients.length;
+  const colors = gradients[gradientIndex];
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
-      className="relative flex-shrink-0"
+      className="relative flex-shrink-0 select-none"
     >
-      <button
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        onPointerLeave={handlePointerCancel}
+      <div
+        {...(isReorderMode ? attributes : {})}
+        {...(isReorderMode ? listeners : {})}
+        onPointerDown={!isReorderMode ? handlePointerDown : undefined}
+        onPointerUp={!isReorderMode ? handlePointerUp : undefined}
+        onPointerCancel={!isReorderMode ? handlePointerCancel : undefined}
+        onPointerLeave={!isReorderMode ? handlePointerCancel : undefined}
         onContextMenu={(e) => {
           e.preventDefault();
           if (!isReorderMode) onOptions();
         }}
-        className={`w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none ${
-          isSelected && !isReorderMode
-            ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
-            : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
-        } ${isReorderMode ? 'wobble-active cursor-grab active:cursor-grabbing' : ''} ${
-          isDragging ? 'scale-110 shadow-2xl' : ''
-        } ${isPressing ? 'scale-95' : ''}`}
+        className={`relative ${
+          isReorderMode ? 'wobble-active cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+        } ${isDragging ? 'scale-105' : ''} ${isPressing ? 'scale-95' : ''}`}
+        style={{ 
+          transition: isDragging ? 'none' : 'transform 0.2s ease',
+          touchAction: isReorderMode ? 'none' : 'auto'
+        }}
       >
-        <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-          {cat.emoji}
+        <div className="relative">
+          {/* Border ring with gradient */}
+          <div 
+            className="w-[88px] h-[88px] rounded-full p-[3px] relative"
+            style={{
+              background: isSelected && !isReorderMode 
+                ? `linear-gradient(45deg, ${colors.border}, ${colors.border})` 
+                : colors.bg,
+              border: isSelected && !isReorderMode 
+                ? 'none' 
+                : `3px solid ${colors.border}`,
+              boxShadow: isSelected && !isReorderMode 
+                ? `0 4px 20px ${colors.border}40, 0 0 0 4px ${colors.bg}` 
+                : 'none',
+            }}
+          >
+            {/* Inner white circle */}
+            <div 
+              className="w-full h-full rounded-full bg-white flex items-center justify-center relative overflow-hidden"
+              style={{
+                boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.05)',
+              }}
+            >
+              <div style={{ fontSize: '42px', lineHeight: '1' }}>
+                {cat.emoji}
+              </div>
+            </div>
+          </div>
+
+          {/* Item count badge */}
+          <div 
+            className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white font-bold shadow-lg"
+            style={{
+              background: colors.border,
+              fontSize: '13px',
+              minWidth: '32px',
+              textAlign: 'center',
+            }}
+          >
+            {itemCount}
+          </div>
         </div>
-        <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
+      </div>
+      
+      <div className="text-center mt-3">
+        <div className="text-sm font-bold text-gray-800 px-1 max-w-[96px] truncate">
           {cat.name}
         </div>
-        <div className="text-xs opacity-75 h-4 flex items-center justify-center">
-          {itemCount}
-        </div>
-      </button>
+      </div>
 
       {isReorderMode && (
         <button
           onClick={onOptions}
-          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-95 z-10"
+          className="absolute top-0 right-0 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-95 z-20 border-2 border-white"
+          style={{ fontSize: '16px', fontWeight: 'bold' }}
         >
           ×
         </button>
@@ -166,16 +221,27 @@ export default function CategoryManager({
   const [previousOrder, setPreviousOrder] = useState<Category[]>([]);
   const undoTimer = useRef<number | null>(null);
 
+  const gradients = [
+    { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
+    { border: '#f093fb', bg: 'rgba(240, 147, 251, 0.1)' },
+    { border: '#4facfe', bg: 'rgba(79, 172, 254, 0.1)' },
+    { border: '#43e97b', bg: 'rgba(67, 233, 123, 0.1)' },
+    { border: '#fa709a', bg: 'rgba(250, 112, 154, 0.1)' },
+    { border: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.1)' },
+    { border: '#a29bfe', bg: 'rgba(162, 155, 254, 0.1)' },
+    { border: '#fd79a8', bg: 'rgba(253, 121, 168, 0.1)' },
+  ];
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 100,
-        tolerance: 5,
+        delay: 50,
+        tolerance: 8,
       },
     })
   );
@@ -239,27 +305,24 @@ export default function CategoryManager({
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    if (navigator.vibrate) navigator.vibrate(20);
+    if (navigator.vibrate) navigator.vibrate(30);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const allCats = filteredCategories;
-      const oldIndex = allCats.findIndex((c) => c.id === active.id);
-      const newIndex = allCats.findIndex((c) => c.id === over.id);
+      const oldIndex = filteredCategories.findIndex((c) => c.id === active.id);
+      const newIndex = filteredCategories.findIndex((c) => c.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        // Save for undo
         setPreviousOrder([...categories]);
         
-        const reordered = arrayMove(allCats, oldIndex, newIndex).map((cat, idx) => ({
+        const reordered = arrayMove(filteredCategories, oldIndex, newIndex).map((cat, idx) => ({
           ...cat,
           order: idx
         }));
 
-        // Add back the 'all' category
         const allCategory = categories.find(c => c.id === 'all');
         const finalOrder = allCategory ? [allCategory, ...reordered] : reordered;
 
@@ -267,7 +330,6 @@ export default function CategoryManager({
           onReorderCategories(finalOrder);
         }
 
-        // Show undo
         setShowUndo(true);
         if (undoTimer.current) clearTimeout(undoTimer.current);
         undoTimer.current = window.setTimeout(() => {
@@ -275,7 +337,7 @@ export default function CategoryManager({
           setPreviousOrder([]);
         }, 8000);
 
-        if (navigator.vibrate) navigator.vibrate(20);
+        if (navigator.vibrate) navigator.vibrate(30);
       }
     }
 
@@ -294,33 +356,29 @@ export default function CategoryManager({
 
   const handleFinishReorder = () => {
     setIsReorderMode(false);
-    if (navigator.vibrate) navigator.vibrate(20);
+    if (navigator.vibrate) navigator.vibrate(30);
   };
 
-  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🧴', '🧻', '🧊', '🍎', '🥕', '🍟', '🗒', '🥛', '🍳', '🌶️'];
+  const commonEmojis = ['🥬', '🥩', '🧀', '🍞', '🧂', '🥫', '🧴', '🧻', '🧊', '🎀', '🥕', '🍟', '🗑️', '🥛', '🍳', '🌶️'];
+
+  const safeItemCounts = itemCounts || {};
 
   const filteredCategories = categories.filter(c => {
     if (c.id === 'all') return false;
-    const count = itemCounts[c.id] || 0;
+    const count = safeItemCounts[c.id] || 0;
     return count > 0;
   });
   
   const allCategory = { id: 'all', name: 'הכל', emoji: '🛒', color: '' };
   const activeCat = activeId ? filteredCategories.find(c => c.id === activeId) : null;
 
+  const getColorForCategory = (catId: string) => {
+    const gradientIndex = parseInt(catId.replace(/\D/g, '')) % gradients.length;
+    return gradients[gradientIndex];
+  };
+
   return (
     <div className="relative">
-      {isReorderMode && (
-        <div className="flex justify-center mb-3 px-2">
-          <button
-            onClick={handleFinishReorder}
-            className="px-6 py-2 rounded-full bg-rose-500 text-white shadow-lg font-bold hover:bg-rose-600 active:scale-95 transition-all animate-pulse"
-          >
-            ✓ סיום
-          </button>
-        </div>
-      )}
-
       <style>{`
         @keyframes wobble {
           0% { transform: rotate(-2deg); }
@@ -331,18 +389,32 @@ export default function CategoryManager({
         }
 
         .wobble-active {
-          animation: wobble 0.35s ease-in-out infinite !important;
+          animation: wobble 0.25s ease-in-out infinite !important;
           transform-origin: center center !important;
         }
 
         .wobble-active:nth-of-type(1) { animation-delay: 0s !important; }
-        .wobble-active:nth-of-type(2) { animation-delay: 0.05s !important; }
-        .wobble-active:nth-of-type(3) { animation-delay: 0.1s !important; }
-        .wobble-active:nth-of-type(4) { animation-delay: 0.15s !important; }
-        .wobble-active:nth-of-type(5) { animation-delay: 0.2s !important; }
-        .wobble-active:nth-of-type(6) { animation-delay: 0.25s !important; }
-        .wobble-active:nth-of-type(7) { animation-delay: 0.3s !important; }
+        .wobble-active:nth-of-type(2) { animation-delay: 0.03s !important; }
+        .wobble-active:nth-of-type(3) { animation-delay: 0.06s !important; }
+        .wobble-active:nth-of-type(4) { animation-delay: 0.09s !important; }
+        .wobble-active:nth-of-type(5) { animation-delay: 0.12s !important; }
+        .wobble-active:nth-of-type(6) { animation-delay: 0.15s !important; }
+        .wobble-active:nth-of-type(7) { animation-delay: 0.18s !important; }
       `}</style>
+
+      {isReorderMode && (
+        <div className="flex justify-center mb-4 px-2">
+          <button
+            onClick={handleFinishReorder}
+            className="px-8 py-2.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-xl font-bold hover:shadow-2xl active:scale-95 transition-all"
+            style={{
+              boxShadow: '0 10px 25px rgba(244, 63, 94, 0.4)',
+            }}
+          >
+            ✓ סיום
+          </button>
+        </div>
+      )}
 
       <DndContext
         sensors={sensors}
@@ -350,37 +422,59 @@ export default function CategoryManager({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-2 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center select-none" style={{ touchAction: 'pan-x' }}>
-          <button
-            onPointerDown={(e) => {
-              if (!isReorderMode) {
-                e.currentTarget.classList.add('scale-95');
-              }
-            }}
-            onPointerUp={(e) => {
-              if (!isReorderMode) {
-                e.currentTarget.classList.remove('scale-95');
-                onSelectCategory(allCategory.id);
-              }
-            }}
-            onPointerCancel={(e) => e.currentTarget.classList.remove('scale-95')}
-            disabled={isReorderMode}
-            className={`flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl transition-all select-none ${
-              selectedCategory === allCategory.id && !isReorderMode
-                ? 'bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-lg scale-105'
-                : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm'
-            } ${isReorderMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-              {allCategory.emoji}
+        <div className="flex gap-4 overflow-x-auto pb-4 px-2 scrollbar-hide justify-center">
+          <div className="flex-shrink-0 select-none">
+            <div
+              onClick={() => !isReorderMode && onSelectCategory(allCategory.id)}
+              className={`relative ${isReorderMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              style={{ transition: 'transform 0.2s ease' }}
+            >
+              <div className="relative">
+                <div 
+                  className="w-[88px] h-[88px] rounded-full p-[3px] relative"
+                  style={{
+                    background: selectedCategory === allCategory.id && !isReorderMode
+                      ? 'linear-gradient(45deg, #667eea, #764ba2)'
+                      : 'rgba(102, 126, 234, 0.1)',
+                    border: selectedCategory === allCategory.id && !isReorderMode
+                      ? 'none'
+                      : '3px solid #667eea',
+                    boxShadow: selectedCategory === allCategory.id && !isReorderMode
+                      ? '0 4px 20px rgba(102, 126, 234, 0.4), 0 0 0 4px rgba(102, 126, 234, 0.1)'
+                      : 'none',
+                  }}
+                >
+                  <div 
+                    className="w-full h-full rounded-full bg-white flex items-center justify-center relative overflow-hidden"
+                    style={{
+                      boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.05)',
+                    }}
+                  >
+                    <div style={{ fontSize: '42px', lineHeight: '1' }}>
+                      {allCategory.emoji}
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white font-bold shadow-lg"
+                  style={{
+                    background: '#667eea',
+                    fontSize: '13px',
+                    minWidth: '32px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {Object.values(safeItemCounts).reduce((sum, count) => sum + count, 0)}
+                </div>
+              </div>
             </div>
-            <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
-              {allCategory.name}
+            <div className="text-center mt-3">
+              <div className="text-sm font-bold text-gray-800">
+                {allCategory.name}
+              </div>
             </div>
-            <div className="text-xs opacity-75 h-4 flex items-center justify-center">
-              {Object.values(itemCounts).reduce((sum, count) => sum + count, 0)}
-            </div>
-          </button>
+          </div>
 
           <SortableContext items={filteredCategories.map(c => c.id)} strategy={horizontalListSortingStrategy}>
             {filteredCategories.map((cat) => (
@@ -389,7 +483,7 @@ export default function CategoryManager({
                 cat={cat}
                 isSelected={selectedCategory === cat.id}
                 isReorderMode={isReorderMode}
-                itemCount={itemCounts[cat.id] || 0}
+                itemCount={safeItemCounts[cat.id] || 0}
                 onTap={() => onSelectCategory(cat.id)}
                 onLongPress={handleLongPress}
                 onOptions={() => setShowOptionsFor(cat.id)}
@@ -398,32 +492,81 @@ export default function CategoryManager({
           </SortableContext>
 
           {!isReorderMode && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex-shrink-0 w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 text-green-600 shadow-sm transition-all active:scale-95 border-2 border-dashed border-green-300"
-            >
-              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-                +
+            <div className="flex-shrink-0 select-none">
+              <div
+                onClick={() => setShowAddModal(true)}
+                className="cursor-pointer active:scale-95"
+                style={{ transition: 'transform 0.2s ease' }}
+              >
+                <div className="relative">
+                  <div 
+                    className="w-[88px] h-[88px] rounded-full p-[3px]"
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '3px dashed #10b981',
+                    }}
+                  >
+                    <div 
+                      className="w-full h-full rounded-full bg-white flex items-center justify-center"
+                      style={{
+                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.05)',
+                      }}
+                    >
+                      <div style={{ fontSize: '42px', lineHeight: '1', color: '#10b981', fontWeight: 'bold' }}>
+                        +
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center">
-                הוסף
+              <div className="text-center mt-3">
+                <div className="text-sm font-bold text-gray-800">
+                  הוסף
+                </div>
               </div>
-              <div className="h-4"></div>
-            </button>
+            </div>
           )}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeCat ? (
-            <div className="w-24 h-28 flex flex-col items-center justify-center p-2 rounded-2xl bg-white shadow-2xl scale-110 opacity-90">
-              <div className="w-14 h-14 flex items-center justify-center mb-1" style={{ fontSize: '40px', lineHeight: '1' }}>
-                {activeCat.emoji}
+            <div className="flex-shrink-0 select-none" style={{ cursor: 'grabbing' }}>
+              <div className="relative">
+                <div 
+                  className="w-[88px] h-[88px] rounded-full p-[3px] shadow-2xl"
+                  style={{
+                    background: `linear-gradient(45deg, ${getColorForCategory(activeCat.id).border}, ${getColorForCategory(activeCat.id).border})`,
+                    transform: 'scale(1.1) rotate(5deg)',
+                  }}
+                >
+                  <div 
+                    className="w-full h-full rounded-full bg-white flex items-center justify-center"
+                    style={{
+                      boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.05)',
+                    }}
+                  >
+                    <div style={{ fontSize: '42px', lineHeight: '1' }}>
+                      {activeCat.emoji}
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white font-bold shadow-lg"
+                  style={{
+                    background: getColorForCategory(activeCat.id).border,
+                    fontSize: '13px',
+                    minWidth: '32px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {safeItemCounts[activeCat.id] || 0}
+                </div>
               </div>
-              <div className="text-sm font-medium text-center leading-tight min-h-8 flex items-center px-1">
-                {activeCat.name}
-              </div>
-              <div className="text-xs opacity-75 h-4 flex items-center justify-center">
-                {itemCounts[activeCat.id] || 0}
+              <div className="text-center mt-3">
+                <div className="text-sm font-bold text-gray-800">
+                  {activeCat.name}
+                </div>
               </div>
             </div>
           ) : null}
@@ -431,7 +574,7 @@ export default function CategoryManager({
       </DndContext>
 
       {showUndo && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-slide-up">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-slide-up">
           <span className="text-sm font-medium">סידור בוצע</span>
           <button
             onClick={handleUndo}
@@ -630,14 +773,6 @@ export default function CategoryManager({
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
-        }
-
-        .select-none {
-          user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-          -webkit-touch-callout: none;
         }
 
         @keyframes slide-up {
