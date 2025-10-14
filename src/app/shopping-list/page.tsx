@@ -208,18 +208,25 @@ export default function ShoppingListPage() {
     }
   };
 
-  const updateCategoryName = (catId: string, newName: string) => {
+  const updateCategoryName = (catId: string, newName: string, newEmoji?: string) => {
     const updated = categories.map(c => 
-      c.id === catId ? { ...c, name: newName } : c
+        c.id === catId 
+        ? { 
+            ...c, 
+            name: newName,
+            emoji: newEmoji || c.emoji  // שמור את האימוג'י החדש או הישן
+            } 
+        : c
     );
+    
     setCategories(updated);
     
     setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
-      categories: updated,
-      itemCategories,
-      updatedAt: new Date().toISOString()
+        categories: updated,
+        itemCategories,
+        updatedAt: new Date().toISOString()
     });
-  };
+    };
 
   const deleteCategory = (catId: string) => {
     
