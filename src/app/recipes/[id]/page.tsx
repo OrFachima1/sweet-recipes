@@ -426,8 +426,7 @@ export default function RecipePage() {
               onClick={() => router.back()} 
               className="group flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/70 backdrop-blur-md shadow-md shadow-rose-200/30 hover:shadow-lg hover:bg-white transition-all hover:scale-105 border border-white/50"
             >
-              <span className="text-lg group-hover:-translate-x-1 transition-transform">⬅</span>
-              <span className="font-semibold text-sm">חזרה</span>
+              <span className="text-lg group-hover:-translate-x-1 transition-transform">➡</span>
             </button>
             
             {isManager && (

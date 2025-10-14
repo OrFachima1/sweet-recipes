@@ -67,12 +67,29 @@ if (typeof window !== "undefined" && USE_EMU) {
 }
 
 // Helper for manual anonymous sign-in (usable in prod too)
+// Helper for manual anonymous sign-in (usable in prod too)
 export async function ensureAnonAuth() {
-  if (auth.currentUser) return auth.currentUser;
-  const cred = await signInAnonymously(auth);
-  return cred.user;
+  // ✅ חכה שה-auth יטען לגמרי
+  return new Promise((resolve, reject) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      unsub(); // בטל האזנה
+      
+      if (user) {
+        // יש כבר משתמש מחובר - תחזיר אותו
+        resolve(user);
+      } else {
+        // אין משתמש - נסה להתחבר אנונימית
+        signInAnonymously(auth)
+          .then((cred) => resolve(cred.user))
+          .catch((error) => {
+            // אם נכשל - תמשיך בלי auth
+            console.warn("[AUTH] Failed to sign in anonymously:", error);
+            resolve(null);
+          });
+      }
+    });
+  });
 }
-
 // Small probe to verify connectivity from browser console
 declare global {
   interface Window {
