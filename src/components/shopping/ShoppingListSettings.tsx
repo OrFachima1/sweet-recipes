@@ -298,7 +298,6 @@ export default function ShoppingListSettings({
             ...s,
             recipeId: `manual_${menuItemName}`,
             recipeName: 'הגדרה ידנית',
-            originalRecipeId: undefined,
             customIngredients: [],
             enabled: true
           };
@@ -339,19 +338,45 @@ export default function ShoppingListSettings({
     );
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await onSave(recipeSettings);
-      onClose();
-    } catch (error) {
-      console.error('שגיאה בשמירה:', error);
-      alert('שגיאה בשמירת ההגדרות. נסי שוב.');
-    } finally {
-      setIsSaving(false);
+  const cleanUndefinedValues = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefinedValues(item));
+  }
+  
+  const cleaned: any = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleaned[key] = typeof value === 'object' && value !== null 
+        ? cleanUndefinedValues(value)
+        : value;
     }
-  };
+  });
+  
+  return cleaned;
+};
 
+const handleSave = async () => {
+  setIsSaving(true);
+  try {
+    // נקה את כל ה-undefined values
+    const cleanedSettings = cleanUndefinedValues(recipeSettings);
+    
+    // הדפס לקונסול כדי לראות מה נשמר
+    console.log('💾 שומר הגדרות:', cleanedSettings);
+    
+    await onSave(cleanedSettings);
+    onClose();
+  } catch (error) {
+    console.error('שגיאה בשמירה:', error);
+    alert('שגיאה בשמירת ההגדרות. נסה שוב.');
+  } finally {
+    setIsSaving(false);
+  }
+};
   if (!show) return null;
 
   const selectedSetting = selectedRecipe 
