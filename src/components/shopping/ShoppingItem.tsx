@@ -44,9 +44,11 @@ export default function ShoppingItem(props: ShoppingItemProps) {
   const velocity = useRef(0);
   const rafRef = useRef<number | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const velocityHistory = useRef<number[]>([]); // שמירת היסטוריית מהירויות
 
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSwipeStarted, setIsSwipeStarted] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
   const [showUndoBar, setShowUndoBar] = useState(false);
@@ -55,10 +57,12 @@ export default function ShoppingItem(props: ShoppingItemProps) {
   const [showSources, setShowSources] = useState(false);
 
   const MAX_REVEAL = 120;
-  const RELEASE_THRESHOLD = MAX_REVEAL * 0.66;
+  const RELEASE_THRESHOLD = MAX_REVEAL * 2; // 90 פיקסלים
   const SNAP_BACK_EASING = "cubic-bezier(.22,.9,.1,1)";
   const TRANSITION_MS = 220;
   const UNDO_TIMEOUT = 4000;
+  const MIN_SWIPE_DISTANCE = 25; // מרחק מינימלי להתחלת סוויפ - הגדלתי ל-25
+  const VELOCITY_THRESHOLD = 1500; // סף מהירות גבוה יותר
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (isRemoving || showUndoBar) return;
@@ -67,6 +71,7 @@ export default function ShoppingItem(props: ShoppingItemProps) {
     lastX.current = e.clientX;
     lastT.current = performance.now();
     velocity.current = 0;
+    velocityHistory.current = []; // איפוס היסטוריה
     setIsDragging(true);
 
     if (containerRef.current) {
@@ -78,12 +83,41 @@ export default function ShoppingItem(props: ShoppingItemProps) {
     if (!isDragging || isRemoving || showUndoBar) return;
     const x = e.clientX;
     const dx = x - startX.current;
+    
+    // בדיקת כיוון - רק ימינה
+    if (dx < 0) {
+      return;
+    }
+    
+    // אם עדיין לא התחלנו סוויפ, בודקים אם עברנו את הסף המינימלי
+    if (!isSwipeStarted && dx < MIN_SWIPE_DISTANCE) {
+      return;
+    }
+    
+    // אם עברנו את הסף, מסמנים שהסוויפ התחיל
+    if (!isSwipeStarted) {
+      setIsSwipeStarted(true);
+    }
+    
     const now = performance.now();
-    const dt = Math.max(1, now - lastT.current);
-    velocity.current = (x - lastX.current) / dt;
+    const dt = Math.max(16, now - lastT.current); // מינימום 16ms (60fps) למנוע spikes
+    
+    // חישוב מהירות מוחלק
+    const instantVelocity = (x - lastX.current) / dt;
+    velocityHistory.current.push(instantVelocity);
+    
+    // שמירת רק 5 הערכים האחרונים
+    if (velocityHistory.current.length > 5) {
+      velocityHistory.current.shift();
+    }
+    
+    // ממוצע של המהירויות לחלקות
+    velocity.current = velocityHistory.current.reduce((a, b) => a + b, 0) / velocityHistory.current.length;
+    
     lastX.current = x;
     lastT.current = now;
 
+    // עכשיו ה-offset מתחיל לספור מהנקודה שעברנו את הסף
     let target = Math.max(0, dx);
     if (target > MAX_REVEAL) {
       const extra = target - MAX_REVEAL;
@@ -182,22 +216,25 @@ export default function ShoppingItem(props: ShoppingItemProps) {
   const onPointerUp = (e?: React.PointerEvent) => {
     if (!isDragging || isRemoving || showUndoBar) return;
     setIsDragging(false);
+    
+    const wasSwipeStarted = isSwipeStarted;
+    setIsSwipeStarted(false);
 
     try {
       (e?.target as Element)?.releasePointerCapture?.((e as any)?.pointerId);
     } catch (err) {}
 
+    // מחיקה רק אם:
+    // 1. הסוויפ באמת התחיל (עברנו MIN_SWIPE_DISTANCE)
+    // 2. וגם עברנו את סף המרחק או המהירות (אבל לא רק מהירות!)
     const v_px_s = velocity.current * 1000;
-    const shouldDelete = offset > RELEASE_THRESHOLD || v_px_s > 700;
+    const passedDistanceThreshold = offset > RELEASE_THRESHOLD;
+    const passedVelocityThreshold = v_px_s > VELOCITY_THRESHOLD && offset > RELEASE_THRESHOLD * 0.5;
+    
+    const shouldDelete = wasSwipeStarted && (passedDistanceThreshold || passedVelocityThreshold);
 
     if (shouldDelete) {
-      const remainingPx = Math.max(0, window.innerWidth + 200 - offset);
-      let slideDuration = 260;
-      if (Math.abs(v_px_s) > 120) {
-        const estimate = (remainingPx / Math.abs(v_px_s)) * 1000;
-        slideDuration = Math.max(100, Math.min(450, Math.round(estimate)));
-      }
-      slideOutThenCollapse(slideDuration);
+      slideOutThenCollapse(260);
     } else {
       animateSetOffset(0, TRANSITION_MS);
     }
