@@ -28,7 +28,15 @@ interface OrderCardProps {
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
 }
-
+function translateStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    'pending': 'ממתין',
+    'partial': 'בביצוע',
+    'almost': 'כמעט גמור',
+    'done': 'הושלם'
+  };
+  return statusMap[status] || status;
+}
 export default function OrderCard({
   order,
   mode,
@@ -62,6 +70,7 @@ export default function OrderCard({
     Array.isArray(order.orderNotes) ? order.orderNotes.join("\n") : order.orderNotes || ""
   );
   const [currentBgColor, setCurrentBgColor] = useState(clientColor || '#73a1ecff'); // 🔥 שמירה מקומית!
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // Permissions - עריכה בכל המצבים, מחיקה רק ב-day
   const canEdit = !!onEditItem;
@@ -239,37 +248,112 @@ export default function OrderCard({
         </div>
       </div>
 
-      {/* History Section */}
-      {tracking && showHistory && orderHistory.length > 0 && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-3 border-b-2 border-blue-200">
-          <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-            <span>📜</span>
-            <span>היסטוריית שינויים</span>
-            <span className="text-xs text-gray-600">({orderHistory.length})</span>
-          </h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {orderHistory.slice(0, 3).map(log => (
-              <div key={log.id} className="bg-white rounded-lg px-3 py-2 border border-blue-200 shadow-sm">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-blue-700 text-xs">👤 {log.userName}</span>
-                  <span className="text-xs text-gray-500">
-                    {log.timestamp.toLocaleString('he-IL', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-700">
-                  {log.changes?.length || 0} שינויים
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
+{/* History Section */}
+{tracking && showHistory && orderHistory.length > 0 && (
+  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-3 border-b-2 border-blue-200">
+    <div className="flex items-center justify-between mb-2">
+      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+        <span>📜</span>
+        <span>היסטוריית שינויים</span>
+        <span className="text-xs text-gray-600">({orderHistory.length})</span>
+      </h4>
+      {/* 🔥 כפתור להצגת הכל */}
+      {orderHistory.length > 3 && (
+        <button
+          onClick={() => setShowAllHistory(!showAllHistory)}
+          className="text-xs text-blue-600 hover:text-blue-700 underline"
+        >
+          {showAllHistory ? 'הצג פחות' : `הצג הכל (${orderHistory.length})`}
+        </button>
+      )}
+    </div>
+    
+    <div className="space-y-2 max-h-96 overflow-y-auto">
+      {(showAllHistory ? orderHistory : orderHistory.slice(0, 3)).map(log => {
+        // 🔥 קיבוץ שינויים לפי פריט
+        const groupedByItem = log.changes?.reduce((acc, change) => {
+          if (!acc[change.itemTitle]) {
+            acc[change.itemTitle] = [];
+          }
+          acc[change.itemTitle].push(change);
+          return acc;
+        }, {} as Record<string, typeof log.changes>) || {};
+
+        return (
+          <div key={log.id} className="bg-white rounded-lg px-3 py-2 border border-blue-200 shadow-sm">
+            {/* Header של הלוג */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-blue-700 text-xs">👤 {log.userName}</span>
+              <span className="text-xs text-gray-500">
+                {log.timestamp.toLocaleString('he-IL', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+            
+            {/* 🔥 פירוט השינויים - מקובץ לפי פריט */}
+            {Object.keys(groupedByItem).length > 0 ? (
+              <div className="space-y-1.5">
+                {Object.entries(groupedByItem).map(([itemTitle, changes], idx) => (
+                  <div key={idx} className="text-xs bg-gray-50 rounded px-2 py-1.5 border-r-2 border-blue-400">
+                    {/* שם הפריט */}
+                    <div className="font-semibold text-gray-800 mb-1">
+                      {itemTitle}
+                    </div>
+                    
+                    {/* 🔥 כל השינויים של הפריט - באותה שורה אם אפשר */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-gray-600">
+                      {changes.map((change, changeIdx) => (
+                        <span key={changeIdx}>
+                          {change.type === 'status' && (
+                            <>
+                              <span className="text-gray-500">סטטוס:</span>{' '}
+                              <span className="text-red-500">{translateStatus(change.oldValue)}</span>
+                              {' ← '}
+                              <span className="text-green-600 font-semibold">{translateStatus(change.newValue)}</span>
+                            </>
+                          )}
+                          {change.type === 'completed' && (
+                            <>
+                              <span className="text-gray-500">הושלמו:</span>{' '}
+                              <span className="text-red-500">{change.oldValue}</span>
+                              {' ← '}
+                              <span className="text-green-600 font-semibold">{change.newValue}</span>
+                            </>
+                          )}
+                          {change.type === 'missingNote' && (
+                            <>
+                              <span className="text-gray-500">הערה:</span>{' '}
+                              <span className="text-amber-600 font-semibold">"{change.newValue}"</span>
+                            </>
+                          )}
+                          {change.type === 'note' && (
+                            <>
+                              <span className="text-gray-500">הערה:</span>{' '}
+                              <span className="text-blue-600">"{change.newValue}"</span>
+                            </>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 italic">
+                {log.description}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
       {/* Order Notes Section */}
       <div className={bodyPadding}>
                   <div className="mb-3 bg-yellow-50 rounded-lg p-2 border border-yellow-200">
