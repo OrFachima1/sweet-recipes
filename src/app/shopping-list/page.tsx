@@ -11,6 +11,7 @@ import ShoppingHeader from '@/components/shopping/ShoppingHeader';
 import { ShoppingToolbar } from '@/components/shopping/ShoppingToolbar';
 import { AddItemModal } from '@/components/shopping/AddItemModal';
 import { useShoppingList, ShoppingListItem } from '@/hooks/useShoppingList';
+import LoadingScreen from "@/components/LoadingScreen";
 
 const normalizeIngredientName = (name: string): string => {
   return name
@@ -323,16 +324,7 @@ export default function ShoppingListPage() {
   }
 };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 border-4 border-rose-300 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-rose-500 text-2xl font-bold">טוען...</div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
   const totalItems = filteredAndSortedItems.length;
   const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
