@@ -132,6 +132,30 @@ export default function OrdersCalendarPage({
     settings.updateIgnored(newIgnored);
     firebase.saveSettings(settings.mapping, newIgnored);
   }, [settings, firebase]);
+const editOrderNotes = useCallback((orderId: string, notes: string) => {
+  if (!isManager) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+  
+  // 🔥 וידוא שההערות לא יהיו undefined - המרה ל-null אם ריק
+  const cleanNotes = notes?.trim() || null;
+  
+  console.log('📝 Editing order notes:', { orderId, notes, cleanNotes });
+  
+  const next = state.orders.map(o =>
+    o.__id !== orderId 
+      ? o 
+      : { 
+          ...o, 
+          orderNotes: cleanNotes  // 🔥 שימוש ב-cleanNotes במקום notes
+        }
+  );
+  
+  console.log('📝 After update:', next.find(o => o.__id === orderId));
+  
+  firebase.persist(next);
+}, [isManager, state.orders, firebase]);
 
   // ===== Loading State =====
   if (authLoading) {
@@ -145,25 +169,6 @@ export default function OrdersCalendarPage({
   const dayKey = navigation.selectedDayKey;
   const today = navigation.today;
   const monthLbl = navigation.monthLabel;
-// ===== Edit Order Notes =====
-const editOrderNotes = (orderId: string, notes: string) => {
-  if (!isManager) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
-  }
-  
-  console.log('🔍 Before update:', state.orders.find(o => o.__id === orderId));
-  
-  const next = state.orders.map(o =>
-    o.__id !== orderId ? o : { ...o, orderNotes: notes }
-  );
-  
-  console.log('🔍 After update:', next.find(o => o.__id === orderId));
-  console.log('🔍 Total orders before:', state.orders.length);
-  console.log('🔍 Total orders after:', next.length);
-  
-  firebase.persist(next);
-};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
@@ -172,13 +177,15 @@ const editOrderNotes = (orderId: string, notes: string) => {
         <div className="text-2xl font-bold text-gray-900">
           שלום {displayName || user?.email || 'עובד'} {isManager && <span className="text-blue-600">(מנהל)</span>}
         </div>
-        <button
-          onClick={() => modals.setShowSettings(true)}
-          className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 hover:border-blue-500 transition-all shadow-sm flex items-center gap-2"
-        >
-          <span>⚙️</span>
-          <span>הגדרות</span>
-        </button>
+        {isManager && (
+          <button
+            onClick={() => modals.setShowSettings(true)}
+            className="fixed left-3 top-[4.5rem] md:left-4 md:top-20 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white active:scale-95 grid place-items-center backdrop-blur transition-all"
+            aria-label="הגדרות"
+          >
+            <span className="text-2xl">⚙️</span>
+          </button>
+        )}
       </div>
 
       {navigation.mainView === "calendar" && (
@@ -282,6 +289,8 @@ const editOrderNotes = (orderId: string, notes: string) => {
                 <DayOrdersList
                   dayKey={dayKey}
                   daysMap={daysMap}
+                  isManager={isManager}
+                  menuOptions={state.menuOptions}
                   deleteOrder={isManager ? actions.deleteOrder : undefined}
                   editOrderItem={isManager ? actions.editOrderItem : undefined}
                   removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
@@ -303,30 +312,45 @@ const editOrderNotes = (orderId: string, notes: string) => {
 
       {/* Clients View */}
       {navigation.mainView === "clients" && (
-       <ClientsView
-        orders={state.orders}
-        onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
-        recipeLinks={settings.recipeLinks}
-        onEditItem={isManager ? actions.editOrderItem : undefined} // 🔥 הוסף שורה זו!
-        onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
-      />
+        <ClientsView
+          orders={state.orders}
+          onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+          recipeLinks={settings.recipeLinks}
+          
+          // 🔥 כל הפרופס הנדרשים לעריכה ומעקב
+          onEditItem={isManager ? actions.editOrderItem : undefined}
+          onEditOrderNotes={isManager ? editOrderNotes : undefined}
+          onRemoveItem={isManager ? actions.removeItemFromOrder : undefined}
+          onDeleteOrder={isManager ? actions.deleteOrder : undefined}
+          onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+          
+          // 🔥 פרופס למעקב אחר הערות
+          noteOpen={modals.noteOpen}
+          toggleNote={modals.toggleNote}
+          
+          // 🔥 מידע נוסף
+          isManager={isManager}
+          menuOptions={state.menuOptions}
+        />
       )}
 
       {/* Day Modal */}
       {state.dayModalKey && (
         <DayModal
           dayKey={state.dayModalKey}
+          menuOptions={state.menuOptions}
           onClose={() => state.setDayModalKey(null)}
           daysMap={daysMap}
           deleteOrder={isManager ? actions.deleteOrder : undefined}
           editOrderItem={isManager ? actions.editOrderItem : undefined}
           removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
           onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
-          onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
+          onEditOrderNotes={isManager ? editOrderNotes : undefined}
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
           isManager={isManager}
-          updateClientColor={updateClientColor}
+          // 🔥 תיקון קריטי: העברת updateClientColor ו-getClientColor
+          updateClientColor={isManager ? updateClientColor : undefined}
           getClientColor={getClientColor}
           recipeLinks={settings.recipeLinks}
         />

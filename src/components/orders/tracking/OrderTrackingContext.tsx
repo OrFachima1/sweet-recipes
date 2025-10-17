@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
@@ -58,6 +58,7 @@ interface OrderTrackingContextType {
   clearOrderChanges: (orderId: string) => void;
   currentUser: string;
   setCurrentUser: (name: string) => void;
+  hasUnsavedChanges: boolean; // 🔥 הוספה!
 }
 
 const OrderTrackingContext = createContext<OrderTrackingContextType | undefined>(undefined);
@@ -70,8 +71,10 @@ interface OrderTrackingProviderProps {
 
 export function OrderTrackingProvider({ children, userName, userId }: OrderTrackingProviderProps) {
   const [itemStates, setItemStates] = useState<Record<string, OrderItemState>>({});
+  const [savedItemStates, setSavedItemStates] = useState<Record<string, OrderItemState>>({}); // 🔥 מצב שמור
   const [noteStates, setNoteStates] = useState<Record<string, boolean>>({});
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const [savedItemNotes, setSavedItemNotes] = useState<Record<string, string>>({}); // 🔥 הערות שמורות
   const [changeLogs, setChangeLogs] = useState<ChangeLog[]>([]);
   const [currentUser, setCurrentUser] = useState<string>(userName || "עובד");
 
@@ -85,6 +88,16 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
       setCurrentUser(userName);
     }
   }, [userName]);
+
+  // 🔥 חישוב האם יש שינויים לא שמורים
+  const hasUnsavedChanges = useMemo(() => {
+    // השוואת itemStates
+    const statesChanged = JSON.stringify(itemStates) !== JSON.stringify(savedItemStates);
+    // השוואת itemNotes
+    const notesChanged = JSON.stringify(itemNotes) !== JSON.stringify(savedItemNotes);
+    
+    return statesChanged || notesChanged;
+  }, [itemStates, savedItemStates, itemNotes, savedItemNotes]);
 
   // 🔥 טעינת היסטוריה מ-Firestore
   useEffect(() => {
@@ -116,8 +129,13 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
     const unsub = onSnapshot(statesDoc, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setItemStates(data.itemStates || {});
-        setItemNotes(data.itemNotes || {});
+        const loadedStates = data.itemStates || {};
+        const loadedNotes = data.itemNotes || {};
+        
+        setItemStates(loadedStates);
+        setSavedItemStates(loadedStates); // 🔥 שומרים גם את הגרסה השמורה
+        setItemNotes(loadedNotes);
+        setSavedItemNotes(loadedNotes); // 🔥 שומרים גם את הגרסה השמורה
       }
     });
 
@@ -140,6 +158,7 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
     const key = getItemKey(orderId, itemIdx);
     const oldState = getItemState(orderId, itemIdx);
     
+    // 🔥 רק עדכון מקומי - לא שמירה ל-Firebase!
     if (!initialStatesRef.current[orderId]) {
       initialStatesRef.current[orderId] = {
         itemStates: itemStates[orderId] || {},
@@ -171,6 +190,7 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
   ) => {
     const key = getItemKey(orderId, itemIdx);
     
+    // 🔥 רק עדכון מקומי - לא שמירה ל-Firebase!
     if (!initialStatesRef.current[orderId]) {
       initialStatesRef.current[orderId] = {
         itemStates: itemStates[orderId] || {},
@@ -187,14 +207,17 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
     }));
   }, [itemNotes, itemStates]);
 
-  // 🔥 שמירה ל-Firestore כשסוגרים
+  // 🔥 שמירה ל-Firestore - רק כשקוראים לפונקציה הזו!
   const saveOrderChanges = useCallback(async (
     orderId: string,
     orderName: string,
     items: any[]
   ) => {
     const initialData = initialStatesRef.current[orderId];
-    if (!initialData) return;
+    if (!initialData) {
+      // אין שינויים לשמור עבור ההזמנה הזו
+      return;
+    }
 
     const changes: Array<{
       type: 'status' | 'note' | 'missingNote' | 'completed';
@@ -283,18 +306,49 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
         
         await batch.commit();
         
+        // 🔥 עדכון המצב השמור אחרי שמירה מוצלחת
+        setSavedItemStates({...itemStates});
+        setSavedItemNotes({...itemNotes});
+        
         setChangeLogs(prev => [newLog, ...prev]);
       } catch (e) {
         console.error("Failed to save to Firebase:", e);
+        throw e; // 🔥 זורקים את השגיאה כדי ש-DayModal יוכל לטפל בה
       }
     }
 
+    // ניקוי ה-ref אחרי שמירה
     delete initialStatesRef.current[orderId];
   }, [itemStates, itemNotes, currentUser, userId]);
 
   const clearOrderChanges = useCallback((orderId: string) => {
+    // 🔥 מנקה את ה-ref ומאפס את המצב המקומי למצב השמור
     delete initialStatesRef.current[orderId];
-  }, []);
+    
+    // 🔥 מאפס את השינויים הלא שמורים למצב השמור האחרון
+    setItemStates(prev => {
+      const updated = { ...prev };
+      if (savedItemStates[orderId]) {
+        updated[orderId] = savedItemStates[orderId];
+      }
+      return updated;
+    });
+    
+    setItemNotes(prev => {
+      const updated = { ...prev };
+      // מחזיר את ההערות למצב השמור
+      Object.keys(prev).forEach(key => {
+        if (key.startsWith(`${orderId}:`)) {
+          if (savedItemNotes[key]) {
+            updated[key] = savedItemNotes[key];
+          } else {
+            delete updated[key];
+          }
+        }
+      });
+      return updated;
+    });
+  }, [savedItemStates, savedItemNotes]);
 
   const getOrderHistory = useCallback((orderId: string): ChangeLog[] => {
     return changeLogs
@@ -315,7 +369,8 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
     saveOrderChanges,
     clearOrderChanges,
     currentUser,
-    setCurrentUser
+    setCurrentUser,
+    hasUnsavedChanges // 🔥 חשוף החוצה!
   };
 
   return (

@@ -155,78 +155,78 @@ export function useOrdersFirebase({
 
   // ===== Persist Orders to Firestore =====
   const persist = useCallback(
-    async (next: IngestJsonOrder[]) => {
-      if (!user || !isManager) return;
+  async (next: IngestJsonOrder[]) => {
+    if (!user || !isManager) return;
 
-      try {
-        const batch = writeBatch(db);
+    try {
+      const batch = writeBatch(db);
 
-        // משאירים רק כאלה עם __id
-        const validOrders = next.filter((o) => o.__id);
+      // משאירים רק כאלה עם __id
+      const validOrders = next.filter((o) => o.__id);
 
-        if (validOrders.length === 0) return;
+      if (validOrders.length === 0) return;
 
-        // מחיקת הזמנות שנמחקו
-        const currentIds = new Set(validOrders.map((o) => o.__id!));
-        const deletedIds = orders
-          .filter((o) => o.__id && !currentIds.has(o.__id))
-          .map((o) => o.__id!);
+      // מחיקת הזמנות שנמחקו
+      const currentIds = new Set(validOrders.map((o) => o.__id!));
+      const deletedIds = orders
+        .filter((o) => o.__id && !currentIds.has(o.__id))
+        .map((o) => o.__id!);
 
-        for (const id of deletedIds) {
-          batch.delete(doc(db, 'orders', id));
-        }
-
-        // עדכון / יצירה
-        for (const order of validOrders) {
-          const orderDoc = doc(db, 'orders', order.__id!);
-
-          // ניקוי undefined → null
-          const cleanData: any = {
-            orderId: order.orderId ?? null,
-            clientName: order.clientName ?? null,
-            clientColor:
-              order.clientColor || getClientColorRef.current(order.clientName),
-            eventDate: order.eventDate ?? null,
-            status: order.status ?? 'new',
-            items: (order.items || []).map((item) => ({
-              title: item.title ?? null,
-              qty: typeof item.qty === 'number' ? item.qty : 1,
-              unit: item.unit ?? null,
-              notes: item.notes ?? null,
-            })),
-            orderNotes: order.orderNotes ?? null,
-            totalSum: typeof order.totalSum === 'number' ? order.totalSum : null,
-            currency: order.currency ?? null,
-            source: order.source ?? null,
-            meta: order.meta ?? null,
-            // אם זה יצירה חדשה, זה יהיה ה-createdAt; בעדכונים הוא יכול להישאר כפי שהיה.
-          };
-
-          // משתמשים ב-merge כדי לא לשכתב מסמך ללא צורך
-          // (אם אתה רוצה למנוע כתיבה כשהתוכן זהה, אפשר להוסיף כאן guard עם getDoc+השוואה)
-          writeBatch; // no-op to satisfy import in some bundlers
-          // set כרגיל:
-          // הערה: אם תרצה ממש לצמצם כתיבות, החלף ל-set עם merge:true רק כשיש שינוי אמיתי.
-          // כאן נשאיר כמו שהיה אצלך (שקול Guard בהמשך אם עדיין רואים הרבה writes).
-          // כדי לשמור על ההתנהגות הקודמת שלך:
-          // batch.set(orderDoc, cleanData);  // ← אם תרצה תמיד לשכתב
-          // עדיף:
-          // batch.set(orderDoc, cleanData, { merge: true });
-
-          batch.set(orderDoc, cleanData, { merge: true });
-        }
-
-        await batch.commit();
-      } catch (e: any) {
-        console.error('שגיאה בשמירה:', e);
-        alert(
-          `שגיאה בשמירה ל-Firebase: ${e?.message || e?.code || 'Unknown error'}`
-        );
+      for (const id of deletedIds) {
+        batch.delete(doc(db, 'orders', id));
       }
-    },
-    [user, isManager, orders] // לא תלוי בפונקציות משתנות
-  );
 
+      // עדכון / יצירה
+      for (const order of validOrders) {
+        const orderDoc = doc(db, 'orders', order.__id!);
+
+        // ניקוי undefined → null
+        const cleanData: any = {
+          orderId: order.orderId ?? null,
+          clientName: order.clientName ?? null,
+          clientColor: order.clientColor || getClientColorRef.current(order.clientName),
+          eventDate: order.eventDate ?? null,
+          status: order.status ?? 'new',
+          items: (order.items || []).map((item) => ({
+            title: item.title ?? null,
+            qty: typeof item.qty === 'number' ? item.qty : 1,
+            unit: item.unit ?? null,
+            notes: item.notes ?? null,
+          })),
+          // 🔥 תיקון קריטי: בדיקה מפורשת ל-undefined
+          orderNotes: order.orderNotes === undefined ? null : (order.orderNotes || null),
+          totalSum: typeof order.totalSum === 'number' ? order.totalSum : null,
+          currency: order.currency ?? null,
+          source: order.source ?? null,
+          meta: order.meta ?? null,
+        };
+
+        // 🔥 בדיקה נוספת - אם יש undefined בנתונים, החלף ל-null
+        const finalData = JSON.parse(
+          JSON.stringify(cleanData, (key, value) => value === undefined ? null : value)
+        );
+
+        console.log('💾 Persisting order:', { 
+          orderId: order.__id, 
+          orderNotes: finalData.orderNotes,
+          orderNotesType: typeof finalData.orderNotes,
+          hasUndefined: JSON.stringify(finalData).includes('undefined')
+        });
+
+        batch.set(orderDoc, finalData, { merge: true });
+      }
+
+      await batch.commit();
+      console.log('✅ Successfully persisted orders');
+    } catch (e: any) {
+      console.error('❌ Error persisting orders:', e);
+      alert(
+        `שגיאה בשמירה ל-Firebase: ${e?.message || e?.code || 'Unknown error'}`
+      );
+    }
+  },
+  [user, isManager, orders]
+);
   // ===== Save Settings to Firestore =====
   const saveSettings = useCallback(
     async (newMapping: Record<string, string>, newIgnored: string[]) => {

@@ -24,32 +24,42 @@ export function useOrdersActions({ orders, setOrders }: UseOrdersActionsProps) {
   }, [orders, setOrders]);
 
   // עריכת פריט בהזמנה
-  const editOrderItem = useCallback(async (
-    orderId: string,
-    itemIndex: number,
-    patch: Partial<any>
-  ) => {
-    const order = orders.find(o => o.__id === orderId);
-    if (!order) return;
+const editOrderItem = useCallback(async (
+  orderId: string,
+  itemIndex: number,
+  patch: Partial<any>
+) => {
+  const order = orders.find(o => o.__id === orderId);
+  if (!order) return;
 
-    const newItems = [...order.items];
-    newItems[itemIndex] = { ...newItems[itemIndex], ...patch };
+  const newItems = [...order.items];
+  newItems[itemIndex] = { ...newItems[itemIndex], ...patch };
 
-    try {
-      await setDoc(doc(db, 'orders', orderId), {
-        ...order,
-        items: newItems,
-        updatedAt: serverTimestamp(),
-      });
-      
-      setOrders(orders.map(o => 
-        o.__id === orderId ? { ...o, items: newItems } : o
-      ));
-    } catch (error) {
-      console.error('Failed to edit item:', error);
-      alert('שגיאה בעריכת פריט');
-    }
-  }, [orders, setOrders]);
+  try {
+    // 🔥 תיקון: ניקוי undefined לפני שמירה
+    const cleanOrder = {
+      ...order,
+      items: newItems,
+      // וידוא שאין undefined
+      orderNotes: order.orderNotes === undefined ? null : (order.orderNotes || null),
+      updatedAt: serverTimestamp(),
+    };
+    
+    // 🔥 הסרת כל undefined מהאובייקט
+    const finalOrder = JSON.parse(
+      JSON.stringify(cleanOrder, (key, value) => value === undefined ? null : value)
+    );
+    
+    await setDoc(doc(db, 'orders', orderId), finalOrder);
+    
+    setOrders(orders.map(o => 
+      o.__id === orderId ? { ...o, items: newItems } : o
+    ));
+  } catch (error) {
+    console.error('Failed to edit item:', error);
+    alert('שגיאה בעריכת פריט');
+  }
+}, [orders, setOrders]);
 
   // הסרת פריט מהזמנה
   const removeItemFromOrder = useCallback(async (
