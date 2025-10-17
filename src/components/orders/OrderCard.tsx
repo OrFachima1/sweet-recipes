@@ -85,6 +85,7 @@ export default function OrderCard({
   const [orderNotesText, setOrderNotesText] = useState(
     Array.isArray(order.orderNotes) ? order.orderNotes.join("\n") : order.orderNotes || ""
   );
+  const [showMenu, setShowMenu] = useState(false);
   const [currentBgColor, setCurrentBgColor] = useState(clientColor || '#73a1ecff');
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -297,84 +298,124 @@ export default function OrderCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* סטטיסטיקות */}
-          {tracking && (
-            <div className={`text-xs px-2 py-1 rounded font-bold ${
-              stats.percentage === 100 
-                ? 'bg-green-500 text-white' 
-                : stats.percentage >= 50 
-                  ? 'bg-blue-500 text-white'
-                  : stats.percentage > 0
-                    ? 'bg-orange-400 text-white'
-                    : 'bg-gray-400 text-white'
-            }`}>
-              <span>{stats.percentage === 100 ? '✓' : stats.percentage >= 50 ? '●' : stats.percentage > 0 ? '◐' : '⚪'}</span>
-              <span>{stats.done}/{stats.total}</span>
-            </div>
-          )}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+  {/* סטטיסטיקות - נשאר */}
+  {tracking && (
+    <div className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold ${
+      stats.percentage === 100 
+        ? 'bg-green-500 text-white' 
+        : stats.percentage >= 50 
+          ? 'bg-blue-500 text-white'
+          : stats.percentage > 0
+            ? 'bg-orange-400 text-white'
+            : 'bg-gray-400 text-white'
+    }`}>
+      <span className="hidden xs:inline">{stats.percentage === 100 ? '✔' : stats.percentage >= 50 ? '◐' : stats.percentage > 0 ? '◔' : '⚪'}</span>
+      <span>{stats.done}/{stats.total}</span>
+    </div>
+  )}
+  
+  {/* תפריט 3 נקודות - רק למנהלים */}
+  {isManager && (
+    <div className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMenu(!showMenu);
+        }}
+        className="text-base sm:text-lg px-1.5 sm:px-2 py-0.5 sm:py-1 rounded hover:bg-white/20 transition-colors"
+        style={{ color: textColor }}
+        title="אפשרויות"
+      >
+        ⋮
+      </button>
+      
+      {/* תפריט dropdown */}
+      {showMenu && (
+        <>
+          {/* רקע שקוף לסגירה */}
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(false);
+            }}
+          />
           
-          {/* 🔥 תיקון 2: כפתור טוגל עריכה/צפייה */}
-          {isManager && (
+          {/* התפריט עצמו */}
+          <div 
+            className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-1 z-20 min-w-[160px] sm:min-w-[180px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* כפתור עין/עיפרון */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditMode(!isEditMode);
+                setShowMenu(false);
               }}
-              className="text-sm px-2 py-1 rounded hover:bg-white/20 transition-colors"
-              style={{ color: textColor }}
-              title={isEditMode ? 'מצב עריכה' : 'מצב צפייה'}
+              className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
             >
-              {isEditMode ? '✏️' : '👁️'}
+              <span className="text-base sm:text-lg">{isEditMode ? '👁️' : '✏️'}</span>
+              <span>{isEditMode ? 'מצב צפייה' : 'מצב עריכה'}</span>
             </button>
-          )}
-          
-          {/* כפתור שינוי צבע - רק למנהל */}
-          {isManager && onEditColor && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingClient({ name: order.clientName, color: bgColor });
-              }}
-              className="text-sm px-2 py-1 rounded hover:bg-white/20 transition-colors"
-              style={{ color: textColor }}
-              title="שנה צבע"
-            >
-              🎨
-            </button>
-          )}
-          
-          {tracking && orderHistory.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowHistory(!showHistory);
-              }}
-              className="text-sm px-2 py-1 rounded hover:bg-white/20 transition-colors"
-              style={{ color: textColor }}
-              title="היסטוריית שינויים"
-            >
-              📜 {orderHistory.length}
-            </button>
-          )}
-          
-          {canDelete && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm(`האם למחוק את ההזמנה של ${order.clientName}?`)) {
-                  onDelete(order.__id);
-                }
-              }}
-              className="text-sm px-2 py-1 rounded hover:bg-white/20 transition-colors"
-              style={{ color: textColor }}
-              title="מחק הזמנה"
-            >
-              🗑️
-            </button>
-          )}
-        </div>
-      </div>
+            
+            {/* כפתור שינוי צבע */}
+            {onEditColor && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingClient({ name: order.clientName, color: bgColor });
+                  setShowMenu(false);
+                }}
+                className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+              >
+                <span className="text-base sm:text-lg">🎨</span>
+                <span>שנה צבע</span>
+              </button>
+            )}
+            
+            {/* כפתור היסטוריה */}
+            {tracking && orderHistory.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowHistory(!showHistory);
+                  setShowMenu(false);
+                }}
+                className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+              >
+                <span className="text-base sm:text-lg">📜</span>
+                <span>היסטוריה ({orderHistory.length})</span>
+              </button>
+            )}
+            
+            {/* מחיקה */}
+            {canDelete && (
+              <>
+                <div className="border-t border-gray-200 my-1" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`האם למחוק את ההזמנה של ${order.clientName}?`)) {
+                      onDelete(order.__id);
+                    }
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-right px-3 sm:px-4 py-2 hover:bg-red-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-red-600 font-medium"
+                >
+                  <span className="text-base sm:text-lg">🗑️</span>
+                  <span>מחק הזמנה</span>
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )}
+</div>
+</div>
 
       {/* Body */}
       {(!isCollapsible || isExpanded) && (
@@ -576,10 +617,11 @@ export default function OrderCard({
                         return (
                           <div 
                             key={originalIndex} 
-                            className={`rounded-${mode === "day" ? "lg" : "md"} ${mode === "day" ? "p-2" : "p-1.5"} border`}
+                            className={`rounded-${mode === "day" ? "lg" : "md"} ${mode === "day" ? "p-2" : "p-1.5"} border overflow-hidden`}
                             style={{ 
                               backgroundColor: `${categoryColor}15`,
-                              borderColor: categoryColor
+                              borderColor: categoryColor,
+                              maxWidth: '100%'
                             }}
                           >
                             <div className="flex items-center gap-2">

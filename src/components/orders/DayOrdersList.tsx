@@ -134,57 +134,59 @@ export default function DayOrdersList({
     <div className="space-y-4">
       {/* 🔥 פאנל שמירה - מופיע כשיש שינויים */}
       {tracking && hasUnsavedChanges && (
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-100 to-amber-100 border-2 border-orange-300 rounded-xl p-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
-              <div>
-                <div className="font-bold text-orange-900">יש שינויים שלא נשמרו</div>
-                <div className="text-sm text-orange-700">לחץ על "שמור שינויים" כדי לשמור את העדכונים</div>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handleDiscard}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all"
-                disabled={isSaving}
-              >
-                בטל
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-6 py-2 rounded-lg bg-gradient-to-l from-green-500 to-emerald-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <span className="animate-spin">⟳</span>
-                    <span>שומר...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>💾</span>
-                    <span>שמור שינויים</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-          
-          {saveError && (
-            <div className="mt-2 text-sm text-red-600 bg-red-50 rounded p-2">
-              ❌ {saveError}
-            </div>
-          )}
-          
-          {saveSuccess && (
-            <div className="mt-2 text-sm text-green-600 bg-green-50 rounded p-2">
-              ✓ השינויים נשמרו בהצלחה!
-            </div>
-          )}
+  <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-100 to-amber-100 border-2 border-orange-300 rounded-lg sm:rounded-xl p-2 sm:p-4 shadow-lg">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <span className="text-xl sm:text-2xl">⚠️</span>
+        <div>
+          <div className="font-bold text-sm sm:text-base text-orange-900">יש שינויים שלא נשמרו</div>
+          <div className="text-xs sm:text-sm text-orange-700 hidden sm:block">לחץ על "שמור שינויים" כדי לשמור את העדכונים</div>
         </div>
-      )}
+      </div>
+      
+      <div className="flex gap-2">
+        <button
+          onClick={handleDiscard}
+          className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition-all"
+          disabled={isSaving}
+        >
+          ביטול
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm rounded-lg bg-gradient-to-l from-green-500 to-emerald-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2"
+        >
+          {isSaving ? (
+            <>
+              <span className="animate-spin text-base sm:text-lg">⟳</span>
+              <span>שומר...</span>
+            </>
+          ) : (
+            <>
+              <span className="text-base sm:text-lg">💾</span>
+              <span className="hidden xs:inline">שמור שינויים</span>
+              <span className="xs:hidden">שמור</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+    
+    {saveError && (
+      <div className="mt-2 text-xs sm:text-sm text-red-600 bg-red-50 rounded p-2">
+        ❌ {saveError}
+      </div>
+    )}
+    
+    {saveSuccess && (
+      <div className="mt-2 text-xs sm:text-sm text-green-600 bg-green-50 rounded p-2">
+        ✓ השינויים נשמרו בהצלחה!
+      </div>
+    )}
+  </div>
+)}
+
 
       {/* רשימת הזמנות */}
       <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">

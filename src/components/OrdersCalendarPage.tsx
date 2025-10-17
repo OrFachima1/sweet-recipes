@@ -22,6 +22,7 @@ import { db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 // ===== Custom Hooks =====
+import { useOrdersWithColors } from '@/hooks/useOrdersWithColors';
 import { useOrdersState } from '@/hooks/useOrdersState';
 import { useOrdersActions } from '@/hooks/useOrdersActions';
 import { useOrdersSettings } from '@/hooks/useOrdersSettings';
@@ -48,7 +49,8 @@ export default function OrdersCalendarPage({
     setOrders: state.setOrders,
   });
   const settings = useOrdersSettings(user?.uid);
-  const { getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
+  const {clients, getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
+  const ordersWithColors = useOrdersWithColors(state.orders, clients);
 
   // ===== Navigation =====
   const navigation = useOrdersNavigation({
@@ -95,32 +97,33 @@ export default function OrdersCalendarPage({
 
   // ===== Derived Data =====
   const daysMap = useMemo(() => {
-    const m = new Map<string, IngestJsonOrder[]>();
-    for (const o of state.orders) {
-      const day = o?.eventDate ? fmtYMD(new Date(o.eventDate)) : null;
-      if (!day) continue;
-      if (!m.has(day)) m.set(day, []);
-      m.get(day)!.push(o);
-    }
-    return m;
-  }, [state.orders]);
+  const m = new Map<string, IngestJsonOrder[]>();
+  for (const o of ordersWithColors) {  // ✅ שינוי: state.orders → ordersWithColors
+    const day = o?.eventDate ? fmtYMD(new Date(o.eventDate)) : null;
+    if (!day) continue;
+    if (!m.has(day)) m.set(day, []);
+    m.get(day)!.push(o);
+  }
+  return m;
+}, [ordersWithColors]);  // ✅ שינוי: state.orders → ordersWithColors
+
 
   // ===== Add Item =====
   const confirmAddItem = useCallback((title: string) => {
-    if (!isManager) {
-      alert("אין לך הרשאה לערוך הזמנות");
-      return;
-    }
-    if (!state.addItemFor || !title) return;
+  if (!isManager) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+  if (!state.addItemFor || !title) return;
 
-    const next = state.orders.map(o =>
-      o.__id !== state.addItemFor
-        ? o
-        : { ...o, items: [...o.items, { title, qty: 1, unit: "יח'", notes: "" }] }
-    );
-    firebase.persist(next);
-    state.setAddItemFor(null);
-  }, [isManager, state.addItemFor, state.orders, firebase, state]);
+  const next = ordersWithColors.map(o =>  // ✅ שינוי
+    o.__id !== state.addItemFor
+      ? o
+      : { ...o, items: [...o.items, { title, qty: 1, unit: "יח'", notes: "" }] }
+  );
+  firebase.persist(next);
+  state.setAddItemFor(null);
+}, [isManager, state.addItemFor, ordersWithColors, firebase, state]);  // ✅ שינוי
 
   // ===== Update Mapping & Ignored =====
   const updateMapping = useCallback((newMapping: Record<string, string>) => {
@@ -138,24 +141,19 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
     return;
   }
   
-  // 🔥 וידוא שההערות לא יהיו undefined - המרה ל-null אם ריק
   const cleanNotes = notes?.trim() || null;
   
-  console.log('📝 Editing order notes:', { orderId, notes, cleanNotes });
-  
-  const next = state.orders.map(o =>
+  const next = ordersWithColors.map(o =>  // ✅ שינוי
     o.__id !== orderId 
       ? o 
       : { 
           ...o, 
-          orderNotes: cleanNotes  // 🔥 שימוש ב-cleanNotes במקום notes
+          orderNotes: cleanNotes
         }
   );
   
-  console.log('📝 After update:', next.find(o => o.__id === orderId));
-  
   firebase.persist(next);
-}, [isManager, state.orders, firebase]);
+}, [isManager, ordersWithColors, firebase]);  // ✅ שינוי
 
   // ===== Loading State =====
   if (authLoading) {
@@ -241,79 +239,88 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
           )}
 
           {state.viewMode === "day" && (
-            <div className="rounded-3xl overflow-hidden shadow-2xl bg-white border-4 border-gray-200">
-              <div className="bg-red-100 px-6 py-6">
-                <div className="flex items-center justify-between mb-3">
-                  {isManager && (
-                    <button
-                      onClick={() => state.setShowUpload(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md font-medium"
-                    >
-                      <span className="text-xl leading-none">＋</span>
-                      <span>הוסף לקוח</span>
-                    </button>
-                  )}
+  <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
+    <div className="bg-red-100 px-3 py-3 md:px-6 md:py-6">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
+        {isManager && (
+          <button
+            onClick={() => state.setShowUpload(true)}
+            className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-4 md:py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-base font-medium"
+          >
+            <span className="text-base md:text-xl leading-none">＋</span>
+            <span className="hidden sm:inline">הוסף לקוח</span>
+          </button>
+        )}
 
-                  <button
-                    onClick={navigation.goToday}
-                    className="text-xs px-4 py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
-                  >
-                    היום
-                  </button>
-                </div>
+        <button
+          onClick={navigation.goToday}
+          className="text-[10px] md:text-xs px-2 md:px-4 py-1 md:py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
+        >
+          היום
+        </button>
+      </div>
 
-                <div className="flex items-center justify-center gap-6">
-                  <button onClick={navigation.prev} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום קודם">
-                    ‹
-                  </button>
+      <div className="flex items-center justify-center gap-3 md:gap-6">
+        <button 
+          onClick={navigation.prev} 
+          className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-2xl md:text-4xl text-gray-900" 
+          title="יום קודם"
+        >
+          ‹
+        </button>
 
-                  <div className="text-center min-w-[300px]">
-                    <div className="text-5xl font-bold text-gray-900">
-                      {new Date(dayKey).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}
-                    </div>
-                    <div className="text-lg font-medium text-gray-700 mt-1">
-                      {new Date(dayKey).toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric' })}
-                    </div>
-                    <div className="text-sm px-4 py-1 rounded-full bg-white/60 text-gray-700 font-medium inline-block mt-2">
-                      {(daysMap.get(dayKey) || []).length} הזמנות
-                    </div>
-                  </div>
+        <div className="text-center min-w-[200px] md:min-w-[300px]">
+          <div className="text-3xl md:text-5xl font-bold text-gray-900">
+            {new Date(dayKey).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}
+          </div>
+          <div className="text-sm md:text-lg font-medium text-gray-700 mt-0.5 md:mt-1">
+            {new Date(dayKey).toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric' })}
+          </div>
+          <div className="text-xs md:text-sm px-3 md:px-4 py-0.5 md:py-1 rounded-full bg-white/60 text-gray-700 font-medium inline-block mt-1 md:mt-2">
+            {(daysMap.get(dayKey) || []).length} הזמנות
+          </div>
+        </div>
 
-                  <button onClick={navigation.next} className="w-12 h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-4xl text-gray-900" title="יום הבא">
-                    ›
-                  </button>
-                </div>
-              </div>
+        <button 
+          onClick={navigation.next} 
+          className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-white/50 hover:bg-white/70 transition-all flex items-center justify-center text-2xl md:text-4xl text-gray-900" 
+          title="יום הבא"
+        >
+          ›
+        </button>
+      </div>
+    </div>
 
-              <div className="p-4 bg-gradient-to-br from-white to-gray-50">
-                <DayOrdersList
-                  dayKey={dayKey}
-                  daysMap={daysMap}
-                  isManager={isManager}
-                  menuOptions={state.menuOptions}
-                  deleteOrder={isManager ? actions.deleteOrder : undefined}
-                  editOrderItem={isManager ? actions.editOrderItem : undefined}
-                  removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
-                  onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
-                  onEditOrderNotes={isManager ? editOrderNotes : undefined} // 🔥 הוסף שורה זו!
-                  noteOpen={modals.noteOpen}
-                  toggleNote={modals.toggleNote}
-                  onEditColor={isManager ? async (clientName, newColor) => {
-                    await updateClientColor(clientName, newColor);
-                  } : undefined}
-                  getClientColor={getClientColor}
-                  recipeLinks={settings.recipeLinks}
-                />
-              </div>
-            </div>
-          )}
+    <div className="p-2 md:p-4 bg-gradient-to-br from-white to-gray-50">
+      <DayOrdersList
+        dayKey={dayKey}
+        daysMap={daysMap}
+        isManager={isManager}
+        menuOptions={state.menuOptions}
+        deleteOrder={isManager ? actions.deleteOrder : undefined}
+        editOrderItem={isManager ? actions.editOrderItem : undefined}
+        removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
+        onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+        onEditOrderNotes={isManager ? editOrderNotes : undefined}
+        noteOpen={modals.noteOpen}
+        toggleNote={modals.toggleNote}
+        onEditColor={isManager ? async (clientName, newColor) => {
+          await updateClientColor(clientName, newColor);
+        } : undefined}
+        getClientColor={getClientColor}
+        recipeLinks={settings.recipeLinks}
+      />
+    </div>
+  </div>
+)}
+
         </>
       )}
 
       {/* Clients View */}
       {navigation.mainView === "clients" && (
         <ClientsView
-          orders={state.orders}
+          orders={ordersWithColors}
           onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
           recipeLinks={settings.recipeLinks}
           

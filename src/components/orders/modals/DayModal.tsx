@@ -222,19 +222,19 @@ export default function DayModal({
             <div className="flex items-center gap-2">
               {/* אינדיקטור שינויים לא שמורים */}
               {hasUnsavedChanges && (
-                <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 animate-pulse">
-                  <span>⚠️</span>
-                  <span>שינויים לא שמורים</span>
-                </div>
-              )}
-              
-              {/* אינדיקטור הצלחה */}
-              {saveSuccess && (
-                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                  <span>✓</span>
-                  <span>נשמר!</span>
-                </div>
-              )}
+  <div className="bg-orange-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-bold flex items-center gap-0.5 sm:gap-1 animate-pulse">
+    <span className="text-sm sm:text-base">⚠️</span>
+    <span className="hidden xs:inline">שינויים לא שמורים</span>
+    <span className="xs:hidden">לא נשמר</span>
+  </div>
+)}
+
+{saveSuccess && (
+  <div className="bg-green-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-bold flex items-center gap-0.5 sm:gap-1">
+    <span className="text-sm sm:text-base">✔</span>
+    <span>נשמר!</span>
+  </div>
+)}
               
               <button 
                 onClick={handleClose} 
@@ -247,38 +247,39 @@ export default function DayModal({
           </div>
 
           {/* אזור שגיאה */}
-          {saveError && (
-            <div className="bg-red-50 border-b-2 border-red-200 px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-red-700">
-                <span className="text-xl">❌</span>
-                <span className="font-medium">{saveError}</span>
-              </div>
-              <button
-                onClick={() => setSaveError(null)}
-                className="text-red-500 hover:text-red-700"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
+         {saveError && (
+  <div className="bg-red-50 border-b-2 border-red-200 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
+    <div className="flex items-center gap-1.5 sm:gap-2 text-red-700 flex-1 min-w-0">
+      <span className="text-base sm:text-xl flex-shrink-0">❌</span>
+      <span className="font-medium text-xs sm:text-sm truncate">{saveError}</span>
+    </div>
+    <button
+      onClick={() => setSaveError(null)}
+      className="text-red-500 hover:text-red-700 text-lg sm:text-xl flex-shrink-0"
+    >
+      ✕
+    </button>
+  </div>
+)}
           {/* כפתורים עליונים */}
           <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex gap-2">
-              <button
-                onClick={() => toggleAll(true)}
-                className="px-3 py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-sm font-medium transition-all"
-              >
-                פתח הכל ({orders.length})
-              </button>
-              <button
-                onClick={() => toggleAll(false)}
-                className="px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium transition-all"
-              >
-                סגור הכל
-              </button>
-            </div>
-
+           <div className="flex gap-1.5 sm:gap-2">
+            <button
+              onClick={() => toggleAll(true)}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs sm:text-sm font-medium transition-all"
+            >
+              <span className="hidden xs:inline">פתח הכל</span>
+              <span className="xs:hidden">פתח</span>
+              <span className="ml-1">({orders.length})</span>
+            </button>
+            <button
+              onClick={() => toggleAll(false)}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs sm:text-sm font-medium transition-all"
+            >
+              <span className="hidden xs:inline">סגור הכל</span>
+              <span className="xs:hidden">סגור</span>
+            </button>
+          </div>
             {/* כפתור שמירה עליון */}
             {tracking && hasUnsavedChanges && (
               <button
@@ -340,35 +341,27 @@ export default function DayModal({
           </div>
 
           {/* Footer - כפתור שמירה צף */}
-          {tracking && hasUnsavedChanges && (
-            <div className="px-6 py-4 bg-gradient-to-r from-orange-50 to-amber-50 border-t-2 border-orange-200 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-orange-800">
-                <span className="text-2xl">⚠️</span>
-                <div>
-                  <div className="font-bold">יש שינויים שלא נשמרו</div>
-                  <div className="text-sm">לחץ על "שמור שינויים" לפני הסגירה</div>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-8 py-3 rounded-xl bg-gradient-to-l from-green-500 to-emerald-500 text-white font-bold text-lg hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <span className="animate-spin text-xl">⟳</span>
-                    <span>שומר...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xl">💾</span>
-                    <span>שמור שינויים</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+         {tracking && hasUnsavedChanges && (
+  <button
+    onClick={handleSave}
+    disabled={isSaving}
+    className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base rounded-lg bg-gradient-to-l from-green-500 to-emerald-500 text-white font-bold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2"
+  >
+    {isSaving ? (
+      <>
+        <span className="animate-spin text-sm sm:text-base">⟳</span>
+        <span>שומר...</span>
+      </>
+    ) : (
+      <>
+        <span className="text-sm sm:text-base">💾</span>
+        <span className="hidden xs:inline">שמור שינויים</span>
+        <span className="xs:hidden">שמור</span>
+      </>
+    )}
+  </button>
+)}
+
         </div>
       </div>
     </>
