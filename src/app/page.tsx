@@ -3,13 +3,15 @@
 import LoginForm from "@/components/LoginForm";
 import { useUser, useRole, logout } from "@/lib/auth";
 import HomeContent from "./HomeContent";
-
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Page() {
   const { user, loading } = useUser();
-  const { role, displayName } = useRole(user?.uid); // ← הוסף displayName
+  const { role, displayName } = useRole(user?.uid);
 
-  if (loading) return <div className="p-6">טוען…</div>;
+  // מסך טעינה עם סרטון
+  if (loading) return <LoadingScreen />;
+  
   if (!user) {
     return (
       <div className="min-h-screen grid place-items-center">
@@ -19,7 +21,10 @@ export default function Page() {
       </div>
     );
   }
-  if (role === null) return <div className="p-6">טוען…</div>;
+  
+  // מסך טעינה גם בזמן טעינת התפקיד
+  if (role === null) return <LoadingScreen />;
+  
   if (role === "unauthorized") {
     return (
       <div className="min-h-screen grid place-items-center">
@@ -34,5 +39,5 @@ export default function Page() {
   }
 
   const isManager = role === "manager";
-  return <HomeContent isManager={isManager} user={user} displayName={displayName ?? undefined} />; // ← מעבירים
+  return <HomeContent isManager={isManager} user={user} displayName={displayName ?? undefined} />;
 }
