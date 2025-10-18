@@ -481,9 +481,16 @@ export default function RecipePage() {
                   </div>
                 </div>
 
-                <div className="shrink-0">
-                  <ScaleControl value={scale} onChange={setScale} />
-                </div>
+                <div className="flex items-center gap-2 shrink-0">
+    <button
+  onClick={() => router.push(`/weigh?ids=${id}`)}
+    className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-400 to-indigo-500 text-white text-xl shadow-md hover:shadow-lg transition-all hover:scale-110"
+    title="מצב שקילה מרובה"
+  >
+    ⚖️
+  </button>
+  <ScaleControl value={scale} onChange={setScale} />
+</div>
               </div>
 
               {data.note && (

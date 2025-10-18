@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export default function ScaleControl({
   value,
@@ -11,12 +11,44 @@ export default function ScaleControl({
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   const selectAll = () => setTimeout(() => inputRef.current?.select(), 0);
+  
   const step = (d: number) => {
-    const next = Math.max(0, Math.round((value + d) * 100) / 100); // קפיצות וקלמפ ל-0
+    const next = Math.max(0, Math.round((value + d) * 100) / 100);
     onChange(next);
   };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    setInputValue(String(Math.round(value * 100) / 100));
+    selectAll();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const raw = inputValue.replace(",", ".");
+    const v = parseFloat(raw);
+    if (!Number.isFinite(v) || v < 0) {
+      onChange(0);
+    } else {
+      onChange(v);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Allow typing numbers, dots, and commas
+    if (/^[\d.,]*$/.test(raw)) {
+      setInputValue(raw);
+    }
+  };
+
+  const displayValue = isFocused 
+    ? inputValue 
+    : String(Math.round(value * 100) / 100);
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
@@ -29,14 +61,11 @@ export default function ScaleControl({
         inputMode="decimal"
         type="text"
         dir="ltr"
-        value={String(Math.round(value * 100) / 100)}
-        onFocus={selectAll}
+        value={displayValue}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         onClick={selectAll}
-        onChange={(e) => {
-          const raw = e.target.value.replace(",", ".");
-          const v = Number(raw);
-          onChange(!Number.isFinite(v) || v < 0 ? 0 : v);
-        }}
+        onChange={handleChange}
         className="h-9 w-12 rounded-xl text-center font-mono text-base leading-none px-2
                    border border-black/5 bg-white/90
                    shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]
