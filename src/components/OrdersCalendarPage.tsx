@@ -154,7 +154,23 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
   
   firebase.persist(next);
 }, [isManager, ordersWithColors, firebase]);  // ✅ שינוי
-
+const editEventDate = useCallback((orderId: string, newDate: string) => {
+  if (!isManager) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+  
+  const next = ordersWithColors.map(o =>
+    o.__id !== orderId 
+      ? o 
+      : { 
+          ...o, 
+          eventDate: newDate
+        }
+  );
+  
+  firebase.persist(next);
+}, [isManager, ordersWithColors, firebase]);
   // ===== Loading State =====
   if (authLoading) {
     return <div className="p-8 text-center text-gray-500">טוען...</div>;
@@ -304,6 +320,7 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
         onEditOrderNotes={isManager ? editOrderNotes : undefined}
         noteOpen={modals.noteOpen}
         toggleNote={modals.toggleNote}
+        onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
         onEditColor={isManager ? async (clientName, newColor) => {
           await updateClientColor(clientName, newColor);
         } : undefined}
@@ -323,7 +340,8 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
           orders={ordersWithColors}
           onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
           recipeLinks={settings.recipeLinks}
-          
+          onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
+
           // 🔥 כל הפרופס הנדרשים לעריכה ומעקב
           onEditItem={isManager ? actions.editOrderItem : undefined}
           onEditOrderNotes={isManager ? editOrderNotes : undefined}
@@ -356,6 +374,8 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
           isManager={isManager}
+          onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
+
           // 🔥 תיקון קריטי: העברת updateClientColor ו-getClientColor
           updateClientColor={isManager ? updateClientColor : undefined}
           getClientColor={getClientColor}

@@ -15,6 +15,7 @@ interface DayModalProps {
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
   isManager?: boolean;
+  onEditEventDate?: (orderId: string, newDate: string) => void;  // 🔥 הוסף
   updateClientColor?: (clientName: string, newColor: string) => Promise<void>;
   getClientColor?: (clientName: string) => string;
   recipeLinks?: Record<string, string>;
@@ -29,6 +30,7 @@ export default function DayModal({
   editOrderItem,
   removeItemFromOrder,
   onAddItem,
+  onEditEventDate,
   onEditOrderNotes,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -325,6 +327,7 @@ export default function DayModal({
                       onRemoveItem={removeItemFromOrder}
                       onAddItem={onAddItem}
                       onEditOrderNotes={onEditOrderNotes}
+                      onEditEventDate={onEditEventDate}
                       recipeLinks={recipeLinks}
                       noteOpen={externalNoteOpen || localNoteOpen}
                       toggleNote={handleToggleNote}

@@ -17,6 +17,7 @@ interface OrderCardProps {
   onRemoveItem?: (orderId: string, idx: number) => void;
   onAddItem?: (orderId: string) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
+  onEditEventDate?: (orderId: string, newDate: string) => void;
   
   recipeLinks?: Record<string, string>;
   
@@ -29,7 +30,7 @@ interface OrderCardProps {
   onToggle?: (orderId: string, isExpanded: boolean) => void;
   externalExpanded?: boolean;
   
-  // בישה ותפריט
+  // גישה ותפריט
   isManager?: boolean;
   menuOptions?: string[];
 }
@@ -54,6 +55,7 @@ export default function OrderCard({
   onRemoveItem,
   onAddItem,
   onEditOrderNotes,
+  onEditEventDate,
   recipeLinks,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -90,8 +92,9 @@ export default function OrderCard({
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAutocomplete, setShowAutocomplete] = useState(false);
-  // 🔥 תיקון 2: הוספת state למצב עריכה/צפייה
   const [isEditMode, setIsEditMode] = useState(false);
+  const [editingEventDate, setEditingEventDate] = useState(false);
+  const [eventDateValue, setEventDateValue] = useState(order.eventDate || "");
 
   // מצב expanded - חיצוני או מקומי
   const isExpanded = externalExpanded !== undefined ? externalExpanded : localExpanded;
@@ -105,7 +108,7 @@ export default function OrderCard({
     onToggle?.(order.__id, newExpanded);
   };
 
-  // 🔥 תיקון 2: Permissions - עריכה רק במצב עריכה
+  // Permissions - עריכה רק במצב עריכה
   const canEdit = !!onEditItem && isManager && isEditMode;
   const canDelete = !!onDelete && isManager && isEditMode;
   const canRemoveItems = !!onRemoveItem && isManager && isEditMode;
@@ -218,7 +221,6 @@ export default function OrderCard({
     }
   };
 
-  // 🔥 תיקון 1: שמירת הערות להזמנה - וידוא שאין undefined
   const handleSaveOrderNotes = () => {
     if (onEditOrderNotes) {
       const cleanNotes = orderNotesText?.trim() || "";
@@ -299,123 +301,144 @@ export default function OrderCard({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-  {/* סטטיסטיקות - נשאר */}
-  {tracking && (
-    <div className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold ${
-      stats.percentage === 100 
-        ? 'bg-green-500 text-white' 
-        : stats.percentage >= 50 
-          ? 'bg-blue-500 text-white'
-          : stats.percentage > 0
-            ? 'bg-orange-400 text-white'
-            : 'bg-gray-400 text-white'
-    }`}>
-      <span className="hidden xs:inline">{stats.percentage === 100 ? '✔' : stats.percentage >= 50 ? '◐' : stats.percentage > 0 ? '◔' : '⚪'}</span>
-      <span>{stats.done}/{stats.total}</span>
-    </div>
-  )}
-  
-  {/* תפריט 3 נקודות - רק למנהלים */}
-  {isManager && (
-    <div className="relative">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMenu(!showMenu);
-        }}
-        className="text-base sm:text-lg px-1.5 sm:px-2 py-0.5 sm:py-1 rounded hover:bg-white/20 transition-colors"
-        style={{ color: textColor }}
-        title="אפשרויות"
-      >
-        ⋮
-      </button>
-      
-      {/* תפריט dropdown */}
-      {showMenu && (
-        <>
-          {/* רקע שקוף לסגירה */}
-          <div 
-            className="fixed inset-0 z-10" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(false);
-            }}
-          />
+          {/* סטטיסטיקות - נשאר */}
+          {tracking && (
+            <div className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold ${
+              stats.percentage === 100 
+                ? 'bg-green-500 text-white' 
+                : stats.percentage >= 50 
+                  ? 'bg-blue-500 text-white'
+                  : stats.percentage > 0
+                    ? 'bg-orange-400 text-white'
+                    : 'bg-gray-400 text-white'
+            }`}>
+              <span className="hidden xs:inline">{stats.percentage === 100 ? '✓' : stats.percentage >= 50 ? '◐' : stats.percentage > 0 ? '◔' : '○'}</span>
+              <span>{stats.done}/{stats.total}</span>
+            </div>
+          )}
           
-          {/* התפריט עצמו */}
-          <div 
-            className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-1 z-20 min-w-[160px] sm:min-w-[180px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* כפתור עין/עיפרון */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditMode(!isEditMode);
-                setShowMenu(false);
-              }}
-              className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
-            >
-              <span className="text-base sm:text-lg">{isEditMode ? '👁️' : '✏️'}</span>
-              <span>{isEditMode ? 'מצב צפייה' : 'מצב עריכה'}</span>
-            </button>
-            
-            {/* כפתור שינוי צבע */}
-            {onEditColor && (
+          {/* תפריט 3 נקודות - רק למנהלים */}
+          {isManager && (
+            <div className="relative">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEditingClient({ name: order.clientName, color: bgColor });
-                  setShowMenu(false);
+                  // פתיחת הכרטיס אם הוא סגור
+                  if (isCollapsible && !isExpanded) {
+                    const newExpanded = true;
+                    setLocalExpanded(newExpanded);
+                    onToggle?.(order.__id, newExpanded);
+                  }
+                  setShowMenu(!showMenu);
                 }}
-                className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                className="text-base sm:text-lg px-1.5 sm:px-2 py-0.5 sm:py-1 rounded hover:bg-white/20 transition-colors"
+                style={{ color: textColor }}
+                title="אפשרויות"
               >
-                <span className="text-base sm:text-lg">🎨</span>
-                <span>שנה צבע</span>
+                ⋮
               </button>
-            )}
-            
-            {/* כפתור היסטוריה */}
-            {tracking && orderHistory.length > 0 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowHistory(!showHistory);
-                  setShowMenu(false);
-                }}
-                className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
-              >
-                <span className="text-base sm:text-lg">📜</span>
-                <span>היסטוריה ({orderHistory.length})</span>
-              </button>
-            )}
-            
-            {/* מחיקה */}
-            {canDelete && (
-              <>
-                <div className="border-t border-gray-200 my-1" />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`האם למחוק את ההזמנה של ${order.clientName}?`)) {
-                      onDelete(order.__id);
-                    }
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-right px-3 sm:px-4 py-2 hover:bg-red-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-red-600 font-medium"
-                >
-                  <span className="text-base sm:text-lg">🗑️</span>
-                  <span>מחק הזמנה</span>
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  )}
-</div>
-</div>
+              
+              {/* תפריט dropdown */}
+              {showMenu && (
+                <>
+                  {/* רקע שקוף לסגירה */}
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                    }}
+                  />
+                  
+                  {/* התפריט עצמו */}
+                  <div 
+                    className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border-2 border-gray-200 py-1 z-20 min-w-[160px] sm:min-w-[180px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* כפתור עין/עיפרון */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEditMode(!isEditMode);
+                        setShowMenu(false);
+                      }}
+                      className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                    >
+                      <span className="text-base sm:text-lg">{isEditMode ? '👁️' : '✏️'}</span>
+                      <span>{isEditMode ? 'מצב צפייה' : 'מצב עריכה'}</span>
+                    </button>
+                    
+                    {/* כפתור שינוי צבע */}
+                    {onEditColor && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingClient({ name: order.clientName, color: bgColor });
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">🎨</span>
+                        <span>שנה צבע</span>
+                      </button>
+                    )}
+                    
+                    {/* כפתור היסטוריה */}
+                    {tracking && orderHistory.length > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowHistory(!showHistory);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">📜</span>
+                        <span>היסטוריה ({orderHistory.length})</span>
+                      </button>
+                    )}
+                    
+                    {/* כפתור שינוי תאריך */}
+                    {onEditEventDate && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingEventDate(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">📅</span>
+                        <span>שנה תאריך</span>
+                      </button>
+                    )}
+                    
+                    {/* מחיקה */}
+                    {canDelete && (
+                      <>
+                        <div className="border-t border-gray-200 my-1" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`האם למחוק את ההזמנה של ${order.clientName}?`)) {
+                              onDelete(order.__id);
+                            }
+                            setShowMenu(false);
+                          }}
+                          className="w-full text-right px-3 sm:px-4 py-2 hover:bg-red-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-red-600 font-medium"
+                        >
+                          <span className="text-base sm:text-lg">🗑️</span>
+                          <span>מחק הזמנה</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Body */}
       {(!isCollapsible || isExpanded) && (
@@ -502,10 +525,48 @@ export default function OrderCard({
 
           {/* Order Notes */}
           <div className={bodyPadding}>
+            {/* עריכת תאריך אירוע */}
+            {editingEventDate && onEditEventDate && (
+              <div className="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-gray-700">שנה תאריך אירוע</span>
+                </div>
+                <div className="space-y-2">
+                  <input
+                    type="date"
+                    value={eventDateValue}
+                    onChange={(e) => setEventDateValue(e.target.value)}
+                    className="w-full text-sm p-2 border border-blue-300 rounded"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (eventDateValue) {
+                          onEditEventDate(order.__id, eventDateValue);
+                          setEditingEventDate(false);
+                        }
+                      }}
+                      className="text-sm px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                      💾 שמור
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingEventDate(false);
+                        setEventDateValue(order.eventDate || "");
+                      }}
+                      className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="mb-3 bg-yellow-50 rounded-lg p-2 border border-yellow-200">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-gray-700">הערות להזמנה</span>
-                {/* 🔥 תיקון 3: כפתור 💬 באותה שורה, רק במצב עריכה */}
                 {isManager && !editingOrderNotes && isEditMode && (
                   <button
                     onClick={() => setEditingOrderNotes(true)}
@@ -592,7 +653,6 @@ export default function OrderCard({
                     
                     <div className={`flex-1 ${mode === "day" ? "space-y-1" : "space-y-0.5"}`}>
                       {categoryItems.map((it: any) => {
-                        // 🔥 תיקון 4: בדיקת תקינות
                         if (!it || !it.title) return null;
                         
                         const originalIndex = order.items.indexOf(it);
@@ -611,7 +671,7 @@ export default function OrderCard({
                           statusIcon = '≈';
                         } else if (state.status === 'partial') {
                           statusColor = '#F59E0B';
-                          statusIcon = '●';
+                          statusIcon = '◐';
                         }
                         
                         return (
@@ -679,19 +739,30 @@ export default function OrderCard({
                                     </div>
                                   ) : (
                                     <div className="flex-1 flex items-center gap-1">
-                                      <span 
-                                        className={`${mode === "day" ? "text-sm" : "text-xs"} ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
-                                        onDoubleClick={() => {
-                                          if (canEdit) {
-                                            setEditingItemTitle(originalIndex);
-                                            setSearchTerm(it.title);
-                                          }
-                                        }}
-                                      >
-                                        {it.title}
-                                      </span>
+                                      {recipeLinks && recipeLinks[it.title] ? (
+                                        <a
+                                          href={`/recipes/${recipeLinks[it.title]}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`${mode === "day" ? "text-sm" : "text-xs"} text-blue-600 hover:text-blue-800`}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {it.title}
+                                        </a>
+                                      ) : (
+                                        <span 
+                                          className={`${mode === "day" ? "text-sm" : "text-xs"} ${canEdit ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                                          onDoubleClick={() => {
+                                            if (canEdit) {
+                                              setEditingItemTitle(originalIndex);
+                                              setSearchTerm(it.title);
+                                            }
+                                          }}
+                                        >
+                                          {it.title}
+                                        </span>
+                                      )}
                                       
-                                      {/* 🔥 אימוגי הערה באותה שורה עם השם */}
                                       {it.notes && (
                                         <span 
                                           className="text-blue-600 cursor-help" 
@@ -778,11 +849,9 @@ export default function OrderCard({
                               </div>
                             )}
                             
-                            {/* 🔥 הערות מלאות מתחת - עובדים יכולים לראות, רק מנהל במצב עריכה יכול לערוך */}
                             {it.notes && (
                               <div className="mt-2">
                                 {isManager && isEditMode && editingItemNote === originalIndex ? (
-                                  // מצב עריכה - רק למנהל במצב עריכה
                                   <div className="flex items-center gap-2">
                                     <input
                                       type="text"
@@ -807,7 +876,6 @@ export default function OrderCard({
                                     </button>
                                   </div>
                                 ) : (
-                                  // מצב צפייה - כולם יכולים לראות
                                   <div 
                                     className={`flex items-center gap-2 bg-blue-50 border border-blue-200 rounded p-1 ${
                                       isManager && isEditMode ? 'cursor-pointer hover:bg-blue-100' : ''
@@ -825,7 +893,6 @@ export default function OrderCard({
                               </div>
                             )}
                             
-                            {/* 🔥 כפתור הוסף הערה - רק למנהל במצב עריכה */}
                             {isManager && isEditMode && !it.notes && (
                               <div className="mt-2">
                                 <button

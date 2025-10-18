@@ -14,6 +14,7 @@ interface ClientsViewProps {
   onEditItem?: (orderId: string, idx: number, patch: any) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   onRemoveItem?: (orderId: string, idx: number) => void;
+  onEditEventDate?: (orderId: string, newDate: string) => void;  // 🔥 הוסף
   onDeleteOrder?: (orderId: string) => void;
   onAddItem?: (orderId: string) => void;
   noteOpen?: Record<string, boolean>;
@@ -34,6 +35,7 @@ export default function ClientsView({
   onDeleteOrder,
   onAddItem,
   noteOpen,
+  onEditEventDate,
   toggleNote,
   isManager,
   menuOptions = []
@@ -772,6 +774,7 @@ export default function ClientsView({
                   onEditColor={handleEditColor}
                   onEditItem={onEditItem}
                   onEditOrderNotes={onEditOrderNotes}
+                  onEditEventDate={onEditEventDate}
                   onRemoveItem={onRemoveItem}
                   onDelete={onDeleteOrder}
                   onAddItem={onAddItem}
