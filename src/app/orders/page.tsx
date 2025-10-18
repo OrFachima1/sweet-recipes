@@ -8,6 +8,7 @@ import { OrderTrackingProvider } from '@/components/orders/tracking/OrderTrackin
 import HomeButton from '@/components/HomeButton';
 
 import { useUser, useRole } from '@/lib/auth';
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Page() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function Page() {
 
   // שלדי ביניים
   if (userLoading || !user || role == null) {
-    return <div className="p-6 text-gray-600">טוען…</div>;
+    return <LoadingScreen />;
   }
   if (!isAuthorized) {
     // ה-useEffect כבר מפנה; לא מרנדרים תוכן כדי למנוע הבזק
