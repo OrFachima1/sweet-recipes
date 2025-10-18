@@ -34,6 +34,7 @@ export function FocusMode({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [streak, setStreak] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const isLastItem = index === total - 1;
   const willCompleteAll = !isWeighed && weighed.size + 1 === total;
 
@@ -92,6 +93,9 @@ export function FocusMode({
       } catch {}
     }
     
+    // Disable button during transition
+    setIsTransitioning(true);
+    
     onToggleWeighed(ingredient.name);
     
     // If this completes everything, show finale and return
@@ -104,13 +108,19 @@ export function FocusMode({
         }, 2000);
       }, 300);
     } else if (!isWeighed && index < total - 1) {
-      // Auto-advance to next
-      setTimeout(() => onNavigate(1), 600);
+      // Auto-advance to next after 600ms
+      setTimeout(() => {
+        onNavigate(1);
+        // Re-enable button after navigation
+        setTimeout(() => setIsTransitioning(false), 100);
+      }, 600);
+    } else {
+      // Re-enable immediately if not navigating
+      setTimeout(() => setIsTransitioning(false), 100);
     }
   };
 
-
-
+  
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex z-[80] overflow-hidden" dir="rtl">
       {/* Floating particles background */}
@@ -241,26 +251,52 @@ export function FocusMode({
         </div>
 
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-sm p-3 sm:p-4 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white shadow hover:shadow-lg transition-all text-xs sm:text-sm font-medium"
-          >
-            ← חזרה
-          </button>
-          
-          <div className="flex items-center gap-3">
-            {/* Streak indicator */}
-            {streak >= 3 && (
-              <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1.5 rounded-full shadow-lg text-xs sm:text-sm font-bold animate-pulse flex items-center gap-1">
-                <span>🔥</span>
-                <span>{streak} ברצף!</span>
+        <div className="bg-white/80 backdrop-blur-sm shadow-sm p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white shadow hover:shadow-lg transition-all text-xs sm:text-sm font-medium"
+            >
+              ← חזרה
+            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* Streak indicator */}
+              {streak >= 3 && (
+                <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1.5 rounded-full shadow-lg text-xs sm:text-sm font-bold animate-pulse flex items-center gap-1">
+                  <span>🔥</span>
+                  <span>{streak} ברצף!</span>
+                </div>
+              )}
+              
+              <div className="text-xs sm:text-sm font-bold text-purple-600 bg-white px-3 py-1.5 rounded-full shadow">
+                מרכיב {index + 1} מתוך {total}
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic encouragement - MOVED HERE */}
+          <div className="text-center mt-2">
+            {progress < 25 && (
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+                🚀 בואו נתחיל!
               </div>
             )}
-            
-            <div className="text-xs sm:text-sm font-bold text-purple-600 bg-white px-3 py-1.5 rounded-full shadow">
-              מרכיב {index + 1} מתוך {total}
-            </div>
+            {progress >= 25 && progress < 50 && (
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+                💪 יופי! ממשיכים חזק!
+              </div>
+            )}
+            {progress >= 50 && progress < 75 && (
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+                🔥 באמצע הדרך! אתה מדהים!
+              </div>
+            )}
+            {progress >= 75 && progress < 100 && (
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-pink-500 to-purple-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+                ⭐ כמעט סיימת! עוד קצת!
+              </div>
+            )}
           </div>
         </div>
 
@@ -395,10 +431,12 @@ export function FocusMode({
               {/* Main Action Button */}
               <button
                 onClick={handleToggle}
+                disabled={isTransitioning}
                 className={`
                   w-full py-5 sm:py-7 rounded-2xl text-xl sm:text-3xl font-black
                   transition-all duration-300 transform hover:scale-105 active:scale-95
                   shadow-xl hover:shadow-2xl relative overflow-hidden
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
                   ${isWeighed
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white'
                     : willCompleteAll
@@ -451,32 +489,11 @@ export function FocusMode({
               </button>
             </div>
 
-            {/* Keyboard Hints and Encouragement */}
-            <div className="text-center mt-4 space-y-2">
-              <div className="text-xs sm:text-sm text-purple-400 font-medium">
+            {/* Keyboard Hints */}
+            <div className="text-center mt-4">
+              <div className="text-sm sm:text-base text-purple-500 font-medium bg-white/50 px-4 py-2 rounded-lg inline-block">
                 💡 חצים/רווח לניווט • ESC לחזרה
               </div>
-              {/* Dynamic encouragement */}
-              {progress < 25 && (
-                <div className="text-sm font-bold text-purple-600 animate-pulse">
-                  🚀 בואו נתחיל!
-                </div>
-              )}
-              {progress >= 25 && progress < 50 && (
-                <div className="text-sm font-bold text-blue-600 animate-pulse">
-                  💪 יופי! ממשיכים חזק!
-                </div>
-              )}
-              {progress >= 50 && progress < 75 && (
-                <div className="text-sm font-bold text-orange-600 animate-pulse">
-                  🔥 באמצע הדרך! אתה מדהים!
-                </div>
-              )}
-              {progress >= 75 && progress < 100 && (
-                <div className="text-sm font-bold text-pink-600 animate-pulse">
-                  ⭐ כמעט סיימת! עוד קצת!
-                </div>
-              )}
             </div>
           </div>
         </div>

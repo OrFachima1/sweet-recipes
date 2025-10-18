@@ -38,99 +38,92 @@ export function PerRecipeView({
   const router = useRouter();
   const getScale = (id: string) => scales[id] ?? 1;
 
-  // Track click timers for double-click detection
-  const clickTimers = useRef<Map<string, number>>(new Map());
+  // Track long press with pointer events
   const longPressTimers = useRef<Map<string, number>>(new Map());
-  const longPressTriggered = useRef<Map<string, boolean>>(new Map());
-  
-  // Track specific item IDs that were double-clicked
-  const [specificWeighed, setSpecificWeighed] = useState<Set<string>>(new Set());
+  const longPressActive = useRef<Set<string>>(new Set());
 
-  const handleIngredientClick = (itemId: string, name: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    // If long press was triggered, ignore this click
-    if (longPressTriggered.current.get(itemId)) {
-      longPressTriggered.current.delete(itemId);
-      return;
-    }
-    
-    const key = itemId;
-    const now = Date.now();
-    const lastClick = clickTimers.current.get(key);
-    
-    // Double click detection (within 300ms)
-    if (lastClick && now - lastClick < 300) {
-      // Double click - toggle specific item
-      clickTimers.current.delete(key);
-      setSpecificWeighed(prev => {
-        const next = new Set(prev);
-        next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-        return next;
-      });
-    } else {
-      // Single click - toggle all instances of this ingredient
-      clickTimers.current.set(key, now);
-      setTimeout(() => {
-        if (clickTimers.current.get(key) === now) {
-          onToggleWeighed(name);
-          clickTimers.current.delete(key);
-        }
-      }, 300);
-    }
-  };
-
-  const handleLongPressStart = (itemId: string, name: string) => {
-    const key = itemId;
+  const handlePointerDown = (itemId: string, name: string) => {
+    // Start long press timer
     const timer = window.setTimeout(() => {
-      // Long press - highlight all instances
+      // Long press triggered
+      longPressActive.current.add(itemId);
       onHighlight(name);
-      longPressTimers.current.delete(key);
-      // Mark that long press was triggered to prevent click
-      longPressTriggered.current.set(itemId, true);
-      // Clear the flag after a short delay
-      setTimeout(() => {
-        longPressTriggered.current.delete(itemId);
-      }, 500);
-    }, 800); // 800ms
-    longPressTimers.current.set(key, timer);
+      // Haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 600);
+    longPressTimers.current.set(itemId, timer);
   };
 
-  const handleLongPressEnd = (itemId: string) => {
-    const key = itemId;
-    const timer = longPressTimers.current.get(key);
+  const handlePointerUp = (itemId: string, name: string) => {
+    // Cancel timer if still running
+    const timer = longPressTimers.current.get(itemId);
     if (timer) {
       clearTimeout(timer);
-      longPressTimers.current.delete(key);
+      longPressTimers.current.delete(itemId);
     }
+
+    // Check if long press was triggered
+    if (longPressActive.current.has(itemId)) {
+      // Was long press - don't toggle, just clear flag
+      longPressActive.current.delete(itemId);
+    } else {
+      // Was regular click - toggle weighed
+      onToggleWeighed(name);
+    }
+  };
+
+  const handlePointerCancel = (itemId: string) => {
+    // Cancel everything if pointer is cancelled/leaves
+    const timer = longPressTimers.current.get(itemId);
+    if (timer) {
+      clearTimeout(timer);
+      longPressTimers.current.delete(itemId);
+    }
+    longPressActive.current.delete(itemId);
   };
 
   return (
     <div>
-      {/* Clear Highlight Button */}
-      {highlightedIngredient && (
-        <div className="mb-4 flex gap-2 items-center justify-between bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3">
-          <div className="flex-1">
-            <span className="text-sm font-bold text-yellow-900">
-              🔍 ממוקד: {highlightedIngredient}
-            </span>
+      {/* Clear Highlight Button and Reset All */}
+      <div className="mb-4 flex gap-2">
+        {highlightedIngredient && (
+          <div className="flex-1 flex gap-2 items-center justify-between bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3">
+            <div className="flex-1">
+              <span className="text-sm font-bold text-yellow-900">
+                🔍 ממוקד: {highlightedIngredient}
+              </span>
+            </div>
+            <button
+              onClick={onClearHighlight}
+              className="px-4 py-2 rounded-lg bg-yellow-500 text-white text-sm font-bold hover:bg-yellow-600"
+            >
+              נקה הדגשה
+            </button>
           </div>
-          <button
-            onClick={onClearHighlight}
-            className="px-4 py-2 rounded-lg bg-yellow-500 text-white text-sm font-bold hover:bg-yellow-600"
-          >
-            נקה הדגשה
-          </button>
-        </div>
-      )}
+        )}
+        
+        {/* Reset All Button */}
+        <button
+          onClick={() => {
+            if (confirm('האם אתה בטוח שברצונך לאפס את כל הסימונים?')) {
+              weighed.forEach(name => onToggleWeighed(name));
+              onClearHighlight();
+            }
+          }}
+          className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 whitespace-nowrap"
+        >
+          🔄 אפס הכל
+        </button>
+      </div>
 
       {/* Instructions */}
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs sm:text-sm">
         <div className="font-bold text-blue-900 mb-1">💡 טיפים:</div>
         <div className="text-blue-700 space-y-0.5">
-          <div>• <strong>לחיצה אחת</strong> - סימון כשקול בכל המתכונים (✓✓)</div>
-          <div>• <strong>לחיצה כפולה</strong> - סימון מופע ספציפי (✓)</div>
-          <div>• <strong>לחיצה ארוכה </strong> - הדגשת כל המופעים</div>
+          <div>• <strong>לחיצה</strong> - סימון ששקלת בכל המתכונים (✓)</div>
+          <div>• <strong>לחיצה ארוכה</strong> - הדגשת כל המופעים</div>
         </div>
       </div>
 
@@ -199,56 +192,47 @@ export function PerRecipeView({
                           ? (it.qty || "")
                           : formatQty(raw * getScale(r.id));
                         
-                        // Check if this specific item or all instances are weighed
-                        const isSpecificWeighed = specificWeighed.has(it.id);
-                        const isAllWeighed = weighed.has(it.name);
-                        const isWeighed = isSpecificWeighed || isAllWeighed;
-                        
+                        const isWeighed = weighed.has(it.name);
                         const isHighlighted = highlightedIngredient && norm(highlightedIngredient) === k;
 
                         return (
-                          <li
-                            key={it.id}
-                            onClick={(e) => handleIngredientClick(it.id, it.name, e)}
-                            onMouseDown={() => handleLongPressStart(it.id, it.name)}
-                            onMouseUp={() => handleLongPressEnd(it.id)}
-                            onMouseLeave={() => handleLongPressEnd(it.id)}
-                            onTouchStart={(e) => {
-                              e.preventDefault();
-                              handleLongPressStart(it.id, it.name);
-                            }}
-                            onTouchEnd={(e) => {
-                              e.preventDefault();
-                              handleLongPressEnd(it.id);
-                            }}
-                            onContextMenu={(e) => e.preventDefault()}
-                            className={`
-                              text-sm cursor-pointer px-2 py-2 rounded transition-all relative select-none
-                              ${isWeighed
-                                ? 'line-through text-gray-400 bg-green-50'
-                                : isHighlighted
-                                  ? 'bg-yellow-100 border-2 border-yellow-400 font-bold shadow-lg animate-pulse'
-                                  : 'hover:bg-gray-50'
-                              }
-                            `}
-                            style={{ 
-                              userSelect: 'none', 
-                              WebkitUserSelect: 'none',
-                              WebkitTouchCallout: 'none',
-                              touchAction: 'manipulation'
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-medium flex-1">{it.name}</span>
-                              <span className="text-gray-600 text-xs">
-                                {[showQty, it.unit].filter(Boolean).join(" ")}
-                              </span>
-                              {isWeighed && (
-                                <span className="text-green-600 text-lg">
-                                  {isSpecificWeighed ? '✓' : '✓✓'}
+                          <li key={it.id} className="list-none">
+                            <button
+                              type="button"
+                              onPointerDown={() => handlePointerDown(it.id, it.name)}
+                              onPointerUp={() => handlePointerUp(it.id, it.name)}
+                              onPointerCancel={() => handlePointerCancel(it.id)}
+                              onPointerLeave={() => handlePointerCancel(it.id)}
+                              onContextMenu={(e) => e.preventDefault()}
+                              className={`
+                                w-full text-right text-base cursor-pointer px-4 py-4 rounded-lg transition-all select-none
+                                ${isWeighed
+                                  ? 'line-through text-gray-400 bg-green-50'
+                                  : isHighlighted
+                                    ? 'bg-yellow-100 border-2 border-yellow-400 font-bold shadow-lg animate-pulse'
+                                    : 'bg-white hover:bg-gray-50 active:bg-gray-200'
+                                }
+                              `}
+                              style={{ 
+                                minHeight: '56px',
+                                touchAction: 'manipulation',
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
+                                WebkitTouchCallout: 'none',
+                                MozUserSelect: 'none',
+                                msUserSelect: 'none'
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-semibold flex-1 text-base">{it.name}</span>
+                                <span className="text-gray-600 text-sm font-medium">
+                                  {[showQty, it.unit].filter(Boolean).join(" ")}
                                 </span>
-                              )}
-                            </div>
+                                {isWeighed && (
+                                  <span className="text-green-600 text-2xl leading-none">✓</span>
+                                )}
+                              </div>
+                            </button>
                           </li>
                         );
                       })}
