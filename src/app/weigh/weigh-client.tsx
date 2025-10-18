@@ -188,7 +188,7 @@ export default function WeighClient() {
 
         <button
           onClick={() => setShowPicker(true)}
-className="w-full sm:w-auto sm:relative sm:left-16 px-4 py-2 rounded-lg sm:rounded-xl bg-pink-500 text-white text-sm sm:text-base font-bold hover:bg-pink-600"        >
+          className="w-full sm:w-auto sm:relative sm:left-16 px-4 py-2 rounded-lg sm:rounded-xl bg-pink-500 text-white text-sm sm:text-base font-bold hover:bg-pink-600"        >
           + הוסף מתכון
         </button>
       </div>

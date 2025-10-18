@@ -9,6 +9,7 @@ import NoSleep from "nosleep.js";
 import { useUser, useRole } from "../../../lib/auth";
 import ScaleControl from "../../../components/ScaleControl";
 import { updateDoc, serverTimestamp } from "firebase/firestore";
+import LoadingScreen from "@/components/LoadingScreen";
 
 // ---- Utilities ----
 const LS_CHECKED = (id: string) => `recipe_${id}_checked_map_v1`;
@@ -338,16 +339,7 @@ export default function RecipePage() {
     router.push("/");
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-rose-200 border-t-pink-500 mb-4"></div>
-          <div className="text-xl font-bold bg-gradient-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent">טוען מתכון...</div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
   
   if (!data) {
     return (
@@ -482,15 +474,15 @@ export default function RecipePage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-    <button
-  onClick={() => router.push(`/weigh?ids=${id}`)}
-    className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-400 to-indigo-500 text-white text-xl shadow-md hover:shadow-lg transition-all hover:scale-110"
-    title="מצב שקילה מרובה"
-  >
-    ⚖️
-  </button>
-  <ScaleControl value={scale} onChange={setScale} />
-</div>
+                <button
+                onClick={() => router.push(`/weigh?ids=${id}`)}
+                className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-400 to-indigo-500 text-white text-xl shadow-md hover:shadow-lg transition-all hover:scale-110"
+                title="מצב שקילה מרובה"
+              >
+                ⚖️
+              </button>
+              <ScaleControl value={scale} onChange={setScale} />
+            </div>
               </div>
 
               {data.note && (
