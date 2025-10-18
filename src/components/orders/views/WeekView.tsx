@@ -229,6 +229,10 @@ export default function WeekView({
                   onClick={() => {
                     setSelectedDayKey(key);
                     setViewDate(d);
+                    // אם יש הזמנות - פותח את המודל
+                    if (list.length > 0) {
+                      onOpenDayModal(key);
+                    }
                   }}
                   className={`
                     hidden md:block
@@ -238,21 +242,10 @@ export default function WeekView({
                     ${isSelected ? 'ring-2 ring-blue-400' : ''}
                   `}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-start mb-1">
                     <div className={`text-sm font-bold rounded-full w-7 h-7 flex items-center justify-center ${isToday ? 'bg-red-400 text-white shadow-md' : 'text-gray-700'}`}>
                       {d.getDate()}
                     </div>
-                    {list.length > 0 && (
-                      <button
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDayModal(key);
-                        }}
-                      >
-                        פתח
-                      </button>
-                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -261,30 +254,20 @@ export default function WeekView({
                       const textColor = getTextColor(bgColor);
                       
                       return (
-                        <button
+                        <div
                           key={o.__id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenDayModal(key);
-                          }}
                           className="truncate text-[10px] w-full px-2 py-1 rounded-md hover:shadow-md transition-all font-medium text-center"
                           style={{ backgroundColor: bgColor, color: textColor }}
                           title={o.clientName}
                         >
                           {o.clientName}
-                        </button>
+                        </div>
                       );
                     })}
                     {list.length > 6 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDayModal(key);
-                        }}
-                        className="text-[10px] text-gray-500 hover:text-gray-700 text-center w-full"
-                      >
+                      <div className="text-[10px] text-gray-500 text-center w-full">
                         +{list.length - 6} נוספות
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -298,6 +281,10 @@ export default function WeekView({
                 onClick={() => {
                   setSelectedDayKey(key);
                   setViewDate(d);
+                  // אם יש הזמנות - פותח את המודל
+                  if (list.length > 0) {
+                    onOpenDayModal(key);
+                  }
                 }}
                 className={`
                   relative min-h-24 md:min-h-40 rounded md:rounded-lg text-left p-1 md:p-2 border transition-all cursor-pointer
@@ -306,22 +293,10 @@ export default function WeekView({
                   ${isSelected ? 'ring-1 md:ring-2 ring-blue-400' : ''}
                 `}
               >
-                <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                <div className="flex items-center justify-start mb-0.5 md:mb-1">
                   <div className={`text-[10px] md:text-sm font-bold rounded-full w-5 h-5 md:w-7 md:h-7 flex items-center justify-center ${isToday ? 'bg-red-400 text-white shadow-sm md:shadow-md' : 'text-gray-700'}`}>
                     {d.getDate()}
                   </div>
-                  {list.length > 0 && (
-                    <button
-                      className="text-[7px] md:text-[10px] text-blue-600 hover:text-blue-800 font-medium px-0.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenDayModal(key);
-                      }}
-                    >
-                      <span className="hidden sm:inline">פתח</span>
-                      <span className="sm:inline">↗</span>
-                    </button>
-                  )}
                 </div>
 
                 {/* תצוגת הזמנות */}
@@ -333,30 +308,20 @@ export default function WeekView({
                       const textColor = getTextColor(bgColor);
                       
                       return (
-                        <button
+                        <div
                           key={o.__id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenDayModal(key);
-                          }}
                           className="truncate text-[8px] w-full px-1 py-0.5 rounded hover:shadow-sm transition-all font-medium text-center"
                           style={{ backgroundColor: bgColor, color: textColor }}
                           title={o.clientName}
                         >
                           {o.clientName}
-                        </button>
+                        </div>
                       );
                     })}
                     {list.length > 2 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDayModal(key);
-                        }}
-                        className="text-[7px] text-gray-500 hover:text-gray-700 w-full text-center"
-                      >
+                      <div className="text-[7px] text-gray-500 w-full text-center">
                         +{list.length - 2}
-                      </button>
+                      </div>
                     )}
                   </div>
 
@@ -367,30 +332,20 @@ export default function WeekView({
                       const textColor = getTextColor(bgColor);
                       
                       return (
-                        <button
+                        <div
                           key={o.__id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenDayModal(key);
-                          }}
                           className="truncate text-[10px] w-full px-2 py-1 rounded-md hover:shadow-md transition-all font-medium text-center"
                           style={{ backgroundColor: bgColor, color: textColor }}
                           title={o.clientName}
                         >
                           {o.clientName}
-                        </button>
+                        </div>
                       );
                     })}
                     {list.length > 6 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDayModal(key);
-                        }}
-                        className="text-[10px] text-gray-500 hover:text-gray-700 text-center w-full"
-                      >
+                      <div className="text-[10px] text-gray-500 text-center w-full">
                         +{list.length - 6} נוספות
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>
