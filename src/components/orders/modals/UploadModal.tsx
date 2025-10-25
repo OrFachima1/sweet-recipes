@@ -206,6 +206,7 @@ export default function UploadModal({
 
   const handleSubmit = async () => {
     await onRunPreview(dateOverrides);
+    onClose();
   };
 
   const hasMissingDates = previewOrders.some((order, idx) => {
