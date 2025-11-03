@@ -28,9 +28,12 @@ interface SettingsModalProps {
 
   recipeLinks: Record<string, string>;
   onUpdateRecipeLinks: (links: Record<string, string>) => void;
+
+  prices: Record<string, number>;
+  onUpdatePrices: (prices: Record<string, number>) => void;
 }
 
-type TabType = 'menu' | 'mapping' | 'ignored' | 'categories' | 'itemMapping' | 'recipes';
+type TabType = 'menu' | 'mapping' | 'ignored' | 'categories' | 'itemMapping' | 'recipes' | 'prices';
 
 export default function SettingsModal({
   show,
@@ -45,6 +48,8 @@ export default function SettingsModal({
   onUpdateCategories,
   recipeLinks,
   onUpdateRecipeLinks,
+  prices,
+  onUpdatePrices,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('menu');
   const [newItemInput, setNewItemInput] = useState('');
@@ -347,6 +352,16 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
             }`}
           >
             📖 מתכונים ({Object.keys(recipeLinks).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('prices')}
+            className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
+              activeTab === 'prices'
+                ? 'text-purple-600 border-b-2 border-purple-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            💰 מחירים ({Object.keys(prices).length})
           </button>
         </div>
 
@@ -748,6 +763,118 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
                       </div>
                     );
                   })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Prices tab */}
+          {activeTab === 'prices' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
+                <div className="text-sm font-semibold text-gray-700 mb-2">הוסף מחיר למוצר</div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newItemInput}
+                    onChange={(e) => setNewItemInput(e.target.value)}
+                    placeholder="שם מוצר..."
+                    list="menu-datalist"
+                    className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                  />
+                  <datalist id="menu-datalist">
+                    {menuOptions.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="מחיר ב-₪"
+                    id="priceInput"
+                    className="w-32 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      const itemName = newItemInput.trim();
+                      const priceInput = document.getElementById('priceInput') as HTMLInputElement;
+                      const price = parseFloat(priceInput.value);
+                      
+                      if (!itemName) {
+                        alert('יש להזין שם מוצר');
+                        return;
+                      }
+                      if (isNaN(price) || price < 0) {
+                        alert('יש להזין מחיר תקין');
+                        return;
+                      }
+                      
+                      onUpdatePrices({
+                        ...prices,
+                        [itemName]: price,
+                      });
+                      setNewItemInput('');
+                      priceInput.value = '';
+                    }}
+                    className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
+                  >
+                    + הוסף
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {Object.keys(prices).length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">אין מחירים מוגדרים</div>
+                ) : (
+                  (Object.entries(prices) as [string, number][])
+                    .sort(([a], [b]) => a.localeCompare(b, 'he'))
+                    .map(([item, price]) => (
+                      <div
+                        key={item}
+                        className="flex items-center justify-between p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="font-medium text-gray-800">{item}</span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-bold text-purple-600">{price.toFixed(2)}₪</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              const newPrice = prompt(`עדכן מחיר עבור "${item}":`, price.toString());
+                              if (newPrice !== null) {
+                                const parsed = parseFloat(newPrice);
+                                if (!isNaN(parsed) && parsed >= 0) {
+                                  onUpdatePrices({
+                                    ...prices,
+                                    [item]: parsed,
+                                  });
+                                } else {
+                                  alert('מחיר לא תקין');
+                                }
+                              }
+                            }}
+                            className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 text-sm font-medium transition-all"
+                          >
+                            ✏️ ערוך
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`למחוק את המחיר של "${item}"?`)) {
+                                const newPrices = { ...prices };
+                                delete newPrices[item];
+                                onUpdatePrices(newPrices);
+                              }
+                            }}
+                            className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
+                          >
+                            🗑️ מחק
+                          </button>
+                        </div>
+                      </div>
+                    ))
                 )}
               </div>
             </div>

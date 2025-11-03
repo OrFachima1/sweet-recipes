@@ -16,6 +16,7 @@ import ClientsView from "@/components/orders/ClientsView";
 import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
+import RevenueModal from "@/components/orders/modals/RevenueModal";
 import { useClients } from "@/hooks/useClients";
 import { useUser, useRole } from "@/lib/auth";
 import { db } from "@/lib/firebase";
@@ -192,13 +193,22 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           שלום {displayName || user?.email || 'עובד'} {isManager && <span className="text-blue-600">(מנהל)</span>}
         </div>
         {isManager && (
-          <button
-            onClick={() => modals.setShowSettings(true)}
-            className="fixed left-3 top-[4.5rem] md:left-4 md:top-20 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white active:scale-95 grid place-items-center backdrop-blur transition-all"
-            aria-label="הגדרות"
-          >
-            <span className="text-2xl">⚙️</span>
-          </button>
+          <>
+            <button
+              onClick={() => modals.setShowSettings(true)}
+              className="fixed left-3 top-[4.5rem] md:left-4 md:top-20 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white active:scale-95 grid place-items-center backdrop-blur transition-all"
+              aria-label="הגדרות"
+            >
+              <span className="text-2xl">⚙️</span>
+            </button>
+            <button
+              onClick={() => modals.setShowRevenue(true)}
+              className="fixed left-3 top-[7.5rem] md:left-4 md:top-36 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 active:scale-95 grid place-items-center backdrop-blur transition-all"
+              aria-label="הכנסות"
+            >
+              <span className="text-2xl">💰</span>
+            </button>
+          </>
         )}
       </div>
 
@@ -513,6 +523,10 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       onUpdateRecipeLinks={(newLinks) => {
         settings.updateRecipeLinks(newLinks); // הכתיבה ל-DB תתבצע בתוך ההוק
       }}
+      prices={settings.prices}
+      onUpdatePrices={(newPrices: Record<string, number>) => {
+        settings.updatePrices(newPrices);
+      }}
 
         />
       )}
@@ -524,6 +538,16 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           onClose={() => state.setShowManualOrder(false)}
           onSave={actions.saveManualOrder}
           menuOptions={state.menuOptions}
+        />
+      )}
+
+      {/* Revenue Modal */}
+      {isManager && (
+        <RevenueModal
+          show={modals.showRevenue}
+          onClose={() => modals.setShowRevenue(false)}
+          orders={ordersWithColors}
+          prices={settings.prices}
         />
       )}
     </div>

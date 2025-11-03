@@ -13,6 +13,7 @@ export function useOrdersSettings(userId?: string) {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [ignored, setIgnored] = useState<string[]>([]);
   const [recipeLinks, setRecipeLinks] = useState<Record<string, string>>({});
+  const [prices, setPrices] = useState<Record<string, number>>({});
   const [categoryConfig, setCategoryConfig] = useState<{
     items: Record<string, { color: string; order: number }>;
     itemMapping: Record<string, string>;
@@ -54,6 +55,20 @@ export function useOrdersSettings(userId?: string) {
         setRecipeLinks(d.links || {});
       } else {
         setRecipeLinks({});
+      }
+    });
+    return () => unsub();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const ref = doc(db, 'orderSettings', 'prices');
+    const unsub = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const d = snap.data() as any;
+        setPrices(d.prices || {});
+      } else {
+        setPrices({});
       }
     });
     return () => unsub();
@@ -105,14 +120,22 @@ export function useOrdersSettings(userId?: string) {
     await setDocIfChanged(ref, { links: newLinks });
   };
 
+  const updatePrices = async (newPrices: Record<string, number>) => {
+    setPrices(newPrices); // UI מיד
+    const ref = doc(db, 'orderSettings', 'prices');
+    await setDocIfChanged(ref, { prices: newPrices });
+  };
+
   return {
     mapping,
     ignored,
     recipeLinks,
+    prices,
     categoryConfig,
     updateMapping,
     updateIgnored,
     updateCategoryConfig,
     updateRecipeLinks,
+    updatePrices,
   };
 }
