@@ -48,11 +48,11 @@ export function addDays(d: Date, n: number) {
 }
 
 export function getMonthGridMax5(viewDate: Date, weekStartsOn = 0) {
-  const first = startOfMonth(viewDate);
+ const first = startOfMonth(viewDate);
   const last = endOfMonth(viewDate);
   const leading = (first.getDay() - weekStartsOn + 7) % 7;
   const daysInMonth = last.getDate();
-  const rows = Math.min(5, Math.ceil((leading + daysInMonth) / 7));
+  const rows = Math.ceil((leading + daysInMonth) / 7);  // ללא הגבלה ל-5
   const total = rows * 7;
   const cells: { date: Date | null; inMonth: boolean }[] = [];
   for (let i = 0; i < total; i++) {
