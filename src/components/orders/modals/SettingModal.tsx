@@ -33,7 +33,98 @@ interface SettingsModalProps {
   onUpdatePrices: (prices: Record<string, number>) => void;
 }
 
-type TabType = 'menu' | 'mapping' | 'ignored' | 'categories' | 'itemMapping' | 'recipes' | 'prices';
+type TabType = 'dishes' | 'categories' | 'mappings';
+
+// ===== Helper Components =====
+function StepBox({
+  number,
+  title,
+  required = false,
+  optional = false,
+  children,
+}: {
+  number: number;
+  title: string;
+  required?: boolean;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-full bg-purple-500 text-white font-bold flex items-center justify-center text-sm">
+          {number}
+        </div>
+        <div className="font-semibold text-gray-700">
+          {title}
+          {required && <span className="text-red-500 mr-1">*</span>}
+          {optional && <span className="text-gray-400 text-xs mr-2">(אופציונלי)</span>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AutocompleteInput({
+  value,
+  onChange,
+  options,
+  renderOption,
+  placeholder,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  renderOption?: (opt: string) => string;
+  placeholder: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [filteredOptions, setFilteredOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!value.trim() || !focused) {
+      setFilteredOptions([]);
+      return;
+    }
+
+    const query = value.toLowerCase();
+    const matches = options.filter((opt) => opt.toLowerCase().includes(query)).slice(0, 10);
+
+    setFilteredOptions(matches);
+  }, [value, options, focused]);
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 200)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+      />
+
+      {filteredOptions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-purple-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filteredOptions.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => {
+                onChange(opt);
+                setFilteredOptions([]);
+              }}
+              className="w-full text-right px-3 py-2 hover:bg-purple-50 transition-colors border-b last:border-b-0"
+            >
+              {renderOption ? renderOption(opt) : opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SettingsModal({
   show,
@@ -51,14 +142,29 @@ export default function SettingsModal({
   prices,
   onUpdatePrices,
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('menu');
-  const [newItemInput, setNewItemInput] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('dishes');
   const [searchQuery, setSearchQuery] = useState('');
   const [recipes, setRecipes] = useState<{ id: string; title: string }[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
 
+  // State for dishes tab
+  const [selectedDishName, setSelectedDishName] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedRecipe, setSelectedRecipe] = useState('');
+  const [selectedPrice, setSelectedPrice] = useState<number | ''>('');
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // State for mappings tab
+  const [newMappingKey, setNewMappingKey] = useState('');
+  const [newMappingValue, setNewMappingValue] = useState('');
+  const [newIgnoredItem, setNewIgnoredItem] = useState('');
+
+  // State for categories tab (existing handlers)
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [newColorInput, setNewColorInput] = useState('#ec4899');
+
   useEffect(() => {
-    if (show && activeTab === 'recipes') {
+    if (show && activeTab === 'dishes') {
       loadRecipes();
     }
   }, [show, activeTab]);
@@ -85,65 +191,154 @@ export default function SettingsModal({
 
   if (!show) return null;
 
-  // ===== Menu handlers =====
-  const addMenuItem = () => {
-    const v = newItemInput.trim();
-    if (!v) return;
-    if (menuOptions.includes(v)) {
-      alert('הפריט כבר קיים בתפריט');
+  // ===== Dishes tab handlers =====
+  const loadDishData = (dishName: string) => {
+    if (!menuOptions.includes(dishName)) {
+      // מנה חדשה
+      setIsEditMode(false);
+      setSelectedCategory('');
+      setSelectedRecipe('');
+      setSelectedPrice('');
       return;
     }
-    onUpdateMenu([...menuOptions, v].sort());
-    setNewItemInput('');
+
+    // מנה קיימת - טען את כל הנתונים
+    setIsEditMode(true);
+
+    // טען קטגוריה
+    const category = categories?.itemMapping[dishName] || '';
+    setSelectedCategory(category);
+
+    // טען מתכון
+    const recipe = recipeLinks[dishName] || '';
+    setSelectedRecipe(recipe);
+
+    // טען מחיר
+    const price = prices[dishName] || '';
+    setSelectedPrice(price);
   };
 
-  const removeMenuItem = (item: string) => {
-    if (!confirm(`למחוק את "${item}" מהתפריט?`)) return;
-    onUpdateMenu(menuOptions.filter((m) => m !== item));
+  const handleSaveDish = () => {
+    if (!selectedDishName.trim()) {
+      alert('יש להזין שם מנה');
+      return;
+    }
+    if (!selectedCategory) {
+      alert('יש לבחור קטגוריה');
+      return;
+    }
+
+    // עדכון menuOptions אם מנה חדשה
+    if (!menuOptions.includes(selectedDishName)) {
+      onUpdateMenu([...menuOptions, selectedDishName].sort());
+    }
+
+    // עדכון קטגוריה
+    const newItemMapping = { ...(categories?.itemMapping || {}) };
+    newItemMapping[selectedDishName] = selectedCategory;
+    onUpdateCategories({
+      ...(categories || { items: {}, itemMapping: {} }),
+      itemMapping: newItemMapping,
+    });
+
+    // עדכון מתכון אם יש
+    if (selectedRecipe) {
+      onUpdateRecipeLinks({ ...recipeLinks, [selectedDishName]: selectedRecipe });
+    } else {
+      // הסר מתכון אם רוקן
+      const newLinks = { ...recipeLinks };
+      delete newLinks[selectedDishName];
+      onUpdateRecipeLinks(newLinks);
+    }
+
+    // עדכון מחיר אם יש
+    if (selectedPrice !== '') {
+      onUpdatePrices({ ...prices, [selectedDishName]: Number(selectedPrice) });
+    } else {
+      // הסר מחיר אם רוקן
+      const newPrices = { ...prices };
+      delete newPrices[selectedDishName];
+      onUpdatePrices(newPrices);
+    }
+
+    alert('המנה נשמרה בהצלחה!');
+    handleClearForm();
   };
 
-  // ===== Mapping handlers =====
-  const removeMappingItem = (key: string) => {
+  const handleDeleteDish = () => {
+    if (!confirm(`האם למחוק את המנה "${selectedDishName}"?`)) return;
+
+    // הסר מהתפריט
+    onUpdateMenu(menuOptions.filter((x) => x !== selectedDishName));
+
+    // הסר מקטגוריות
+    const newItemMapping = { ...(categories?.itemMapping || {}) };
+    delete newItemMapping[selectedDishName];
+    onUpdateCategories({
+      ...(categories || { items: {}, itemMapping: {} }),
+      itemMapping: newItemMapping,
+    });
+
+    // הסר מתכון
+    const newLinks = { ...recipeLinks };
+    delete newLinks[selectedDishName];
+    onUpdateRecipeLinks(newLinks);
+
+    // הסר מחיר
+    const newPrices = { ...prices };
+    delete newPrices[selectedDishName];
+    onUpdatePrices(newPrices);
+
+    alert('המנה נמחקה בהצלחה!');
+    handleClearForm();
+  };
+
+  const handleClearForm = () => {
+    setSelectedDishName('');
+    setSelectedCategory('');
+    setSelectedRecipe('');
+    setSelectedPrice('');
+    setIsEditMode(false);
+  };
+
+  // ===== Mappings tab handlers =====
+  const addMapping = () => {
+    const key = newMappingKey.trim();
+    const value = newMappingValue.trim();
+    if (!key || !value) return;
+    if (mapping[key]) {
+      alert('המיפוי כבר קיים');
+      return;
+    }
+    onUpdateMapping({ ...mapping, [key]: value });
+    setNewMappingKey('');
+    setNewMappingValue('');
+  };
+
+  const removeMapping = (key: string) => {
     if (!confirm(`למחוק את המיפוי "${key}" → "${mapping[key]}"?`)) return;
     const newMapping = { ...mapping };
     delete newMapping[key];
     onUpdateMapping(newMapping);
   };
 
-  // ===== Ignored handlers =====
-  const addIgnoredItem = () => {
-    const v = newItemInput.trim();
+  const addIgnored = () => {
+    const v = newIgnoredItem.trim();
     if (!v) return;
     if (ignored.includes(v)) {
       alert('הפריט כבר ברשימת ההתעלמויות');
       return;
     }
     onUpdateIgnored([...ignored, v].sort());
-    setNewItemInput('');
+    setNewIgnoredItem('');
   };
 
-  const removeIgnoredItem = (item: string) => {
+  const removeIgnored = (item: string) => {
     if (!confirm(`להסיר את "${item}" מרשימת ההתעלמויות?`)) return;
     onUpdateIgnored(ignored.filter((i) => i !== item));
   };
 
-  // ===== Recipes links =====
-  const addRecipeLink = (itemName: string, recipeId: string) => {
-    if (!itemName.trim() || !recipeId.trim()) return;
-    onUpdateRecipeLinks({
-      ...recipeLinks,
-      [itemName]: recipeId,
-    });
-  };
-
-  const removeRecipeLink = (itemName: string) => {
-    if (!confirm(`למחוק את הקישור למתכון של "${itemName}"?`)) return;
-    const newLinks = { ...recipeLinks };
-    delete newLinks[itemName];
-    onUpdateRecipeLinks(newLinks);
-  };
-
-  // ===== Categories =====
+  // ===== Categories tab handlers (from original code) =====
   const addCategory = (name: string, color: string) => {
     if (!categories) return;
     if (categories.items[name]) {
@@ -159,6 +354,7 @@ export default function SettingsModal({
       },
     };
     onUpdateCategories(newCategories);
+    setNewCategoryInput('');
   };
 
   const removeCategory = (name: string) => {
@@ -187,84 +383,33 @@ export default function SettingsModal({
     });
   };
 
-  const moveCategoryUp = (name: string, currentIndex: number) => {
-    if (!categories || currentIndex === 0) return;
-
-    const entries = Object.entries(categories.items).sort((a, b) => a[1].order - b[1].order);
-    const [prevName] = entries[currentIndex - 1];
-
-    onUpdateCategories({
-      ...categories,
-      items: {
-        ...categories.items,
-        [name]: { ...categories.items[name], order: categories.items[name].order - 1 },
-        [prevName]: { ...categories.items[prevName], order: categories.items[prevName].order + 1 },
-      },
-    });
-  };
-
-  const moveCategoryDown = (name: string, currentIndex: number, totalLength: number) => {
-    if (!categories || currentIndex === totalLength - 1) return;
-
-    const entries = Object.entries(categories.items).sort((a, b) => a[1].order - b[1].order);
-    const [nextName] = entries[currentIndex + 1];
-
-    onUpdateCategories({
-      ...categories,
-      items: {
-        ...categories.items,
-        [name]: { ...categories.items[name], order: categories.items[name].order + 1 },
-        [nextName]: { ...categories.items[nextName], order: categories.items[nextName].order - 1 },
-      },
-    });
-  };
-
-  const addItemMapping = (itemName: string, categoryName: string) => {
+  const moveCategoryUp = (name: string) => {
     if (!categories) return;
-    onUpdateCategories({
-      ...categories,
-      itemMapping: {
-        ...categories.itemMapping,
-        [itemName]: categoryName,
-      },
-    });
+    const sorted = Object.entries(categories.items).sort((a, b) => a[1].order - b[1].order);
+    const idx = sorted.findIndex(([n]) => n === name);
+    if (idx <= 0) return;
+
+    const newItems = { ...categories.items };
+    const temp = newItems[sorted[idx][0]].order;
+    newItems[sorted[idx][0]].order = newItems[sorted[idx - 1][0]].order;
+    newItems[sorted[idx - 1][0]].order = temp;
+
+    onUpdateCategories({ ...categories, items: newItems });
   };
 
-  const removeItemMapping = (itemName: string) => {
+  const moveCategoryDown = (name: string) => {
     if (!categories) return;
-    if (!confirm(`למחוק את המיפוי "${itemName}"?`)) return;
+    const sorted = Object.entries(categories.items).sort((a, b) => a[1].order - b[1].order);
+    const idx = sorted.findIndex(([n]) => n === name);
+    if (idx < 0 || idx >= sorted.length - 1) return;
 
-    const newMap = { ...categories.itemMapping };
-    delete newMap[itemName];
-    onUpdateCategories({ ...categories, itemMapping: newMap });
+    const newItems = { ...categories.items };
+    const temp = newItems[sorted[idx][0]].order;
+    newItems[sorted[idx][0]].order = newItems[sorted[idx + 1][0]].order;
+    newItems[sorted[idx + 1][0]].order = temp;
+
+    onUpdateCategories({ ...categories, items: newItems });
   };
-
-  // ===== Filters =====
-  const filteredMenu = menuOptions.filter((item) =>
-    item.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredMapping = Object.entries(mapping).filter(
-    ([key, value]) =>
-      key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      value.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredIgnored = ignored.filter((item) =>
-    item.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredItemMapping = categories
-    ? Object.entries(categories.itemMapping).filter(
-        ([item, cat]) =>
-          item.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          cat.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
-
-const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
-    item.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   // ================== RENDER ==================
   return (
@@ -282,7 +427,7 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
             <span className="text-3xl">⚙️</span>
             <div>
               <div className="font-bold text-white text-xl">הגדרות מערכת</div>
-              <div className="text-white/80 text-sm">ניהול תפריט, מיפויים, קטגוריות והתעלמויות</div>
+              <div className="text-white/80 text-sm">ניהול מנות, קטגוריות, מיפויים והתעלמויות</div>
             </div>
           </div>
           <button
@@ -294,35 +439,18 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6 bg-gray-50 flex-shrink-0 overflow-x-auto">
+        <div className="flex gap-2 border-b-2 border-gray-200 px-6 bg-gray-50 flex-shrink-0 overflow-x-auto">
           <button
-            onClick={() => setActiveTab('menu')}
+            onClick={() => setActiveTab('dishes')}
             className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'menu' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            📋 תפריט ({menuOptions.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('mapping')}
-            className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'mapping'
+              activeTab === 'dishes'
                 ? 'text-purple-600 border-b-2 border-purple-600'
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            🔗 מיפויים ({Object.keys(mapping).length})
+            🍽️ ניהול מנות
           </button>
-          <button
-            onClick={() => setActiveTab('ignored')}
-            className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'ignored'
-                ? 'text-purple-600 border-b-2 border-purple-600'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            🚫 התעלמויות ({ignored.length})
-          </button>
+
           <button
             onClick={() => setActiveTab('categories')}
             className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
@@ -331,37 +459,18 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            🎨 קטגוריות ({categories ? Object.keys(categories.items).length : 0})
+            🎨 ניהול קטגוריות ({categories ? Object.keys(categories.items).length : 0})
           </button>
+
           <button
-            onClick={() => setActiveTab('itemMapping')}
+            onClick={() => setActiveTab('mappings')}
             className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'itemMapping'
+              activeTab === 'mappings'
                 ? 'text-purple-600 border-b-2 border-purple-600'
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            🏷️ מיפוי מנות ({categories ? Object.keys(categories.itemMapping).length : 0})
-          </button>
-          <button
-            onClick={() => setActiveTab('recipes')}
-            className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'recipes'
-                ? 'text-purple-600 border-b-2 border-purple-600'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            📖 מתכונים ({Object.keys(recipeLinks).length})
-          </button>
-          <button
-            onClick={() => setActiveTab('prices')}
-            className={`px-4 py-3 font-medium transition-all whitespace-nowrap ${
-              activeTab === 'prices'
-                ? 'text-purple-600 border-b-2 border-purple-600'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            💰 מחירים ({Object.keys(prices).length})
+            🔗 מיפויים והתעלמויות
           </button>
         </div>
 
@@ -378,159 +487,112 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
             />
           </div>
 
-          {/* Menu tab */}
-          {activeTab === 'menu' && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-semibold text-gray-700 mb-2">הוסף פריט חדש</div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newItemInput}
-                    onChange={(e) => setNewItemInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addMenuItem()}
-                    placeholder="שם הפריט..."
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                  />
-                  <button
-                    onClick={addMenuItem}
-                    className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
-                  >
-                    + הוסף
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {filteredMenu.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">לא נמצאו פריטים</div>
-                ) : (
-                  filteredMenu.map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800">{item}</span>
-                        {recipeLinks[item] && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                            📖 מקושר למתכון
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => removeMenuItem(item)}
-                        className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
-                      >
-                        🗑️ מחק
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Mapping tab */}
-          {activeTab === 'mapping' && (
-            <div className="space-y-2">
-              {filteredMapping.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">אין מיפויים</div>
-              ) : (
-                filteredMapping.map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-4 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="font-medium text-gray-800">{key}</span>
-                      <span className="text-gray-400">→</span>
-                      <span className="font-medium text-purple-600">{value}</span>
-                    </div>
-                    <button
-                      onClick={() => removeMappingItem(key)}
-                      className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
-                    >
-                      🗑️ מחק
-                    </button>
-                  </div>
-                ))
+          {/* TAB 1: Dishes Management */}
+          {activeTab === 'dishes' && (
+            <div className="space-y-6">
+              {loadingRecipes && (
+                <div className="text-center text-gray-500 py-4">טוען מתכונים...</div>
               )}
-            </div>
-          )}
 
-          {/* Ignored tab */}
-          {activeTab === 'ignored' && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-semibold text-gray-700 mb-2">הוסף להתעלמות</div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newItemInput}
-                    onChange={(e) => setNewItemInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addIgnoredItem()}
-                    placeholder="שם פריט להתעלם..."
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+              {/* 4 Steps */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Step 1: Dish */}
+                <StepBox number={1} title="מנה" required>
+                  <AutocompleteInput
+                    value={selectedDishName}
+                    onChange={(val) => {
+                      setSelectedDishName(val);
+                      loadDishData(val);
+                    }}
+                    options={menuOptions}
+                    placeholder="הקלד שם מנה..."
                   />
-                  <button
-                    onClick={addIgnoredItem}
-                    className="px-4 py-2 rounded-lg bg-gray-500 text-white font-medium hover:bg-gray-600 transition-all"
-                  >
-                    + הוסף
-                  </button>
-                </div>
+                </StepBox>
+
+                {/* Step 2: Category */}
+                <StepBox number={2} title="קטגוריה" required>
+                  <AutocompleteInput
+                    value={selectedCategory}
+                    onChange={setSelectedCategory}
+                    options={categories ? Object.keys(categories.items) : []}
+                    placeholder="בחר קטגוריה..."
+                  />
+                </StepBox>
+
+                {/* Step 3: Recipe */}
+                <StepBox number={3} title="מתכון" optional>
+                  <AutocompleteInput
+                    value={selectedRecipe}
+                    onChange={setSelectedRecipe}
+                    options={recipes.map((r) => r.id)}
+                    renderOption={(r) => recipes.find((x) => x.id === r)?.title || r}
+                    placeholder="בחר מתכון (אופציונלי)"
+                  />
+                </StepBox>
+
+                {/* Step 4: Price */}
+                <StepBox number={4} title="מחיר" optional>
+                  <input
+                    type="number"
+                    value={selectedPrice}
+                    onChange={(e) => setSelectedPrice(e.target.value ? Number(e.target.value) : '')}
+                    placeholder="מחיר (אופציונלי)"
+                    className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                  />
+                </StepBox>
               </div>
 
-              <div className="space-y-2">
-                {filteredIgnored.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">אין פריטים בהתעלמות</div>
-                ) : (
-                  filteredIgnored.map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border-2 border-gray-200 hover:border-gray-300 transition-all"
-                    >
-                      <span className="font-medium text-gray-600 line-through">{item}</span>
-                      <button
-                        onClick={() => removeIgnoredItem(item)}
-                        className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 text-sm font-medium transition-all"
-                      >
-                        ↩️ שחזר
-                      </button>
-                    </div>
-                  ))
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleSaveDish}
+                  className="px-6 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all shadow-md"
+                >
+                  ✅ שמור
+                </button>
+                {isEditMode && (
+                  <button
+                    onClick={handleDeleteDish}
+                    className="px-6 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all shadow-md"
+                  >
+                    🗑️ מחק
+                  </button>
                 )}
+                <button
+                  onClick={handleClearForm}
+                  className="px-6 py-2 rounded-lg bg-gray-300 text-gray-700 font-medium hover:bg-gray-400 transition-all shadow-md"
+                >
+                  🔄 נקה טופס
+                </button>
               </div>
             </div>
           )}
 
-          {/* Categories tab */}
-          {activeTab === 'categories' && categories && (
+          {/* TAB 2: Categories Management */}
+          {activeTab === 'categories' && (
             <div className="space-y-4">
+              {/* Add new category */}
               <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
                 <div className="text-sm font-semibold text-gray-700 mb-2">הוסף קטגוריה חדשה</div>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={newItemInput}
-                    onChange={(e) => setNewItemInput(e.target.value)}
-                    placeholder="שם קטגוריה..."
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' && addCategory(newCategoryInput, newColorInput)
+                    }
+                    placeholder="שם הקטגוריה..."
                     className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                   />
                   <input
                     type="color"
-                    defaultValue="#DAF2D0"
+                    value={newColorInput}
+                    onChange={(e) => setNewColorInput(e.target.value)}
                     className="w-16 h-10 rounded-lg border-2 border-purple-300 cursor-pointer"
-                    id="newCategoryColor"
                   />
                   <button
-                    onClick={() => {
-                      if (!newItemInput.trim()) return;
-                      const color = (document.getElementById('newCategoryColor') as HTMLInputElement).value;
-                      addCategory(newItemInput.trim(), color);
-                      setNewItemInput('');
-                    }}
+                    onClick={() => addCategory(newCategoryInput, newColorInput)}
                     className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
                   >
                     + הוסף
@@ -538,351 +600,169 @@ const filteredRecipeLinks = Object.entries(recipeLinks || {}).filter(([item]) =>
                 </div>
               </div>
 
+              {/* Category list */}
               <div className="space-y-2">
-                {Object.entries(categories.items)
-                  .sort((a, b) => a[1].order - b[1].order)
-                  .map(([name, data], index, arr) => (
-                    <div
-                      key={name}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <button
-                          onClick={() => moveCategoryUp(name, index)}
-                          disabled={index === 0}
-                          className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          onClick={() => moveCategoryDown(name, index, arr.length)}
-                          disabled={index === arr.length - 1}
-                          className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
-                        >
-                          ▼
-                        </button>
-                      </div>
-
+                {categories &&
+                  Object.entries(categories.items)
+                    .sort((a, b) => a[1].order - b[1].order)
+                    .filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map(([name, data]) => (
                       <div
-                        className="w-12 h-12 rounded-lg flex-shrink-0 border-2 border-gray-300"
-                        style={{ backgroundColor: data.color }}
-                      />
-
-                      <div className="flex-1">
-                        <div className="font-bold text-gray-800">{name}</div>
-                        <div className="text-xs text-gray-500">סדר: {data.order}</div>
-                      </div>
-
-                      <input
-                        type="color"
-                        value={data.color}
-                        onChange={(e) => updateCategoryColor(name, e.target.value)}
-                        className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
-                        title="שנה צבע"
-                      />
-
-                      <button
-                        onClick={() => removeCategory(name)}
-                        className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
+                        key={name}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border-2 hover:border-purple-300 transition-all"
                       >
-                        🗑️
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Item mapping tab */}
-          {activeTab === 'itemMapping' && categories && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-semibold text-gray-700 mb-2">הוסף מיפוי מנה לקטגוריה</div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newItemInput}
-                    onChange={(e) => setNewItemInput(e.target.value)}
-                    placeholder="שם מנה..."
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                  />
-                  <select
-                    className="px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none min-w-[150px]"
-                    id="newItemCategory"
-                  >
-                    <option value="">בחר קטגוריה...</option>
-                    {Object.keys(categories.items).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      if (!newItemInput.trim()) return;
-                      const category = (document.getElementById('newItemCategory') as HTMLSelectElement).value;
-                      if (!category) {
-                        alert('יש לבחור קטגוריה');
-                        return;
-                      }
-                      addItemMapping(newItemInput.trim(), category);
-                      setNewItemInput('');
-                    }}
-                    className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
-                  >
-                    + הוסף
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {filteredItemMapping.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">אין מיפויים</div>
-                ) : (
-                  filteredItemMapping.map(([item, category]) => {
-                    const categoryColor = categories.items[category]?.color || '#E5E7EB';
-
-                    return (
-                      <div
-                        key={item}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ backgroundColor: categoryColor }} />
-                          <span className="font-medium text-gray-800">{item}</span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-medium text-purple-600">{category}</span>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-6 h-6 rounded-full border-2 border-gray-300"
+                            style={{ backgroundColor: data.color }}
+                          />
+                          <span className="font-medium">{name}</span>
                         </div>
-                        <button
-                          onClick={() => removeItemMapping(item)}
-                          className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
-                        >
-                          🗑️ מחק
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => moveCategoryUp(name)}
+                            className="p-1 hover:bg-gray-100 rounded transition-all"
+                            title="הזז למעלה"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => moveCategoryDown(name)}
+                            className="p-1 hover:bg-gray-100 rounded transition-all"
+                            title="הזז למטה"
+                          >
+                            ↓
+                          </button>
+                          <input
+                            type="color"
+                            value={data.color}
+                            onChange={(e) => updateCategoryColor(name, e.target.value)}
+                            className="w-10 h-10 rounded cursor-pointer border-2 border-gray-300"
+                            title="שנה צבע"
+                          />
+                          <button
+                            onClick={() => removeCategory(name)}
+                            className="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition-all text-sm"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })
-                )}
+                    ))}
               </div>
             </div>
           )}
 
-          {/* Recipes tab */}
-          {activeTab === 'recipes' && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-semibold text-gray-700 mb-2">קשר מוצר למתכון</div>
+          {/* TAB 3: Mappings & Ignored */}
+          {activeTab === 'mappings' && (
+            <div className="space-y-8">
+              {/* Section A: Mappings */}
+              <section>
+                <h3 className="text-xl font-bold mb-4">🔗 מיפויים (שמות חלופיים)</h3>
 
-                {loadingRecipes ? (
-                  <div className="text-center py-4 text-gray-600">טוען מתכונים...</div>
-                ) : (
-                  <div className="flex gap-2">
-                    <select
+                {/* Add new mapping */}
+                <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200 mb-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-2">הוסף מיפוי חדש</div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={newMappingKey}
+                      onChange={(e) => setNewMappingKey(e.target.value)}
+                      placeholder="שם חלופי..."
                       className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                      id="recipeItemSelect"
-                    >
-                      <option value="">בחר מוצר מהתפריט...</option>
-                      {menuOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                      id="recipeSelect"
-                    >
-                      <option value="">בחר מתכון...</option>
-                      {recipes.map((recipe) => (
-                        <option key={recipe.id} value={recipe.id}>
-                          {recipe.title}
-                        </option>
-                      ))}
-                    </select>
-
+                    />
+                    <span className="text-2xl text-gray-400">→</span>
+                    <div className="flex-1">
+                      <AutocompleteInput
+                        value={newMappingValue}
+                        onChange={setNewMappingValue}
+                        options={menuOptions}
+                        placeholder="שם מנה רשמי..."
+                      />
+                    </div>
                     <button
-                      onClick={() => {
-                        const itemName = (document.getElementById('recipeItemSelect') as HTMLSelectElement).value;
-                        const recipeId = (document.getElementById('recipeSelect') as HTMLSelectElement).value;
-                        if (!itemName || !recipeId) {
-                          alert('יש לבחור גם מוצר וגם מתכון');
-                          return;
-                        }
-                        addRecipeLink(itemName, recipeId);
-                        (document.getElementById('recipeItemSelect') as HTMLSelectElement).value = '';
-                        (document.getElementById('recipeSelect') as HTMLSelectElement).value = '';
-                      }}
-                      className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all whitespace-nowrap"
+                      onClick={addMapping}
+                      className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
                     >
-                      + קשר
+                      + הוסף
                     </button>
                   </div>
-                )}
+                </div>
 
-                <div className="text-xs text-gray-600 mt-2">💡 בחר מוצר מהתפריט ומתכון מהרשימה כדי לקשר ביניהם</div>
-              </div>
-
-              <div className="space-y-2">
-                {filteredRecipeLinks.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">אין קישורים למתכונים</div>
-                ) : (
-                  filteredRecipeLinks.map(([item, recipeId]: [string, string]) => {
-                    const recipe = recipes.find((r) => r.id === recipeId);
-                    const recipeName = recipe?.title ?? recipeId;
-
-                    return (
+                {/* Mappings list */}
+                <div className="space-y-2">
+                  {Object.entries(mapping)
+                    .filter(([k]) => k.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map(([alias, dish]) => (
                       <div
-                        key={item}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
+                        key={alias}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border-2"
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <span className="text-2xl">📖</span>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-800">{item}</div>
-                            <div className="text-sm text-gray-500">→ {recipeName}</div>
-                          </div>
-
-                          <a
-                            href={`/recipes/${recipeId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 text-sm font-medium transition-all"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            פתח מתכון
-                          </a>
-                        </div>
-
+                        <span className="font-medium">{alias}</span>
+                        <span className="text-gray-400 text-xl">→</span>
+                        <span className="text-purple-600 font-medium flex-1 text-center">{dish}</span>
                         <button
-                          onClick={() => removeRecipeLink(item)}
-                          className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
+                          onClick={() => removeMapping(alias)}
+                          className="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition-all text-sm"
                         >
-                          🗑️ מחק
+                          🗑️
                         </button>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Prices tab */}
-          {activeTab === 'prices' && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-semibold text-gray-700 mb-2">הוסף מחיר למוצר</div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newItemInput}
-                    onChange={(e) => setNewItemInput(e.target.value)}
-                    placeholder="שם מוצר..."
-                    list="menu-datalist"
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                  />
-                  <datalist id="menu-datalist">
-                    {menuOptions.map((item) => (
-                      <option key={item} value={item} />
                     ))}
-                  </datalist>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="מחיר ב-₪"
-                    id="priceInput"
-                    className="w-32 px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => {
-                      const itemName = newItemInput.trim();
-                      const priceInput = document.getElementById('priceInput') as HTMLInputElement;
-                      const price = parseFloat(priceInput.value);
-                      
-                      if (!itemName) {
-                        alert('יש להזין שם מוצר');
-                        return;
-                      }
-                      if (isNaN(price) || price < 0) {
-                        alert('יש להזין מחיר תקין');
-                        return;
-                      }
-                      
-                      onUpdatePrices({
-                        ...prices,
-                        [itemName]: price,
-                      });
-                      setNewItemInput('');
-                      priceInput.value = '';
-                    }}
-                    className="px-4 py-2 rounded-lg bg-purple-500 text-white font-medium hover:bg-purple-600 transition-all"
-                  >
-                    + הוסף
-                  </button>
                 </div>
-              </div>
+              </section>
 
-              <div className="space-y-2">
-                {Object.keys(prices).length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">אין מחירים מוגדרים</div>
-                ) : (
-                  (Object.entries(prices) as [string, number][])
-                    .sort(([a], [b]) => a.localeCompare(b, 'he'))
-                    .map(([item, price]) => (
+              <hr className="border-gray-300" />
+
+              {/* Section B: Ignored */}
+              <section>
+                <h3 className="text-xl font-bold mb-4">🚫 התעלמויות</h3>
+
+                {/* Add ignored item */}
+                <div className="bg-gradient-to-l from-red-50 to-orange-50 rounded-2xl p-4 border-2 border-red-200 mb-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-2">הוסף מנה להתעלם</div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <AutocompleteInput
+                        value={newIgnoredItem}
+                        onChange={setNewIgnoredItem}
+                        options={menuOptions.filter((x) => !ignored.includes(x))}
+                        placeholder="בחר מנה..."
+                      />
+                    </div>
+                    <button
+                      onClick={addIgnored}
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-all"
+                    >
+                      + הוסף
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ignored list */}
+                <div className="space-y-2">
+                  {ignored
+                    .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((item) => (
                       <div
                         key={item}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-all"
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border-2"
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <span className="font-medium text-gray-800">{item}</span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-bold text-purple-600">{price.toFixed(2)}₪</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              const newPrice = prompt(`עדכן מחיר עבור "${item}":`, price.toString());
-                              if (newPrice !== null) {
-                                const parsed = parseFloat(newPrice);
-                                if (!isNaN(parsed) && parsed >= 0) {
-                                  onUpdatePrices({
-                                    ...prices,
-                                    [item]: parsed,
-                                  });
-                                } else {
-                                  alert('מחיר לא תקין');
-                                }
-                              }
-                            }}
-                            className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 text-sm font-medium transition-all"
-                          >
-                            ✏️ ערוך
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`למחוק את המחיר של "${item}"?`)) {
-                                const newPrices = { ...prices };
-                                delete newPrices[item];
-                                onUpdatePrices(newPrices);
-                              }
-                            }}
-                            className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 text-sm font-medium transition-all"
-                          >
-                            🗑️ מחק
-                          </button>
-                        </div>
+                        <span className="font-medium">{item}</span>
+                        <button
+                          onClick={() => removeIgnored(item)}
+                          className="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition-all text-sm"
+                        >
+                          ✖ הסר
+                        </button>
                       </div>
-                    ))
-                )}
-              </div>
+                    ))}
+                </div>
+              </section>
             </div>
           )}
         </div>
-        {/* /Content */}
       </div>
-      {/* /Modal card */}
     </div>
   );
 }
