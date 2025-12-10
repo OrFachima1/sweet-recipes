@@ -17,6 +17,7 @@ import ConfirmReviewModal from "@/components/orders/modals/ConfirmReviewModal";
 import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
 import RevenueModal from "@/components/orders/modals/RevenueModal";
+import HomeButton from "@/components/HomeButton";
 import { useClients } from "@/hooks/useClients";
 import { useUser, useRole } from "@/lib/auth";
 import { db } from "@/lib/firebase";
@@ -187,45 +188,59 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
-      {/* Header - שלום + הגדרות */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="text-2xl font-bold text-gray-900">
-          שלום {displayName || user?.email || 'עובד'} {isManager && <span className="text-blue-600">(מנהל)</span>}
-        </div>
-        {isManager && (
-          <>
-            <button
-              onClick={() => modals.setShowSettings(true)}
-              className="fixed left-3 top-[4.5rem] md:left-4 md:top-20 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white active:scale-95 grid place-items-center backdrop-blur transition-all"
-              aria-label="הגדרות"
-            >
-              <span className="text-2xl">⚙️</span>
-            </button>
-            <button
-              onClick={() => modals.setShowRevenue(true)}
-              className="fixed left-3 top-[7.5rem] md:left-4 md:top-36 z-40 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 active:scale-95 grid place-items-center backdrop-blur transition-all"
-              aria-label="הכנסות"
-            >
-              <span className="text-2xl">💰</span>
-            </button>
-          </>
-        )}
-      </div>
+      {/* כפתור בית */}
+      <HomeButton />
 
-      {navigation.mainView === "calendar" && (
-        <Toolbar
-          viewMode={state.viewMode}
-          onChangeViewMode={state.setViewMode}
-          picker={navigation.picker}
-          onPickerChange={navigation.setPicker}
-        />
+      {/* כפתורי מנהל - Fixed position */}
+      {isManager && (
+        <>
+          <button
+            onClick={() => modals.setShowSettings(true)}
+            className="fixed left-[3.75rem] top-3 md:left-[4.25rem] md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all"
+            aria-label="הגדרות"
+            title="הגדרות"
+          >
+            <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => modals.setShowRevenue(true)}
+            className="fixed left-[6.75rem] top-3 md:left-[7.5rem] md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all"
+            aria-label="הכנסות"
+            title="הכנסות"
+          >
+            <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </>
       )}
-        
-      {/* Main View Toggle */}
-      <ViewToggle
-        currentView={navigation.mainView}
-        onToggle={navigation.setMainView}
-      />
+
+      {/* Header - Layout חדש */}
+      <div className="flex items-center justify-between mb-6 gap-2 md:gap-4">
+        {/* ימין - שלום משתמש */}
+        <div className="text-xl md:text-2xl font-bold text-gray-900 flex-1 md:flex-none">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+            <span>שלום {displayName || user?.email || 'עובד'}</span>
+            {isManager && <span className="text-sm md:text-xl text-blue-600">(מנהל)</span>}
+          </div>
+        </div>
+
+        {/* מרכז - טוגל לוח שנה/לקוחות */}
+        <div className="flex-shrink-0 absolute left-1/2 transform -translate-x-1/2">
+          <ViewToggle
+            currentView={navigation.mainView}
+            onToggle={navigation.setMainView}
+          />
+        </div>
+
+        {/* שמאל - ריק */}
+        <div className="w-10 md:w-11 flex-shrink-0"></div>
+      </div>
 
       {/* Calendar Views */}
       {navigation.mainView === "calendar" && (
@@ -244,6 +259,8 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
               onToday={navigation.goToday}
               monthLabel={monthLbl}
               onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+              viewMode={state.viewMode}
+              onChangeViewMode={state.setViewMode}
             />
           )}
 
@@ -261,29 +278,72 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
               onToday={navigation.goToday}
               monthLabel={monthLbl}
               onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+              viewMode={state.viewMode}
+              onChangeViewMode={state.setViewMode}
             />
           )}
 
           {state.viewMode === "day" && (
   <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
     <div className="bg-red-100 px-3 py-3 md:px-6 md:py-6">
-      <div className="flex items-center justify-between mb-2 md:mb-3">
-        {isManager && (
-          <button
-            onClick={() => state.setShowUpload(true)}
-            className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-4 md:py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-base font-medium"
-          >
-            <span className="text-base md:text-xl leading-none">＋</span>
-            <span className="hidden sm:inline">הוסף לקוח</span>
-          </button>
-        )}
+      {/* שורה אחת: הוסף לקוח + טאבים + היום */}
+      <div className="relative flex items-center justify-between mb-3">
+        {/* שמאל - הוסף לקוח */}
+        <div className="flex-shrink-0">
+          {isManager && (
+            <button
+              onClick={() => state.setShowUpload(true)}
+              className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-3 md:py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-sm font-medium"
+            >
+              <span className="text-base md:text-lg leading-none">＋</span>
+              <span className="hidden sm:inline">הוסף לקוח</span>
+            </button>
+          )}
+        </div>
 
-        <button
-          onClick={navigation.goToday}
-          className="text-[10px] md:text-xs px-2 md:px-4 py-1 md:py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
-        >
-          היום
-        </button>
+        {/* מרכז - טאבי תצוגה (absolute למרכז מושלם) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1.5 md:gap-2">
+          <button
+            onClick={() => state.setViewMode("month")}
+            className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+              state.viewMode === "month"
+                ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                : "bg-white/40 text-gray-600 hover:bg-white/60"
+            }`}
+          >
+            חודשית
+          </button>
+          <button
+            onClick={() => state.setViewMode("week")}
+            className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+              state.viewMode === "week"
+                ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                : "bg-white/40 text-gray-600 hover:bg-white/60"
+            }`}
+          >
+            שבועית
+          </button>
+          <button
+            onClick={() => state.setViewMode("day")}
+            className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+              state.viewMode === "day"
+                ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                : "bg-white/40 text-gray-600 hover:bg-white/60"
+            }`}
+          >
+            יומית
+          </button>
+        </div>
+
+        {/* ימין - היום */}
+        <div className="flex-shrink-0">
+          <button
+            onClick={navigation.goToday}
+            className="text-[10px] md:text-xs px-2 md:px-3 py-1 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
+          >
+            היום
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center justify-center gap-3 md:gap-6">

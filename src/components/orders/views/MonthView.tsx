@@ -26,6 +26,8 @@ interface MonthViewProps {
   onToday: () => void;
   monthLabel: string;
   onAddClient?: () => void;
+  viewMode: "month" | "week" | "day";
+  onChangeViewMode: (mode: "month" | "week" | "day") => void;
 }
 
 export default function MonthView({
@@ -41,6 +43,8 @@ export default function MonthView({
   onToday,
   monthLabel,
   onAddClient,
+  viewMode,
+  onChangeViewMode,
 }: MonthViewProps) {
   const monthGrid = useMemo(() => getMonthGridMax5(viewDate, 0), [viewDate]);
   const weeksHeader = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -108,23 +112,64 @@ export default function MonthView({
     <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
       {/* Header */}
       <div className="bg-red-100 px-2 py-2 sm:px-3 sm:py-3 md:px-6 md:py-6">
-        <div className="flex items-center justify-between mb-1.5 sm:mb-2 md:mb-3">
-          {onAddClient && (
+        {/* שורה אחת: הוסף לקוח + טאבים + היום */}
+        <div className="relative flex items-center justify-between mb-3">
+          {/* שמאל - הוסף לקוח */}
+          <div className="flex-shrink-0">
+            {onAddClient && (
+              <button
+                onClick={onAddClient}
+                className="inline-flex items-center gap-1 md:gap-2 px-1.5 py-1 sm:px-2 sm:py-1 md:px-3 md:py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-[10px] sm:text-xs md:text-sm font-medium"
+              >
+                <span className="text-sm sm:text-base md:text-lg leading-none">＋</span>
+                <span className="hidden sm:inline">הוסף לקוח</span>
+              </button>
+            )}
+          </div>
+
+          {/* מרכז - טאבי תצוגה (absolute למרכז מושלם) */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1.5 md:gap-2">
             <button
-              onClick={onAddClient}
-              className="inline-flex items-center gap-1 md:gap-2 px-1.5 py-1 sm:px-2 sm:py-1 md:px-4 md:py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-[10px] sm:text-xs md:text-base font-medium"
+              onClick={() => onChangeViewMode("month")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "month"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
             >
-              <span className="text-sm sm:text-base md:text-xl leading-none">＋</span>
-              <span className="hidden sm:inline">הוסף לקוח</span>
+              חודשית
             </button>
-          )}
-          
-          <button
-            onClick={onToday}
-            className="text-[9px] sm:text-[10px] md:text-xs px-1.5 sm:px-2 md:px-4 py-1 md:py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
-          >
-            היום
-          </button>
+            <button
+              onClick={() => onChangeViewMode("week")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "week"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
+            >
+              שבועית
+            </button>
+            <button
+              onClick={() => onChangeViewMode("day")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "day"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
+            >
+              יומית
+            </button>
+          </div>
+
+          {/* ימין - היום */}
+          <div className="flex-shrink-0">
+            <button
+              onClick={onToday}
+              className="text-[9px] sm:text-[10px] md:text-xs px-1.5 sm:px-2 md:px-3 py-1 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
+            >
+              היום
+            </button>
+          </div>
         </div>
         
         <div className="flex items-center justify-center gap-1.5 sm:gap-2 md:gap-6">
@@ -235,10 +280,10 @@ export default function MonthView({
                   }}
                   className={`
                     hidden md:block
-                    relative min-h-24 rounded-lg text-left p-2 border transition-all cursor-pointer
-                    ${cell.inMonth 
-                      ? shouldHighlight 
-                        ? `${highlightBgColor} border-gray-300 hover:opacity-90` 
+                    relative min-h-32 lg:min-h-40 rounded-lg text-left p-2 border transition-all cursor-pointer
+                    ${cell.inMonth
+                      ? shouldHighlight
+                        ? `${highlightBgColor} border-gray-300 hover:opacity-90`
                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                       : 'bg-gray-50/30 border-transparent'}
                     ${isToday ? 'ring-2 ring-red-400 shadow-lg' : ''}
@@ -260,10 +305,10 @@ export default function MonthView({
                   </div>
 
                   <div className="space-y-1">
-                    {dayOrders.slice(0, 2).map((o: any) => {
+                    {dayOrders.map((o: any) => {
                       const bgColor = o.clientColor || "#a5c4f7ff";
                       const textColor = getTextColor(bgColor);
-                      
+
                       return (
                         <div
                           key={o.__id}
@@ -275,11 +320,6 @@ export default function MonthView({
                         </div>
                       );
                     })}
-                    {dayOrders.length > 2 && (
-                      <div className="text-[10px] text-gray-500 text-center w-full">
-                        +{dayOrders.length - 2} נוספות
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -304,10 +344,10 @@ export default function MonthView({
                   }
                 }}
                 className={`
-                  relative min-h-14 sm:min-h-16 md:min-h-24 rounded sm:rounded-md md:rounded-lg text-left p-0.5 sm:p-1 md:p-2 border transition-all cursor-pointer
-                  ${cell.inMonth 
-                    ? shouldHighlight 
-                      ? `${highlightBgColor} border-gray-300 hover:opacity-90` 
+                  relative min-h-20 sm:min-h-24 md:min-h-32 lg:min-h-40 rounded sm:rounded-md md:rounded-lg text-left p-0.5 sm:p-1 md:p-2 border transition-all cursor-pointer
+                  ${cell.inMonth
+                    ? shouldHighlight
+                      ? `${highlightBgColor} border-gray-300 hover:opacity-90`
                       : 'bg-white border-gray-200 hover:bg-orange-50/30'
                     : 'bg-gray-50/30 border-transparent'}
                   ${isToday ? 'ring-1 md:ring-2 ring-red-400 shadow-sm sm:shadow-md md:shadow-lg' : ''}
@@ -333,37 +373,33 @@ export default function MonthView({
 
                 {/* תצוגת הזמנות */}
                 <div className="space-y-0.5 sm:space-y-1">
-                  {/* מובייל קטן: רק 1 הזמנה */}
+                  {/* מובייל קטן: 3 הזמנות */}
                   <div className="block sm:hidden">
-                    {dayOrders.length > 0 && (
-                      <>
-                        {(() => {
-                          const o = dayOrders[0];
-                          const bgColor = o.clientColor || "#a5c4f7ff";
-                          const textColor = getTextColor(bgColor);
-                          
-                          return (
-                            <div
-                              className="truncate text-[7px] w-full px-0.5 py-0.5 rounded hover:shadow-sm transition-all font-medium text-center"
-                              style={{ backgroundColor: bgColor, color: textColor }}
-                              title={o.clientName}
-                            >
-                              {o.clientName}
-                            </div>
-                          );
-                        })()}
-                        {dayOrders.length > 1 && (
-                          <div className="text-[7px] text-gray-500 w-full text-center">
-                            +{dayOrders.length - 1}
-                          </div>
-                        )}
-                      </>
+                    {dayOrders.slice(0, 3).map((o: any) => {
+                      const bgColor = o.clientColor || "#a5c4f7ff";
+                      const textColor = getTextColor(bgColor);
+
+                      return (
+                        <div
+                          key={o.__id}
+                          className="truncate text-[7px] w-full px-0.5 py-0.5 rounded hover:shadow-sm transition-all font-medium text-center"
+                          style={{ backgroundColor: bgColor, color: textColor }}
+                          title={o.clientName}
+                        >
+                          {o.clientName}
+                        </div>
+                      );
+                    })}
+                    {dayOrders.length > 3 && (
+                      <div className="text-[7px] text-gray-500 w-full text-center">
+                        +{dayOrders.length - 3}
+                      </div>
                     )}
                   </div>
 
-                  {/* טאבלט ומעלה: 2 הזמנות */}
+                  {/* טאבלט ומעלה: כל ההזמנות */}
                   <div className="hidden sm:block">
-                    {dayOrders.slice(0, 2).map((o: any) => {
+                    {dayOrders.map((o: any) => {
                       const bgColor = o.clientColor || "#a5c4f7ff";
                       const textColor = getTextColor(bgColor);
                       
@@ -378,11 +414,6 @@ export default function MonthView({
                         </div>
                       );
                     })}
-                    {dayOrders.length > 2 && (
-                      <div className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 text-center w-full">
-                        +{dayOrders.length - 2} נוספות
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

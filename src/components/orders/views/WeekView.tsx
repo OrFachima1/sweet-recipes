@@ -25,6 +25,8 @@ interface WeekViewProps {
   onToday: () => void;
   monthLabel: string;
   onAddClient?: () => void;
+  viewMode: "month" | "week" | "day";
+  onChangeViewMode: (mode: "month" | "week" | "day") => void;
 }
 
 export default function WeekView({
@@ -40,6 +42,8 @@ export default function WeekView({
   onToday,
   monthLabel,
   onAddClient,
+  viewMode,
+  onChangeViewMode,
 }: WeekViewProps) {
   const weekDays = useMemo(() => {
     const s = startOfWeek(viewDate, 0);
@@ -102,26 +106,67 @@ export default function WeekView({
 
   return (
     <div className="rounded-xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl bg-white border-2 md:border-4 border-gray-200">
-      
+
       {/* Header */}
       <div className="bg-red-100 px-3 py-3 md:px-6 md:py-6">
-        <div className="flex items-center justify-between mb-2">
-          {onAddClient && (
+        {/* שורה אחת: הוסף לקוח + טאבים + היום */}
+        <div className="relative flex items-center justify-between mb-3">
+          {/* שמאל - הוסף לקוח */}
+          <div className="flex-shrink-0">
+            {onAddClient && (
+              <button
+                onClick={onAddClient}
+                className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-3 md:py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-sm font-medium"
+              >
+                <span className="text-base md:text-lg leading-none">＋</span>
+                <span className="hidden sm:inline">הוסף לקוח</span>
+              </button>
+            )}
+          </div>
+
+          {/* מרכז - טאבי תצוגה (absolute למרכז מושלם) */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1.5 md:gap-2">
             <button
-              onClick={onAddClient}
-              className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-4 md:py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-base font-medium"
+              onClick={() => onChangeViewMode("month")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "month"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
             >
-              <span className="text-base md:text-xl leading-none">＋</span>
-              <span className="hidden sm:inline">הוסף לקוח</span>
+              חודשית
             </button>
-          )}
-          
-          <button
-            onClick={onToday}
-            className="text-[10px] md:text-xs px-2 md:px-4 py-1 md:py-1.5 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
-          >
-            היום
-          </button>
+            <button
+              onClick={() => onChangeViewMode("week")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "week"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
+            >
+              שבועית
+            </button>
+            <button
+              onClick={() => onChangeViewMode("day")}
+              className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
+                viewMode === "day"
+                  ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
+                  : "bg-white/40 text-gray-600 hover:bg-white/60"
+              }`}
+            >
+              יומית
+            </button>
+          </div>
+
+          {/* ימין - היום */}
+          <div className="flex-shrink-0">
+            <button
+              onClick={onToday}
+              className="text-[10px] md:text-xs px-2 md:px-3 py-1 rounded-full bg-white/60 hover:bg-white/80 transition-all font-medium text-gray-900 shadow-sm"
+            >
+              היום
+            </button>
+          </div>
         </div>
         
         <div className="text-center">
