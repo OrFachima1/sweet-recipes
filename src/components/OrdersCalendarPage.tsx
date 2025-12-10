@@ -243,7 +243,10 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       </div>
 
       {/* Calendar Views */}
-      {navigation.mainView === "calendar" && (
+      {navigation.mainView === "calendar" && (() => {
+        // Store viewMode before type narrowing to avoid TypeScript errors in tabs
+        const currentViewMode = state.viewMode;
+        return (
         <>
           {state.viewMode === "month" && (
             <MonthView
@@ -306,7 +309,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           <button
             onClick={() => state.setViewMode("month")}
             className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
-              state.viewMode === "month"
+              currentViewMode === "month"
                 ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
                 : "bg-white/40 text-gray-600 hover:bg-white/60"
             }`}
@@ -316,7 +319,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           <button
             onClick={() => state.setViewMode("week")}
             className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
-              state.viewMode === "week"
+              currentViewMode === "week"
                 ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
                 : "bg-white/40 text-gray-600 hover:bg-white/60"
             }`}
@@ -326,7 +329,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           <button
             onClick={() => state.setViewMode("day")}
             className={`px-2.5 md:px-3 py-1 text-xs md:text-sm rounded-lg transition-all ${
-              state.viewMode === "day"
+              currentViewMode === "day"
                 ? "bg-white/90 text-gray-900 font-semibold shadow-sm"
                 : "bg-white/40 text-gray-600 hover:bg-white/60"
             }`}
@@ -402,7 +405,8 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
 )}
 
         </>
-      )}
+        );
+      })()}
 
       {/* Clients View */}
       {navigation.mainView === "clients" && (
