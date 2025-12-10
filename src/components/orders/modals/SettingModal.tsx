@@ -209,9 +209,10 @@ export default function SettingsModal({
     const category = categories?.itemMapping[dishName] || '';
     setSelectedCategory(category);
 
-    // טען מתכון
-    const recipe = recipeLinks[dishName] || '';
-    setSelectedRecipe(recipe);
+    // טען מתכון - המר מ-ID לכותרת
+    const recipeId = recipeLinks[dishName] || '';
+    const recipeTitle = recipes.find((r) => r.id === recipeId)?.title || '';
+    setSelectedRecipe(recipeTitle);
 
     // טען מחיר
     const price = prices[dishName] || '';
@@ -241,9 +242,12 @@ export default function SettingsModal({
       itemMapping: newItemMapping,
     });
 
-    // עדכון מתכון אם יש
+    // עדכון מתכון אם יש - המר מכותרת ל-ID
     if (selectedRecipe) {
-      onUpdateRecipeLinks({ ...recipeLinks, [selectedDishName]: selectedRecipe });
+      const recipeId = recipes.find((r) => r.title === selectedRecipe)?.id;
+      if (recipeId) {
+        onUpdateRecipeLinks({ ...recipeLinks, [selectedDishName]: recipeId });
+      }
     } else {
       // הסר מתכון אם רוקן
       const newLinks = { ...recipeLinks };
@@ -524,8 +528,7 @@ export default function SettingsModal({
                   <AutocompleteInput
                     value={selectedRecipe}
                     onChange={setSelectedRecipe}
-                    options={recipes.map((r) => r.id)}
-                    renderOption={(r) => recipes.find((x) => x.id === r)?.title || r}
+                    options={recipes.map((r) => r.title)}
                     placeholder="בחר מתכון (אופציונלי)"
                   />
                 </StepBox>
