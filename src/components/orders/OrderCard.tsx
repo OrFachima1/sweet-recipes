@@ -428,8 +428,8 @@ export default function OrderCard({
                       </button>
                     )}
 
-                    {/* כפתור עריכת משלוח */}
-                    {onEditDelivery && (
+                    {/* כפתור עריכת משלוח - רק במצב עריכה */}
+                    {onEditDelivery && isEditMode && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -444,7 +444,7 @@ export default function OrderCard({
                         className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
                       >
                         <span className="text-base sm:text-lg">🚚</span>
-                        <span>פרטי אספקה</span>
+                        <span>ערוך פרטי אספקה</span>
                       </button>
                     )}
 
@@ -713,6 +713,49 @@ export default function OrderCard({
                       ביטול
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* תצוגת פרטי אספקה - במצב צפייה */}
+            {!editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
+              <div className="mb-3 bg-purple-50 rounded-lg p-2 border border-purple-200">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-700">🚚 פרטי אספקה</span>
+                </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      order.deliveryMethod === 'delivery'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {order.deliveryMethod === 'delivery' ? '🚚 משלוח' : '🏪 איסוף'}
+                    </span>
+                    {order.estimatedTime && (
+                      <span className="text-gray-500">⏰ {order.estimatedTime}</span>
+                    )}
+                  </div>
+                  {order.address && (
+                    <div className="flex items-start gap-1">
+                      <span>📍</span>
+                      <span>{order.address}</span>
+                    </div>
+                  )}
+                  {(order.phone1 || order.phone2) && (
+                    <div className="flex items-center gap-3">
+                      {order.phone1 && (
+                        <a href={`tel:${order.phone1}`} className="text-blue-600 hover:underline" dir="ltr">
+                          📞 {order.phone1}
+                        </a>
+                      )}
+                      {order.phone2 && (
+                        <a href={`tel:${order.phone2}`} className="text-blue-600 hover:underline" dir="ltr">
+                          📞 {order.phone2}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

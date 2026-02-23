@@ -96,7 +96,7 @@ export default function OrderVerificationModal({
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-51 flex items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-[51] flex items-center justify-center p-4 pointer-events-none">
         <div
           className="bg-white w-full max-w-2xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col pointer-events-auto"
           onClick={(e) => e.stopPropagation()}

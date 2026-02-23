@@ -9,7 +9,7 @@ interface UploadModalProps {
   setFiles: React.Dispatch<React.SetStateAction<File[]>>;
   error: string | null;
   loading: boolean;
-  onRunPreview: (dateOverrides?: Record<number, string>) => Promise<void>;
+  onRunPreview: (dateOverrides?: Record<number, string>, previewOrders?: any[]) => Promise<void>;
   apiBase?: string;
   onManualStart?: () => void; // ✅ זה חייב להיות כאן!
 }
@@ -205,7 +205,8 @@ export default function UploadModal({
   };
 
   const handleSubmit = async () => {
-    await onRunPreview(dateOverrides);
+    // Pass both dateOverrides AND previewOrders to preserve user edits
+    await onRunPreview(dateOverrides, previewOrders);
     onClose();
   };
 

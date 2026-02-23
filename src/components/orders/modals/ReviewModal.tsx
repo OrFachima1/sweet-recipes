@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import type { DeliveryMethod } from "@/types/orders";
 
 interface ReviewModalProps {
   show: boolean;
@@ -239,6 +240,90 @@ export default function ReviewModal({
                         value={currentOrder.eventDate ? currentOrder.eventDate.split('T')[0] : ""}
                         onChange={(e) => updateOrder("eventDate", e.target.value)}
                         className="w-full px-3 py-2 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* פרטי אספקה */}
+                <div className="bg-gradient-to-l from-purple-50 to-pink-50 rounded-2xl p-4 border-2 border-purple-200">
+                  <div className="text-sm font-semibold text-gray-700 mb-3">🚚 פרטי אספקה</div>
+
+                  <div className="space-y-3">
+                    {/* שיטת אספקה */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateOrder("deliveryMethod", "pickup")}
+                        className={`flex-1 px-3 py-2 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm ${
+                          currentOrder.deliveryMethod === "pickup" || !currentOrder.deliveryMethod
+                            ? "border-rose-400 bg-rose-50 text-rose-700 font-semibold"
+                            : "border-gray-300 hover:border-gray-400 text-gray-600"
+                        }`}
+                      >
+                        <span>🏪</span>
+                        <span>איסוף</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateOrder("deliveryMethod", "delivery")}
+                        className={`flex-1 px-3 py-2 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm ${
+                          currentOrder.deliveryMethod === "delivery"
+                            ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+                            : "border-gray-300 hover:border-gray-400 text-gray-600"
+                        }`}
+                      >
+                        <span>🚚</span>
+                        <span>משלוח</span>
+                      </button>
+                    </div>
+
+                    {/* שעה משוערת */}
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">שעה משוערת</label>
+                      <input
+                        type="time"
+                        value={currentOrder.estimatedTime || ""}
+                        onChange={(e) => updateOrder("estimatedTime", e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* טלפונים */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">טלפון 1</label>
+                        <input
+                          type="tel"
+                          value={currentOrder.phone1 || ""}
+                          onChange={(e) => updateOrder("phone1", e.target.value)}
+                          placeholder="050-0000000"
+                          className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">טלפון 2</label>
+                        <input
+                          type="tel"
+                          value={currentOrder.phone2 || ""}
+                          onChange={(e) => updateOrder("phone2", e.target.value)}
+                          placeholder="050-0000000"
+                          className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
+
+                    {/* כתובת */}
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">כתובת למשלוח</label>
+                      <input
+                        type="text"
+                        value={currentOrder.address || ""}
+                        onChange={(e) => updateOrder("address", e.target.value)}
+                        placeholder="רחוב, עיר..."
+                        className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                       />
                     </div>
                   </div>

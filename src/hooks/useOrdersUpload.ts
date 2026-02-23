@@ -140,8 +140,12 @@ export function useOrdersUpload({
 
   /**
    * Run preview and then ingest
+   * Now accepts previewOrders directly from UploadModal to preserve user edits
    */
-  const runPreviewThenIngest = useCallback(async (dateOverrides?: Record<number, string>) => {
+  const runPreviewThenIngest = useCallback(async (
+    dateOverrides?: Record<number, string>,
+    previewOrders?: any[]
+  ) => {
     if (!isManager) {
       alert("אין לך הרשאה להעלות קבצים");
       return;
@@ -152,13 +156,76 @@ export function useOrdersUpload({
     setError(null);
 
     try {
-      await doIngest({}, false, dateOverrides);
+      // If previewOrders provided, use them directly instead of calling API again
+      if (previewOrders && previewOrders.length > 0) {
+        // Apply date overrides to previewOrders
+        let ordersWithDates = previewOrders.map((o: any, idx: number) => ({
+          __id: o.__id ?? genId(),
+          orderId: o.orderId ?? null,
+          clientName: o.clientName,
+          eventDate: dateOverrides?.[idx] || o.eventDate || null,
+          status: o.status ?? "new",
+          items: (o.items || []).map((it: any): NormalizedOrderItem => ({
+            title: String(it.title ?? "").trim(),
+            qty: Number(it.qty ?? 1),
+            notes: typeof it.notes === "string" && it.notes.trim() ? it.notes.trim() : undefined,
+            unit: it.unit ?? null,
+          })),
+          orderNotes: o.orderNotes ?? o.notes ?? null,
+          totalSum: o.totalSum ?? null,
+          currency: o.currency ?? null,
+          source: o.source ?? null,
+          meta: o.meta ?? null,
+          // שדות משלוח - שומרים אם קיימים
+          deliveryMethod: o.deliveryMethod ?? null,
+          estimatedTime: o.estimatedTime ?? null,
+          phone1: o.phone1 ?? null,
+          phone2: o.phone2 ?? null,
+          address: o.address ?? null,
+        }));
+
+        // Apply mapping
+        ordersWithDates = applyMappingOnOrders(ordersWithDates, mapping);
+
+        // Check for unknowns
+        const unk = getUnknownTitles(ordersWithDates, menuOptions, ignored);
+        if (unk.length > 0) {
+          setUnknowns(unk);
+          ingestBufferRef.current = ordersWithDates as any;
+          setMapOpen(true);
+          setLoading(false);
+          return;
+        }
+
+        // Filter by menu
+        const menuSet = new Set(menuOptions);
+        const filtered = ordersWithDates
+          .map(order => ({
+            ...order,
+            items: order.items.filter((item: any) => menuSet.has(item.title))
+          }))
+          .filter(order => order.items.length > 0);
+
+        // Normalize notes
+        const withNotes = filtered.map(o => normalizeImportantNotes(o));
+
+        // Store and show review
+        ingestBufferRef.current = withNotes as any;
+        setReviewData({
+          orders: withNotes,
+          files: files,
+        });
+        setShowReview(true);
+      } else {
+        // Fallback to original behavior
+        await doIngest({}, false, dateOverrides);
+      }
     } catch (e: any) {
       setError(e?.message || "Preview/ingest failed");
     } finally {
       setLoading(false);
     }
-  }, [files, isManager, doIngest]);
+  }, [files, isManager, doIngest, mapping, menuOptions, ignored]);
 
   /**
    * Final step: save orders after review
