@@ -262,7 +262,9 @@ export default function ShoppingListPage() {
     const manualItemIndex = manualItems.findIndex(i => i.name === itemName);
     if (manualItemIndex !== -1) {
       const updatedManual = manualItems.map(item =>
-        item.name === itemName ? { ...item, category: newCategoryId } : item
+        item.name === itemName
+          ? { ...item, category: newCategoryId, isShortage: false } // הסרת סימון חוסר בהעברה לקטגוריה
+          : item
       );
       setManualItems(updatedManual);
       await saveManualItems(updatedManual);
