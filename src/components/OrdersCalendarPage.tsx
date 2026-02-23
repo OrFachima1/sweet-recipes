@@ -599,7 +599,10 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       onUpdatePrices={(newPrices: Record<string, number>) => {
         settings.updatePrices(newPrices);
       }}
-
+      dishAccessories={settings.dishAccessories}
+      onUpdateDishAccessories={(newAccessories: Record<string, string[]>) => {
+        settings.updateDishAccessories(newAccessories);
+      }}
         />
       )}
 

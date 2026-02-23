@@ -31,6 +31,9 @@ interface SettingsModalProps {
 
   prices: Record<string, number>;
   onUpdatePrices: (prices: Record<string, number>) => void;
+
+  dishAccessories: Record<string, string[]>;
+  onUpdateDishAccessories: (accessories: Record<string, string[]>) => void;
 }
 
 type TabType = 'dishes' | 'categories' | 'mappings';
@@ -141,6 +144,8 @@ export default function SettingsModal({
   onUpdateRecipeLinks,
   prices,
   onUpdatePrices,
+  dishAccessories,
+  onUpdateDishAccessories,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('dishes');
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,6 +167,10 @@ export default function SettingsModal({
   // State for categories tab (existing handlers)
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [newColorInput, setNewColorInput] = useState('#ec4899');
+
+  // State for accessories
+  const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
+  const [newAccessoryInput, setNewAccessoryInput] = useState('');
 
   useEffect(() => {
     if (show && activeTab === 'dishes') {
@@ -199,6 +208,7 @@ export default function SettingsModal({
       setSelectedCategory('');
       setSelectedRecipe('');
       setSelectedPrice('');
+      setSelectedAccessories([]);
       return;
     }
 
@@ -217,6 +227,10 @@ export default function SettingsModal({
     // טען מחיר
     const price = prices[dishName] || '';
     setSelectedPrice(price);
+
+    // טען נלווים
+    const accessories = dishAccessories[dishName] || [];
+    setSelectedAccessories(accessories);
   };
 
   const handleSaveDish = () => {
@@ -265,6 +279,16 @@ export default function SettingsModal({
       onUpdatePrices(newPrices);
     }
 
+    // עדכון נלווים
+    if (selectedAccessories.length > 0) {
+      onUpdateDishAccessories({ ...dishAccessories, [selectedDishName]: selectedAccessories });
+    } else {
+      // הסר נלווים אם ריק
+      const newAccessories = { ...dishAccessories };
+      delete newAccessories[selectedDishName];
+      onUpdateDishAccessories(newAccessories);
+    }
+
     alert('המנה נשמרה בהצלחה!');
     handleClearForm();
   };
@@ -293,6 +317,11 @@ export default function SettingsModal({
     delete newPrices[selectedDishName];
     onUpdatePrices(newPrices);
 
+    // הסר נלווים
+    const newAccessories = { ...dishAccessories };
+    delete newAccessories[selectedDishName];
+    onUpdateDishAccessories(newAccessories);
+
     alert('המנה נמחקה בהצלחה!');
     handleClearForm();
   };
@@ -302,7 +331,25 @@ export default function SettingsModal({
     setSelectedCategory('');
     setSelectedRecipe('');
     setSelectedPrice('');
+    setSelectedAccessories([]);
+    setNewAccessoryInput('');
     setIsEditMode(false);
+  };
+
+  // ===== Accessories handlers =====
+  const addAccessory = () => {
+    const accessory = newAccessoryInput.trim();
+    if (!accessory) return;
+    if (selectedAccessories.includes(accessory)) {
+      alert('הנלווה כבר קיים');
+      return;
+    }
+    setSelectedAccessories([...selectedAccessories, accessory]);
+    setNewAccessoryInput('');
+  };
+
+  const removeAccessory = (accessory: string) => {
+    setSelectedAccessories(selectedAccessories.filter(a => a !== accessory));
   };
 
   // ===== Mappings tab handlers =====
@@ -543,6 +590,63 @@ export default function SettingsModal({
                     className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                   />
                 </StepBox>
+              </div>
+
+              {/* Step 5: Accessories */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-4 border-2 border-amber-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-sm">
+                    5
+                  </div>
+                  <div className="font-semibold text-gray-700">
+                    נלווים למנה
+                    <span className="text-gray-400 text-xs mr-2">(אופציונלי)</span>
+                  </div>
+                </div>
+
+                {/* Add accessory */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newAccessoryInput}
+                    onChange={(e) => setNewAccessoryInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addAccessory()}
+                    placeholder="כף חלוקה, רוטב, מפיות..."
+                    className="flex-1 px-3 py-2 rounded-lg border-2 border-amber-300 focus:border-amber-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={addAccessory}
+                    className="px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 transition-all"
+                  >
+                    + הוסף
+                  </button>
+                </div>
+
+                {/* Accessories list */}
+                {selectedAccessories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAccessories.map((accessory) => (
+                      <div
+                        key={accessory}
+                        className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full border-2 border-amber-200"
+                      >
+                        <span className="text-sm font-medium">{accessory}</span>
+                        <button
+                          onClick={() => removeAccessory(accessory)}
+                          className="w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 text-red-600 text-xs flex items-center justify-center"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedAccessories.length === 0 && (
+                  <div className="text-gray-400 text-sm text-center py-2">
+                    אין נלווים - הוסף פריטים שצריך לצרף למנה (למסך וידוא הזמנה)
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

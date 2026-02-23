@@ -18,6 +18,7 @@ export function useOrdersSettings(userId?: string) {
     items: Record<string, { color: string; order: number }>;
     itemMapping: Record<string, string>;
   } | null>(null);
+  const [dishAccessories, setDishAccessories] = useState<Record<string, string[]>>({});
 
   // ===== LISTENERS (קריאה בלבד) =====
   useEffect(() => {
@@ -69,6 +70,20 @@ export function useOrdersSettings(userId?: string) {
         setPrices(d.prices || {});
       } else {
         setPrices({});
+      }
+    });
+    return () => unsub();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const ref = doc(db, 'orderSettings', 'dishAccessories');
+    const unsub = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const d = snap.data() as any;
+        setDishAccessories(d.accessories || {});
+      } else {
+        setDishAccessories({});
       }
     });
     return () => unsub();
@@ -126,16 +141,24 @@ export function useOrdersSettings(userId?: string) {
     await setDocIfChanged(ref, { prices: newPrices });
   };
 
+  const updateDishAccessories = async (newAccessories: Record<string, string[]>) => {
+    setDishAccessories(newAccessories); // UI מיד
+    const ref = doc(db, 'orderSettings', 'dishAccessories');
+    await setDocIfChanged(ref, { accessories: newAccessories });
+  };
+
   return {
     mapping,
     ignored,
     recipeLinks,
     prices,
     categoryConfig,
+    dishAccessories,
     updateMapping,
     updateIgnored,
     updateCategoryConfig,
     updateRecipeLinks,
     updatePrices,
+    updateDishAccessories,
   };
 }
