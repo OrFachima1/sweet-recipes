@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -13,6 +13,23 @@ import { AddItemModal } from '@/components/shopping/AddItemModal';
 import { useShoppingList, ShoppingListItem } from '@/hooks/useShoppingList';
 import LoadingScreen from "@/components/LoadingScreen";
 import { useUser, useRole } from '@/lib/auth';
+
+// Debounce hook for search optimization
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 const normalizeIngredientName = (name: string): string => {
   return name
@@ -63,6 +80,7 @@ export default function ShoppingListPage() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 200);
   const [sortBy, setSortBy] = useState<'name' | 'checked'>('name');
 
   const minSwipeDistance = 50;
@@ -170,9 +188,10 @@ export default function ShoppingListPage() {
     // קטגוריית חוסרים - מחזירה רק פריטים שסומנו כחוסרים (isShortage: true)
     if (selectedCategory === '__shortages__') {
       let items = [...shortageItems];
-      if (searchTerm.trim()) {
+      if (debouncedSearchTerm.trim()) {
+        const searchLower = debouncedSearchTerm.toLowerCase();
         items = items.filter(item =>
-          item.name.toLowerCase().includes(searchTerm.toLowerCase())
+          item.name.toLowerCase().includes(searchLower)
         );
       }
       return items;
@@ -182,9 +201,10 @@ export default function ShoppingListPage() {
       ? shoppingList
       : groupedList[selectedCategory] || [];
 
-    if (searchTerm.trim()) {
+    if (debouncedSearchTerm.trim()) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
       items = items.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        item.name.toLowerCase().includes(searchLower)
       );
     }
 
@@ -198,7 +218,7 @@ export default function ShoppingListPage() {
     }
 
     return items;
-  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems, shortageItems]);
+  }, [selectedCategory, shoppingList, groupedList, debouncedSearchTerm, sortBy, checkedItems, shortageItems]);
 
   const addManualItem = async (name: string, qty: string, unit: string) => {
     // קביעת קטגוריה - אם נמצאים בחוסרים או הכל, לשמור כ-other

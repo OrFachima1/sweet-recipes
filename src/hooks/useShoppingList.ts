@@ -99,34 +99,60 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
   const loadData = async () => {
     setLoading(true);
     try {
+      // Build orders query
       const ordersRef = collection(db, 'orders');
       const ordersQuery = query(
         ordersRef,
         where('eventDate', '>=', selectedPeriod.start),
         where('eventDate', '<=', selectedPeriod.end)
       );
-      const ordersSnap = await getDocs(ordersQuery);
-      const ordersData: Order[] = ordersSnap.docs.map(doc => ({
-        __id: doc.id,
-        ...doc.data()
+
+      // Fetch all data in parallel for better performance
+      const [
+        ordersSnap,
+        menuDoc,
+        recipeLinksDoc,
+        allRecipesSnap,
+        mappingsDoc,
+        settingsDoc,
+        categoriesDoc,
+        checkedDoc,
+        deletedDoc,
+      ] = await Promise.all([
+        getDocs(ordersQuery),
+        getDoc(doc(db, 'orderSettings', 'menu')),
+        getDoc(doc(db, 'orderSettings', 'recipeLinks')),
+        getDocs(collection(db, 'recipes')),
+        getDoc(doc(db, 'orderSettings', 'ingredientMappings')),
+        getDoc(doc(db, 'orderSettings', 'shoppingListSettings')),
+        getDoc(doc(db, 'orderSettings', 'shoppingCategories')),
+        getDoc(doc(db, 'orderSettings', 'checkedShoppingItems')),
+        getDoc(doc(db, 'orderSettings', 'deletedShoppingItems')),
+      ]);
+
+      // Process orders
+      const ordersData: Order[] = ordersSnap.docs.map(d => ({
+        __id: d.id,
+        ...d.data()
       })) as Order[];
       setOrders(ordersData);
 
-      const menuDoc = await getDoc(doc(db, 'orderSettings', 'menu'));
+      // Process menu
       const menuList = menuDoc.exists() ? menuDoc.data().items || [] : [];
       setAllMenuItems(menuList);
 
-      const recipeLinksDoc = await getDoc(doc(db, 'orderSettings', 'recipeLinks'));
+      // Process recipe links
       const links = recipeLinksDoc.exists() ? recipeLinksDoc.data().links || {} : {};
       setRecipeLinks(links);
 
-      const allRecipesSnap = await getDocs(collection(db, 'recipes'));
-      const allRecipesData: Recipe[] = allRecipesSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      // Process recipes
+      const allRecipesData: Recipe[] = allRecipesSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
       } as Recipe));
       setRecipes(allRecipesData);
 
+      // Build menu items from orders
       const itemsMap = new Map<string, MenuItem>();
       ordersData.forEach(order => {
         order.items.forEach(item => {
@@ -141,17 +167,17 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
       });
       setMenuItems(Array.from(itemsMap.values()));
 
-      const mappingsDoc = await getDoc(doc(db, 'orderSettings', 'ingredientMappings'));
+      // Process mappings
       if (mappingsDoc.exists()) {
         setIngredientMappings(mappingsDoc.data().mappings || {});
       }
 
-      const settingsDoc = await getDoc(doc(db, 'orderSettings', 'shoppingListSettings'));
+      // Process settings
       if (settingsDoc.exists()) {
         setRecipeSettings(settingsDoc.data().settings || []);
       }
 
-      const categoriesDoc = await getDoc(doc(db, 'orderSettings', 'shoppingCategories'));
+      // Process categories
       if (categoriesDoc.exists()) {
         setCategories(categoriesDoc.data().categories || DEFAULT_CATEGORIES);
         setItemCategories(categoriesDoc.data().itemCategories || {});
@@ -159,12 +185,12 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
 
       // manualShoppingItems loaded via real-time listener
 
-      const checkedDoc = await getDoc(doc(db, 'orderSettings', 'checkedShoppingItems'));
+      // Process checked items
       if (checkedDoc.exists()) {
         setCheckedItems(checkedDoc.data().checked || {});
       }
 
-      const deletedDoc = await getDoc(doc(db, 'orderSettings', 'deletedShoppingItems'));
+      // Process deleted items
       if (deletedDoc.exists()) {
         setDeletedItems(deletedDoc.data().deleted || []);
       }
