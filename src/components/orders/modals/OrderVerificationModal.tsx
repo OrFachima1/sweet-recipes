@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { IngestJsonOrder } from '@/types/orders';
+import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from '@/utils/categoryMapping';
 
 interface OrderVerificationModalProps {
   order: IngestJsonOrder;
@@ -37,6 +38,16 @@ export default function OrderVerificationModal({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
+  // Group items by category
+  const groupedItems = useMemo(() => {
+    return groupItemsByCategory(order.items || []);
+  }, [order.items]);
+
+  // Get sorted category order
+  const categoryOrder = useMemo(() => {
+    return getCategoryOrder().filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
+  }, [groupedItems]);
+
   // Build aggregated accessories - איחוד נלווים מכל המנות
   const aggregatedAccessories = useMemo(() => {
     const accessoryMap: Record<string, AggregatedAccessory> = {};
@@ -61,16 +72,8 @@ export default function OrderVerificationModal({
     return Object.values(accessoryMap);
   }, [order.items, dishAccessories]);
 
-  // Calculate total checkable items (items only, accessories separate)
-  const totalItems = useMemo(() => {
-    let count = 0;
-    order.items.forEach((item) => {
-      count += item.qty || 1;
-    });
-    return count;
-  }, [order.items]);
-
-  const totalCheckable = totalItems + aggregatedAccessories.length;
+  // Calculate total checkable items (items + accessories)
+  const totalCheckable = order.items.length + aggregatedAccessories.length;
 
   // Calculate checked count
   const checkedCount = useMemo(() => {
@@ -91,13 +94,10 @@ export default function OrderVerificationModal({
   // Check all items
   const checkAll = () => {
     const allKeys: CheckedState = {};
-    order.items.forEach((item, idx) => {
-      const qty = item.qty || 1;
-      for (let q = 0; q < qty; q++) {
-        allKeys[`item-${idx}-${q}`] = true;
-      }
+    order.items.forEach((_, idx) => {
+      allKeys[`item-${idx}`] = true;
     });
-    aggregatedAccessories.forEach((acc, accIdx) => {
+    aggregatedAccessories.forEach((_, accIdx) => {
       allKeys[`acc-${accIdx}`] = true;
     });
     setCheckedItems(allKeys);
@@ -121,51 +121,47 @@ export default function OrderVerificationModal({
       {/* Modal */}
       <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="bg-gradient-to-br from-purple-50 via-white to-pink-50 w-full max-w-2xl max-h-[90vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col pointer-events-auto relative border border-purple-100"
+          className="bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col pointer-events-auto border-2 border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header - styled like OrderCard */}
           <div
-            className="px-6 py-5 text-white relative overflow-hidden"
+            className="px-5 py-4 text-white flex-shrink-0"
             style={{ backgroundColor: clientColor }}
           >
-            {/* Decorative circles */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full" />
-            <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-white/10 rounded-full" />
-
-            <div className="relative flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold drop-shadow-lg">{order.clientName}</h2>
+                <h2 className="text-xl font-bold">{order.clientName}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">
                     וידוא הזמנה
                   </span>
                   {order.estimatedTime && (
                     <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm">
-                      {order.estimatedTime}
+                      ⏰ {order.estimatedTime}
                     </span>
                   )}
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors text-white text-2xl backdrop-blur"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors text-white text-2xl"
                 title="סגור (ESC)"
               >
-                &times;
+                ✕
               </button>
             </div>
           </div>
 
-          {/* Progress Bar - enhanced */}
-          <div className="px-6 py-4 bg-white/80 border-b border-purple-100">
+          {/* Progress Bar */}
+          <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-600">התקדמות</span>
               <span className="text-sm font-bold" style={{ color: clientColor }}>
                 {checkedCount} / {totalCheckable}
               </span>
             </div>
-            <div className="h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+            <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full transition-all duration-500 ease-out rounded-full"
                 style={{
@@ -175,124 +171,122 @@ export default function OrderVerificationModal({
               />
             </div>
             {isComplete && (
-              <p className="text-center text-green-600 font-medium mt-2 animate-pulse">
-                הכל מוכן!
+              <p className="text-center text-green-600 font-medium mt-2 text-sm">
+                ✓ הכל מוכן!
               </p>
             )}
           </div>
 
-          {/* Actions - styled buttons */}
-          <div className="px-6 py-3 bg-white/60 border-b border-purple-100 flex gap-3">
+          {/* Actions */}
+          <div className="px-5 py-2 bg-gray-50 border-b border-gray-200 flex gap-2 flex-shrink-0">
             <button
               onClick={checkAll}
-              className="flex-1 py-2.5 text-sm font-medium bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl transition-all shadow-md hover:shadow-lg"
+              className="flex-1 py-2 text-sm font-medium bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all"
             >
               סמן הכל
             </button>
             <button
               onClick={uncheckAll}
-              className="flex-1 py-2.5 text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all"
+              className="flex-1 py-2 text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-all"
             >
               נקה הכל
             </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6" dir="rtl">
-            {/* Items Section */}
-            <div>
-              <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-lg">
-                <span className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                  📦
-                </span>
-                פריטים ({totalItems})
+          <div className="flex-1 overflow-y-auto p-4" dir="rtl">
+            {/* Items Section - By Category */}
+            <div className="mb-6">
+              <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-base">
+                📦 פריטים ({order.items.length})
               </h3>
-              <div className="space-y-3">
-                {order.items.map((item, idx) => {
-                  const qty = item.qty || 1;
-                  const allChecked = Array.from({ length: qty }).every(
-                    (_, qIdx) => checkedItems[`item-${idx}-${qIdx}`]
-                  );
+
+              <div className="space-y-2">
+                {categoryOrder.map(category => {
+                  const categoryItems = groupedItems[category];
+                  if (!categoryItems || categoryItems.length === 0) return null;
+
+                  const categoryColor = getCategoryColor(category);
 
                   return (
-                    <div
-                      key={idx}
-                      className={`rounded-2xl overflow-hidden transition-all duration-300 ${
-                        allChecked
-                          ? 'bg-green-50 border-2 border-green-200'
-                          : 'bg-white border-2 border-purple-100 shadow-sm'
-                      }`}
-                    >
-                      {/* Item Header */}
+                    <div key={category} className="flex gap-2">
+                      {/* Category Label */}
                       <div
-                        className="px-4 py-3 font-medium flex items-center justify-between"
+                        className="flex-shrink-0 w-16 rounded-lg flex items-center justify-center text-xs font-bold text-gray-700 px-2 py-1"
                         style={{
-                          backgroundColor: allChecked ? '#dcfce7' : `${clientColor}15`
+                          backgroundColor: categoryColor,
+                          writingMode: categoryItems.length > 3 ? 'vertical-rl' : 'horizontal-tb',
+                          textOrientation: categoryItems.length > 3 ? 'mixed' : 'initial'
                         }}
                       >
-                        <div className="flex items-center gap-2">
-                          {allChecked && (
-                            <span className="text-green-600 text-lg">✓</span>
-                          )}
-                          <span className={allChecked ? 'text-green-700' : 'text-gray-800'}>
-                            {item.title}
-                          </span>
-                        </div>
-                        <span className={`text-sm px-3 py-1 rounded-full ${
-                          allChecked
-                            ? 'bg-green-200 text-green-700'
-                            : 'bg-white/80 text-gray-600'
-                        }`}>
-                          {qty} {item.unit || 'יח׳'}
-                        </span>
+                        {category}
                       </div>
 
-                      {/* Per-quantity checklist */}
-                      <div className="divide-y divide-gray-100">
-                        {Array.from({ length: qty }).map((_, qIdx) => (
-                          <div key={qIdx} className="px-4 py-3">
-                            {/* Main item checkbox */}
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <div className="relative">
-                                <input
-                                  type="checkbox"
-                                  checked={!!checkedItems[`item-${idx}-${qIdx}`]}
-                                  onChange={() => toggleItem(`item-${idx}-${qIdx}`)}
-                                  className="sr-only"
-                                />
+                      {/* Items in Category */}
+                      <div className="flex-1 space-y-1">
+                        {categoryItems.map((item: any) => {
+                          const originalIndex = order.items.indexOf(item);
+                          if (originalIndex === -1) return null;
+
+                          const isChecked = checkedItems[`item-${originalIndex}`];
+                          const qty = item.qty || 1;
+
+                          return (
+                            <div
+                              key={originalIndex}
+                              className={`rounded-lg p-2.5 border transition-all cursor-pointer ${
+                                isChecked
+                                  ? 'bg-green-50 border-green-300'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                              style={{
+                                backgroundColor: isChecked ? undefined : `${categoryColor}15`,
+                                borderColor: isChecked ? undefined : categoryColor
+                              }}
+                              onClick={() => toggleItem(`item-${originalIndex}`)}
+                            >
+                              <div className="flex items-center gap-3">
+                                {/* Checkbox */}
                                 <div
-                                  className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${
-                                    checkedItems[`item-${idx}-${qIdx}`]
+                                  className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                                    isChecked
                                       ? 'bg-green-500 border-green-500'
-                                      : 'border-gray-300 hover:border-purple-400'
+                                      : 'border-gray-300'
                                   }`}
                                 >
-                                  {checkedItems[`item-${idx}-${qIdx}`] && (
+                                  {isChecked && (
                                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                     </svg>
                                   )}
                                 </div>
-                              </div>
-                              <span
-                                className={`font-medium transition-all ${
-                                  checkedItems[`item-${idx}-${qIdx}`]
-                                    ? 'line-through text-gray-400'
-                                    : 'text-gray-700'
-                                }`}
-                              >
-                                {item.title} {qty > 1 && `#${qIdx + 1}`}
-                              </span>
-                            </label>
 
-                            {/* Item notes */}
-                            {item.notes && qIdx === 0 && (
-                              <div className="mr-10 mt-2 text-sm bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-amber-800">
-                                <span className="font-medium">הערה:</span> {item.notes}
+                                {/* Item Title */}
+                                <span className={`flex-1 font-medium text-sm ${
+                                  isChecked ? 'line-through text-gray-400' : 'text-gray-700'
+                                }`}>
+                                  {item.title}
+                                </span>
+
+                                {/* Quantity Badge */}
+                                <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                  isChecked
+                                    ? 'bg-green-200 text-green-700'
+                                    : 'bg-white text-gray-600'
+                                }`}>
+                                  {qty} {item.unit || 'יח׳'}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              {/* Item Notes */}
+                              {item.notes && (
+                                <div className="mt-2 mr-9 text-xs bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 text-amber-800">
+                                  <span className="font-medium">הערה:</span> {item.notes}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -303,96 +297,98 @@ export default function OrderVerificationModal({
             {/* Accessories Section - aggregated */}
             {aggregatedAccessories.length > 0 && (
               <div>
-                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-lg">
-                  <span className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                    🧰
-                  </span>
-                  נלווים למשלוח ({aggregatedAccessories.length})
+                <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-base">
+                  🧰 נלווים למשלוח ({aggregatedAccessories.length})
                 </h3>
-                <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+
+                <div className="rounded-xl overflow-hidden bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-green-200">
                   <div className="divide-y divide-green-100">
-                    {aggregatedAccessories.map((acc, accIdx) => (
-                      <div key={accIdx} className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          {/* Custom checkbox */}
-                          <label className="cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!checkedItems[`acc-${accIdx}`]}
-                              onChange={() => toggleItem(`acc-${accIdx}`)}
-                              className="sr-only"
-                            />
+                    {aggregatedAccessories.map((acc, accIdx) => {
+                      const isChecked = checkedItems[`acc-${accIdx}`];
+
+                      return (
+                        <div
+                          key={accIdx}
+                          className={`px-4 py-3 cursor-pointer transition-all ${
+                            isChecked ? 'bg-green-100/50' : 'hover:bg-green-50'
+                          }`}
+                          onClick={() => toggleItem(`acc-${accIdx}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Checkbox */}
                             <div
-                              className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all ${
-                                checkedItems[`acc-${accIdx}`]
+                              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                                isChecked
                                   ? 'bg-green-500 border-green-500'
-                                  : 'border-green-400 hover:border-green-500'
+                                  : 'border-green-400'
                               }`}
                             >
-                              {checkedItems[`acc-${accIdx}`] && (
+                              {isChecked && (
                                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               )}
                             </div>
-                          </label>
 
-                          <span
-                            className={`flex-1 font-medium flex items-center gap-2 ${
-                              checkedItems[`acc-${accIdx}`]
-                                ? 'line-through text-gray-400'
-                                : 'text-gray-700'
-                            }`}
-                          >
+                            {/* Quantity Badge */}
                             {acc.totalQty > 1 && (
-                              <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-green-600 text-white text-sm font-bold">
+                              <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-green-600 text-white text-xs font-bold">
                                 {acc.totalQty}
                               </span>
                             )}
-                            {acc.name}
-                          </span>
 
-                          {/* Info button */}
-                          <button
-                            onClick={() => setShowAccessoryInfo(
-                              showAccessoryInfo === acc.name ? null : acc.name
-                            )}
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                              showAccessoryInfo === acc.name
-                                ? 'bg-blue-500 text-white shadow-lg'
-                                : 'bg-white text-gray-500 hover:bg-gray-100 shadow'
-                            }`}
-                            title="הצג מנות קשורות"
-                          >
-                            ?
-                          </button>
-                        </div>
+                            {/* Accessory Name */}
+                            <span className={`flex-1 font-medium text-sm ${
+                              isChecked ? 'line-through text-gray-400' : 'text-gray-700'
+                            }`}>
+                              {acc.name}
+                            </span>
 
-                        {/* Expanded info - which dishes need this accessory */}
-                        {showAccessoryInfo === acc.name && (
-                          <div className="mt-3 mr-10 text-sm bg-white rounded-xl p-4 shadow-inner border border-gray-100">
-                            <p className="text-gray-500 mb-2 font-medium">נדרש עבור:</p>
-                            <ul className="space-y-2">
-                              {acc.dishes.map((dish, i) => {
-                                const item = order.items.find(it => it.title === dish);
-                                const qty = item?.qty || 1;
-                                return (
-                                  <li key={i} className="flex items-center gap-2 text-gray-700">
-                                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                                    <span className="font-medium">{dish}</span>
-                                    {qty > 1 && (
-                                      <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full">
-                                        {qty} יח׳
-                                      </span>
-                                    )}
-                                  </li>
+                            {/* Info button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAccessoryInfo(
+                                  showAccessoryInfo === acc.name ? null : acc.name
                                 );
-                              })}
-                            </ul>
+                              }}
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                                showAccessoryInfo === acc.name
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-white text-gray-500 hover:bg-gray-100 shadow-sm'
+                              }`}
+                              title="הצג מנות קשורות"
+                            >
+                              ?
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          {/* Expanded info - which dishes need this accessory */}
+                          {showAccessoryInfo === acc.name && (
+                            <div className="mt-2 mr-9 text-xs bg-white rounded-lg p-3 shadow-inner border border-gray-100">
+                              <p className="text-gray-500 mb-2 font-medium">נדרש עבור:</p>
+                              <ul className="space-y-1.5">
+                                {acc.dishes.map((dish, i) => {
+                                  const item = order.items.find(it => it.title === dish);
+                                  const qty = item?.qty || 1;
+                                  return (
+                                    <li key={i} className="flex items-center gap-2 text-gray-700">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                      <span className="font-medium">{dish}</span>
+                                      {qty > 1 && (
+                                        <span className="text-gray-400 text-xs bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                          {qty} יח׳
+                                        </span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -400,24 +396,24 @@ export default function OrderVerificationModal({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-5 border-t border-purple-100 bg-white/80">
+          <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
             {isComplete ? (
               <div className="text-center">
-                <div className="text-5xl mb-3 animate-bounce">🎉</div>
-                <p className="text-xl font-bold text-green-600 mb-4">ההזמנה מוכנה למשלוח!</p>
+                <div className="text-4xl mb-2">🎉</div>
+                <p className="text-lg font-bold text-green-600 mb-3">ההזמנה מוכנה למשלוח!</p>
                 <button
                   onClick={onClose}
-                  className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl text-lg"
+                  className="px-6 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg text-base"
                 >
                   סיום
                 </button>
               </div>
             ) : (
               <div className="text-center">
-                <p className="text-gray-500 mb-2">סמן את כל הפריטים לסיום</p>
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+                <p className="text-gray-500 mb-1 text-sm">סמן את כל הפריטים לסיום</p>
+                <div className="flex items-center justify-center gap-1 text-sm text-gray-400">
                   <span>נותרו</span>
-                  <span className="font-bold text-purple-600">{totalCheckable - checkedCount}</span>
+                  <span className="font-bold" style={{ color: clientColor }}>{totalCheckable - checkedCount}</span>
                   <span>פריטים</span>
                 </div>
               </div>
