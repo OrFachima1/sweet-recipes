@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
@@ -41,6 +41,12 @@ export default function DeliveriesPage() {
   const [verifyOrderId, setVerifyOrderId] = useState<string | null>(null);
   const [dishAccessories, setDishAccessories] = useState<Record<string, string[]>>({});
 
+  // שמירת רפרנס יציב לפונקציה כדי למנוע לולאת רינדור
+  const getClientColorRef = useRef(getClientColor);
+  useEffect(() => {
+    getClientColorRef.current = getClientColor;
+  }, [getClientColor]);
+
   const isAuthorized = role === 'manager' || role === 'senior_worker' || role === 'worker';
 
   // Redirect guard
@@ -77,7 +83,7 @@ export default function DeliveriesPage() {
             __id: d.id,
             orderId: data.orderId,
             clientName: data.clientName,
-            clientColor: getClientColor(data.clientName),
+            clientColor: getClientColorRef.current(data.clientName),
             eventDate: data.eventDate,
             status: data.status,
             items: data.items || [],
@@ -103,7 +109,7 @@ export default function DeliveriesPage() {
     );
 
     return () => unsub();
-  }, [user, selectedDate, getClientColor]);
+  }, [user, selectedDate]);
 
   // Load dish accessories
   useEffect(() => {
