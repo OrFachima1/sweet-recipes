@@ -56,7 +56,8 @@ service cloud.firestore {
     // ========== הגדרות הזמנות ==========
     match /orderSettings/{docId} {
       allow read: if isAuthorized();
-      allow write: if isManager();
+      // אחמ"ש יכול לכתוב רק לפריטי חוסרים
+      allow write: if isManager() || (canAddOrEdit() && docId == 'manualShoppingItems');
     }
 
     // ========== לקוחות ==========
