@@ -26,6 +26,7 @@ interface DayOrdersListProps {
   getClientColor?: (clientName: string) => string;
   recipeLinks?: Record<string, string>;
   isManager?: boolean;
+  showDeliveryDetails?: boolean;
   menuOptions?: string[];
 }
 
@@ -45,6 +46,7 @@ export default function DayOrdersList({
   getClientColor,
   recipeLinks,
   isManager = false,
+  showDeliveryDetails = false,
   menuOptions = []
 }: DayOrdersListProps) {
   const { user } = useUser();
@@ -230,6 +232,7 @@ export default function DayOrdersList({
               externalExpanded={isExpanded}
               onToggle={(orderId, expanded) => toggleOrder(orderId, expanded)}
               isManager={isManager}
+              showDeliveryDetails={showDeliveryDetails}
               menuOptions={menuOptions}
             />
           );

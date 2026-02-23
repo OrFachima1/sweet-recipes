@@ -422,6 +422,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
         dayKey={dayKey}
         daysMap={daysMap}
         isManager={canEdit}
+        showDeliveryDetails={isManager}
         menuOptions={state.menuOptions}
         deleteOrder={canDeleteItems ? actions.deleteOrder : undefined}
         editOrderItem={canEdit ? actions.editOrderItem : undefined}
@@ -468,6 +469,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
 
           // מידע נוסף
           isManager={canEdit}
+          showDeliveryDetails={isManager}
           menuOptions={state.menuOptions}
         />
       )}
@@ -487,6 +489,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
           isManager={canEdit}
+          showDeliveryDetails={isManager}
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
 

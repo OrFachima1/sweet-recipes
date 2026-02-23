@@ -41,7 +41,8 @@ interface OrderCardProps {
   externalExpanded?: boolean;
   
   // גישה ותפריט
-  isManager?: boolean;
+  isManager?: boolean;           // האם יש הרשאות עריכה (מנהל או עובד בכיר)
+  showDeliveryDetails?: boolean; // האם להציג פרטי אספקה (רק למנהל)
   menuOptions?: string[];
 }
 
@@ -75,6 +76,7 @@ export default function OrderCard({
   onToggle,
   externalExpanded,
   isManager = false,
+  showDeliveryDetails = false,
   menuOptions = []
 }: OrderCardProps) {
   // Tracking context
@@ -752,7 +754,7 @@ export default function OrderCard({
             )}
 
             {/* תצוגת פרטי אספקה - במצב צפייה (רק למנהלים) */}
-            {isManager && !editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
+            {showDeliveryDetails && !editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
               <div className="mb-3 bg-purple-50 rounded-lg p-2 border border-purple-200">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-gray-700">🚚 פרטי אספקה</span>

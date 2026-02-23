@@ -7,6 +7,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 
 import { useUser, useRole } from '@/lib/auth';
 import { useClients } from '@/hooks/useClients';
+import { setCategoryConfig } from '@/utils/categoryMapping';
 import LoadingScreen from '@/components/LoadingScreen';
 import HomeButton from '@/components/HomeButton';
 import DeliveryCard from '@/components/deliveries/DeliveryCard';
@@ -40,6 +41,7 @@ export default function DeliveriesPage() {
   const [loading, setLoading] = useState(true);
   const [verifyOrderId, setVerifyOrderId] = useState<string | null>(null);
   const [dishAccessories, setDishAccessories] = useState<Record<string, string[]>>({});
+  const [filterType, setFilterType] = useState<'all' | 'delivery' | 'pickup'>('all');
 
   // שמירת רפרנס יציב לפונקציה כדי למנוע לולאת רינדור
   const getClientColorRef = useRef(getClientColor);
@@ -130,16 +132,44 @@ export default function DeliveriesPage() {
     return () => unsub();
   }, [user]);
 
-  // Filter only deliveries
-  const deliveryOrders = useMemo(() => {
-    return orders
-      .filter((o) => o.deliveryMethod === 'delivery')
-      .sort((a, b) => {
-        if (!a.estimatedTime) return 1;
-        if (!b.estimatedTime) return -1;
-        return a.estimatedTime.localeCompare(b.estimatedTime);
-      });
-  }, [orders]);
+  // Load category config for verification modal
+  useEffect(() => {
+    if (!user) return;
+
+    const unsub = onSnapshot(
+      doc(db, 'orderSettings', 'categories'),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          const config = {
+            items: data.items || {},
+            itemMapping: data.itemMapping || {},
+          };
+          setCategoryConfig(config);
+        }
+      }
+    );
+
+    return () => unsub();
+  }, [user]);
+
+  // Filter by type
+  const filteredOrders = useMemo(() => {
+    let filtered = orders;
+    if (filterType === 'delivery') {
+      filtered = orders.filter((o) => o.deliveryMethod === 'delivery');
+    } else if (filterType === 'pickup') {
+      filtered = orders.filter((o) => o.deliveryMethod === 'pickup' || !o.deliveryMethod);
+    }
+    return filtered.sort((a, b) => {
+      if (!a.estimatedTime) return 1;
+      if (!b.estimatedTime) return -1;
+      return a.estimatedTime.localeCompare(b.estimatedTime);
+    });
+  }, [orders, filterType]);
+
+  const deliveryCount = orders.filter((o) => o.deliveryMethod === 'delivery').length;
+  const pickupCount = orders.filter((o) => o.deliveryMethod === 'pickup' || !o.deliveryMethod).length;
 
   // Loading states
   if (userLoading || !user || role == null) {
@@ -164,7 +194,7 @@ export default function DeliveriesPage() {
       <div className="max-w-4xl mx-auto px-4 py-8 pt-20">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">משלוחים</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">וידוא הזמנות</h1>
           <p className="text-gray-500">{formatDateHebrew(selectedDate)}</p>
         </div>
 
@@ -204,33 +234,53 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex justify-center gap-4 mb-8">
-          <div className="bg-white rounded-2xl shadow px-6 py-3 text-center">
-            <span className="text-2xl font-bold text-blue-600">{deliveryOrders.length}</span>
-            <p className="text-gray-500 text-sm">משלוחים</p>
-          </div>
-          <div className="bg-white rounded-2xl shadow px-6 py-3 text-center">
-            <span className="text-2xl font-bold text-gray-600">
-              {orders.filter((o) => o.deliveryMethod === 'pickup').length}
-            </span>
-            <p className="text-gray-500 text-sm">איסופים</p>
-          </div>
+        {/* Filter Tabs */}
+        <div className="flex justify-center gap-2 mb-8">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+              filterType === 'all'
+                ? 'bg-purple-500 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-50 shadow'
+            }`}
+          >
+            הכל ({orders.length})
+          </button>
+          <button
+            onClick={() => setFilterType('delivery')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+              filterType === 'delivery'
+                ? 'bg-blue-500 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-50 shadow'
+            }`}
+          >
+            🚚 משלוחים ({deliveryCount})
+          </button>
+          <button
+            onClick={() => setFilterType('pickup')}
+            className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+              filterType === 'pickup'
+                ? 'bg-rose-500 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-50 shadow'
+            }`}
+          >
+            🏪 איסופים ({pickupCount})
+          </button>
         </div>
 
-        {/* Delivery List */}
+        {/* Orders List */}
         {loading ? (
           <div className="text-center py-8">
             <div className="inline-block w-8 h-8 border-4 border-pink-300 border-t-pink-600 rounded-full animate-spin" />
           </div>
-        ) : deliveryOrders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl shadow">
             <div className="text-5xl mb-4">📦</div>
-            <p className="text-gray-500 text-lg">אין משלוחים ליום זה</p>
+            <p className="text-gray-500 text-lg">אין הזמנות ליום זה</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {deliveryOrders.map((order) => (
+            {filteredOrders.map((order) => (
               <DeliveryCard
                 key={order.__id}
                 order={order}

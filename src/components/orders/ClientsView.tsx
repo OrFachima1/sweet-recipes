@@ -27,6 +27,7 @@ interface ClientsViewProps {
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
   isManager?: boolean;
+  showDeliveryDetails?: boolean;
   menuOptions?: string[];
 }
 
@@ -46,6 +47,7 @@ export default function ClientsView({
   onEditDelivery,
   toggleNote,
   isManager,
+  showDeliveryDetails,
   menuOptions = []
 }: ClientsViewProps) {
   const { user } = useUser();
@@ -790,6 +792,7 @@ export default function ClientsView({
                   noteOpen={noteOpen}
                   toggleNote={toggleNote}
                   isManager={isManager}
+                  showDeliveryDetails={showDeliveryDetails}
                   menuOptions={menuOptions}
                   recipeLinks={recipeLinks}
                   isCollapsible={true}
