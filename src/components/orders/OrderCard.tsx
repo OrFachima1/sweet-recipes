@@ -24,6 +24,7 @@ interface OrderCardProps {
     estimatedTime?: string;
     phone1?: string;
     phone2?: string;
+    address?: string;
   }) => void;
 
   recipeLinks?: Record<string, string>;
@@ -108,6 +109,7 @@ export default function OrderCard({
   const [estimatedTime, setEstimatedTime] = useState(order.estimatedTime || "");
   const [phone1, setPhone1] = useState(order.phone1 || "");
   const [phone2, setPhone2] = useState(order.phone2 || "");
+  const [address, setAddress] = useState(order.address || "");
 
   // מצב expanded - חיצוני או מקומי
   const isExpanded = externalExpanded !== undefined ? externalExpanded : localExpanded;
@@ -436,6 +438,7 @@ export default function OrderCard({
                           setEstimatedTime(order.estimatedTime || "");
                           setPhone1(order.phone1 || "");
                           setPhone2(order.phone2 || "");
+                          setAddress(order.address || "");
                           setShowMenu(false);
                         }}
                         className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
@@ -668,6 +671,18 @@ export default function OrderCard({
                     </div>
                   </div>
 
+                  {/* כתובת */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">כתובת למשלוח</label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="רחוב, עיר..."
+                      className="w-full text-sm p-2 border border-purple-300 rounded"
+                    />
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -676,6 +691,7 @@ export default function OrderCard({
                           estimatedTime: estimatedTime || undefined,
                           phone1: phone1.trim() || undefined,
                           phone2: phone2.trim() || undefined,
+                          address: address.trim() || undefined,
                         });
                         setEditingDelivery(false);
                       }}
@@ -690,6 +706,7 @@ export default function OrderCard({
                         setEstimatedTime(order.estimatedTime || "");
                         setPhone1(order.phone1 || "");
                         setPhone2(order.phone2 || "");
+                        setAddress(order.address || "");
                       }}
                       className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
                     >

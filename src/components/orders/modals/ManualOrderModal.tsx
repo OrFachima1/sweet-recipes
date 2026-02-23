@@ -24,6 +24,7 @@ interface ManualOrderModalProps {
     estimatedTime?: string;
     phone1?: string;
     phone2?: string;
+    address?: string;
   }) => void;
   menuOptions: string[];
 }
@@ -59,6 +60,7 @@ export default function ManualOrderModal({
   const [estimatedTime, setEstimatedTime] = useState("");
   const [phone1, setPhone1] = useState("");
   const [phone2, setPhone2] = useState("");
+  const [address, setAddress] = useState("");
 
   // Client autocomplete
   const [clientSearch, setClientSearch] = useState("");
@@ -233,6 +235,7 @@ export default function ManualOrderModal({
       estimatedTime: estimatedTime || undefined,
       phone1: phone1.trim() || undefined,
       phone2: phone2.trim() || undefined,
+      address: address.trim() || undefined,
     });
 
     // Reset
@@ -250,6 +253,7 @@ export default function ManualOrderModal({
     setEstimatedTime("");
     setPhone1("");
     setPhone2("");
+    setAddress("");
   };
 
   const getFilteredMenu = (searchTerm: string) => {
@@ -461,6 +465,20 @@ export default function ManualOrderModal({
                 dir="ltr"
               />
             </div>
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              כתובת למשלוח
+            </label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="רחוב, עיר..."
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+            />
           </div>
 
           {/* Order Notes */}

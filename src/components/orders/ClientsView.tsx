@@ -20,6 +20,7 @@ interface ClientsViewProps {
     estimatedTime?: string;
     phone1?: string;
     phone2?: string;
+    address?: string;
   }) => void;
   onDeleteOrder?: (orderId: string) => void;
   onAddItem?: (orderId: string) => void;

@@ -186,6 +186,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
   estimatedTime?: string;
   phone1?: string;
   phone2?: string;
+  address?: string;
 }) => {
   if (!canEdit) {
     alert("אין לך הרשאה לערוך הזמנות");
@@ -201,6 +202,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
           estimatedTime: delivery.estimatedTime ?? o.estimatedTime,
           phone1: delivery.phone1 ?? o.phone1,
           phone2: delivery.phone2 ?? o.phone2,
+          address: delivery.address ?? o.address,
         }
   );
 

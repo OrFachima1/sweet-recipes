@@ -21,6 +21,7 @@ interface DayModalProps {
     estimatedTime?: string;
     phone1?: string;
     phone2?: string;
+    address?: string;
   }) => void;
   updateClientColor?: (clientName: string, newColor: string) => Promise<void>;
   getClientColor?: (clientName: string) => string;

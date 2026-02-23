@@ -82,6 +82,7 @@ export function useOrdersFirebase({
             estimatedTime: data.estimatedTime || null,
             phone1: data.phone1 || null,
             phone2: data.phone2 || null,
+            address: data.address || null,
           };
           return o;
         });
@@ -208,6 +209,7 @@ export function useOrdersFirebase({
           estimatedTime: order.estimatedTime ?? null,
           phone1: order.phone1 ?? null,
           phone2: order.phone2 ?? null,
+          address: order.address ?? null,
         };
 
         // 🔥 בדיקה נוספת - אם יש undefined בנתונים, החלף ל-null

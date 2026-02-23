@@ -31,6 +31,7 @@ export interface IngestJsonOrder {
   estimatedTime?: string | null;           // שעה משוערת (HH:MM)
   phone1?: string | null;                  // טלפון ראשי
   phone2?: string | null;                  // טלפון משני
+  address?: string | null;                 // כתובת למשלוח
 }
 
 
@@ -59,6 +60,7 @@ export interface NormalizedOrder {
   estimatedTime?: string | null;
   phone1?: string | null;
   phone2?: string | null;
+  address?: string | null;
 }
 
 // תגובות API

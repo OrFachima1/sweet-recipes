@@ -88,6 +88,7 @@ export default function DeliveriesPage() {
             estimatedTime: data.estimatedTime || null,
             phone1: data.phone1 || null,
             phone2: data.phone2 || null,
+            address: data.address || null,
           } as IngestJsonOrder;
         });
         setOrders(list);

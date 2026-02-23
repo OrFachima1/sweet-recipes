@@ -17,6 +17,7 @@ interface DayOrdersListProps {
     estimatedTime?: string;
     phone1?: string;
     phone2?: string;
+    address?: string;
   }) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   noteOpen?: Record<string, boolean>;
