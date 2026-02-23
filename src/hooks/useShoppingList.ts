@@ -226,58 +226,67 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
   }, []);
 
 const shoppingList = useMemo(() => {
-  const aggregated: Record<string, ShoppingListItem> = {};
-  
+  // 🚀 אופטימיזציה: חישוב מפת כמויות מראש - O(N*K) במקום O(M*N*K)
+  const menuItemQtyMap = new Map<string, number>();
+  for (const order of orders) {
+    for (const item of order.items) {
+      menuItemQtyMap.set(item.title, (menuItemQtyMap.get(item.title) || 0) + (item.qty || 1));
+    }
+  }
+
+  // 🚀 אופטימיזציה: המרת deletedItems ל-Set - O(1) במקום O(n)
+  const deletedSet = new Set(deletedItems.map(normalizeIngredientName));
+
+  // 🚀 אופטימיזציה: שימוש ב-Set לבדיקת sources - O(1) במקום O(n)
+  const aggregated: Record<string, ShoppingListItem & { _sourceSet: Set<string> }> = {};
+
   // 1️⃣ תחילה - מטפל במתכונים מקושרים
   for (const menuItem of menuItems) {
     if (!menuItem.enabled) continue;
-    
+
+    // 🚀 שימוש במפה המחושבת מראש
+    const totalQty = menuItemQtyMap.get(menuItem.name) || 0;
+    if (totalQty === 0) continue;
+
     // אם אין recipeId - בדוק אם יש הגדרה ידנית
     if (!menuItem.recipeId) {
       // חפש הגדרה ידנית למנה הזו
-      const manualSettings = recipeSettings.find(s => 
+      const manualSettings = recipeSettings.find(s =>
         s.menuItemName === menuItem.name && !s.originalRecipeId
       );
-      
+
       if (manualSettings && manualSettings.enabled) {
-        // חשב כמה פעמים המנה מופיעה בהזמנות
-        let totalQty = 0;
-        orders.forEach(order => {
-          order.items.forEach(item => {
-            if (item.title === menuItem.name) {
-              totalQty += item.qty || 1;
-            }
-          });
-        });
-        
         const multiplier = manualSettings.multiplier || 1;
-        
+
         // הוסף את הרכיבים הידניים
         for (const ingredient of manualSettings.customIngredients) {
           if (!ingredient.enabled) continue;
-          
+
           const normalizedName = normalizeIngredientName(ingredient.name);
           const mappedName = ingredientMappings[normalizedName] || ingredient.name;
-          const key = ingredientMappings[normalizedName] 
-            ? normalizeIngredientName(ingredientMappings[normalizedName]) 
+          const key = ingredientMappings[normalizedName]
+            ? normalizeIngredientName(ingredientMappings[normalizedName])
             : normalizedName;
-          
+
           if (!aggregated[key]) {
             aggregated[key] = {
               name: mappedName,
               qty: 0,
               unit: ingredient.unit,
               sources: [],
-              category: itemCategories[normalizedName] || 'other'
+              category: itemCategories[normalizedName] || 'other',
+              _sourceSet: new Set()
             };
           }
-          
+
           const qtyPerUnit = ingredient.qty / multiplier;
           const totalIngredientQty = qtyPerUnit * totalQty;
-          
+
           aggregated[key].qty += totalIngredientQty;
-          if (!aggregated[key].sources.includes(menuItem.name)) {
+          // 🚀 O(1) lookup במקום O(n)
+          if (!aggregated[key]._sourceSet.has(menuItem.name)) {
             aggregated[key].sources.push(menuItem.name);
+            aggregated[key]._sourceSet.add(menuItem.name);
           }
         }
       }
@@ -285,24 +294,15 @@ const shoppingList = useMemo(() => {
     }
 
     // 2️⃣ מתכונים רגילים עם recipeId (הקוד המקורי שלך)
-    const settings = recipeSettings.find(s => 
-      (s.originalRecipeId || s.recipeId) === menuItem.recipeId && 
+    const settings = recipeSettings.find(s =>
+      (s.originalRecipeId || s.recipeId) === menuItem.recipeId &&
       s.menuItemName === menuItem.name
     );
     if (settings && !settings.enabled) continue;
-    
+
     const recipe = recipes.find(r => r.id === menuItem.recipeId);
     if (!recipe) continue;
-    
-    let totalQty = 0;
-    orders.forEach(order => {
-      order.items.forEach(item => {
-        if (item.title === menuItem.name) {
-          totalQty += item.qty || 1;
-        }
-      });
-    });
-    
+
     const multiplier = settings?.multiplier || 1;
 
     if (settings && settings.customIngredients.length > 0) {
@@ -311,26 +311,29 @@ const shoppingList = useMemo(() => {
 
         const normalizedName = normalizeIngredientName(ingredient.name);
         const mappedName = ingredientMappings[normalizedName] || ingredient.name;
-        const key = ingredientMappings[normalizedName] 
-          ? normalizeIngredientName(ingredientMappings[normalizedName]) 
+        const key = ingredientMappings[normalizedName]
+          ? normalizeIngredientName(ingredientMappings[normalizedName])
           : normalizedName;
-        
+
         if (!aggregated[key]) {
           aggregated[key] = {
             name: mappedName,
             qty: 0,
             unit: ingredient.unit,
             sources: [],
-            category: itemCategories[normalizedName] || 'other'
+            category: itemCategories[normalizedName] || 'other',
+            _sourceSet: new Set()
           };
         }
-        
+
         const qtyPerUnit = ingredient.qty / multiplier;
         const totalIngredientQty = qtyPerUnit * totalQty;
-        
+
         aggregated[key].qty += totalIngredientQty;
-        if (!aggregated[key].sources.includes(menuItem.name)) {
+        // 🚀 O(1) lookup במקום O(n)
+        if (!aggregated[key]._sourceSet.has(menuItem.name)) {
           aggregated[key].sources.push(menuItem.name);
+          aggregated[key]._sourceSet.add(menuItem.name);
         }
       }
     } else {
@@ -338,33 +341,40 @@ const shoppingList = useMemo(() => {
         for (const ingredient of group.items || []) {
           const normalizedName = normalizeIngredientName(ingredient.name);
           const mappedName = ingredientMappings[normalizedName] || ingredient.name;
-          const key = ingredientMappings[normalizedName] 
-            ? normalizeIngredientName(ingredientMappings[normalizedName]) 
+          const key = ingredientMappings[normalizedName]
+            ? normalizeIngredientName(ingredientMappings[normalizedName])
             : normalizedName;
-          
+
           if (!aggregated[key]) {
             aggregated[key] = {
               name: mappedName,
               qty: 0,
               unit: ingredient.unit,
               sources: [],
-              category: itemCategories[normalizedName] || 'other'
+              category: itemCategories[normalizedName] || 'other',
+              _sourceSet: new Set()
             };
           }
-          
+
           const qty = (parseFloat(ingredient.qty) || 0) * totalQty;
           aggregated[key].qty += qty;
-          if (!aggregated[key].sources.includes(menuItem.name)) {
+          // 🚀 O(1) lookup במקום O(n)
+          if (!aggregated[key]._sourceSet.has(menuItem.name)) {
             aggregated[key].sources.push(menuItem.name);
+            aggregated[key]._sourceSet.add(menuItem.name);
           }
         }
       }
     }
   }
-  
-  const allItems = [...Object.values(aggregated), ...manualItems];
+
+  // 🚀 הסרת ה-_sourceSet הפנימי לפני החזרת התוצאה
+  const cleanedAggregated: ShoppingListItem[] = Object.values(aggregated).map(({ _sourceSet, ...item }) => item);
+
+  const allItems = [...cleanedAggregated, ...manualItems];
   return allItems
-    .filter(item => !deletedItems.includes(normalizeIngredientName(item.name)))
+    // 🚀 O(1) lookup במקום O(n)
+    .filter(item => !deletedSet.has(normalizeIngredientName(item.name)))
     .sort((a, b) => a.name.localeCompare(b.name, 'he'));
 }, [menuItems, recipes, orders, ingredientMappings, recipeSettings, itemCategories, manualItems, deletedItems]);
 

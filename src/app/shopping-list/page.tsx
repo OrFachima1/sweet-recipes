@@ -183,7 +183,9 @@ export default function ShoppingListPage() {
   const totalItemsCount = shoppingList.length;
 
 
-  const filteredAndSortedItems = useMemo(() => {
+  // 🚀 אופטימיזציה: הפרדת הסינון מהמיון לפי checkedItems
+  // כך סימון פריט לא גורר חישוב מחדש של הסינון
+  const filteredItems = useMemo(() => {
     // קטגוריית חוסרים - מחזירה רק פריטים שסומנו כחוסרים (isShortage: true)
     if (selectedCategory === '__shortages__') {
       let items = [...shortageItems];
@@ -207,17 +209,20 @@ export default function ShoppingListPage() {
       );
     }
 
-    if (sortBy === 'checked') {
-      items = [...items].sort((a, b) => {
-        const aChecked = checkedItems[a.name] || false;
-        const bChecked = checkedItems[b.name] || false;
-        if (aChecked === bChecked) return 0;
-        return aChecked ? 1 : -1;
-      });
-    }
-
     return items;
-  }, [selectedCategory, shoppingList, groupedList, debouncedSearchTerm, sortBy, checkedItems, shortageItems]);
+  }, [selectedCategory, shoppingList, groupedList, debouncedSearchTerm, shortageItems]);
+
+  // 🚀 מיון נפרד - רק כשמשתנה sortBy או checkedItems
+  const filteredAndSortedItems = useMemo(() => {
+    if (sortBy !== 'checked') return filteredItems;
+
+    return [...filteredItems].sort((a, b) => {
+      const aChecked = checkedItems[a.name] || false;
+      const bChecked = checkedItems[b.name] || false;
+      if (aChecked === bChecked) return 0;
+      return aChecked ? 1 : -1;
+    });
+  }, [filteredItems, sortBy, checkedItems]);
 
   const addManualItem = async (name: string, qty: string, unit: string) => {
     // קביעת קטגוריה - אם נמצאים בחוסרים או הכל, לשמור כ-other
@@ -300,31 +305,30 @@ export default function ShoppingListPage() {
     }
   };
 
-  const updateCategoryName = (catId: string, newName: string, newEmoji?: string) => {
-    const updated = categories.map(c => 
-        c.id === catId 
-        ? { 
-            ...c, 
+  const updateCategoryName = async (catId: string, newName: string, newEmoji?: string) => {
+    const updated = categories.map(c =>
+        c.id === catId
+        ? {
+            ...c,
             name: newName,
             emoji: newEmoji || c.emoji  // שמור את האימוג'י החדש או הישן
-            } 
+            }
         : c
     );
-    
+
     setCategories(updated);
-    
-    setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+
+    await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
         categories: updated,
         itemCategories,
         updatedAt: new Date().toISOString()
     });
     };
 
-  const deleteCategory = (catId: string) => {
-    
+  const deleteCategory = async (catId: string) => {
     const updated = categories.filter(c => c.id !== catId);
     setCategories(updated);
-    
+
     const updatedItemCategories = { ...itemCategories };
     Object.keys(updatedItemCategories).forEach(key => {
       if (updatedItemCategories[key] === catId) {
@@ -332,8 +336,8 @@ export default function ShoppingListPage() {
       }
     });
     setItemCategories(updatedItemCategories);
-    
-    setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+
+    await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
       categories: updated,
       itemCategories: updatedItemCategories,
       updatedAt: new Date().toISOString()
@@ -530,10 +534,10 @@ export default function ShoppingListPage() {
           categories={categoriesWithShortages}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
-          onAddCategory={(cat) => {
+          onAddCategory={async (cat) => {
             const updated = [...categories, cat];
             setCategories(updated);
-            setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+            await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
               categories: updated,
               itemCategories,
               updatedAt: new Date().toISOString()
