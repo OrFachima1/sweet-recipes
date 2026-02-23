@@ -26,9 +26,10 @@ const normalizeIngredientName = (name: string): string => {
 export default function ShoppingListPage() {
   const router = useRouter();
   const { user } = useUser();
-  const { role } = useRole(user?.uid);
+  const { role, displayName } = useRole(user?.uid);
   const isManager = role === 'manager';
   const isSeniorWorker = role === 'senior_worker';
+  const userName = displayName || user?.email?.split('@')[0] || 'משתמש';
 
   const [selectedPeriod, setSelectedPeriod] = useState<{start: string, end: string}>({
     start: new Date().toISOString().split('T')[0],
@@ -194,13 +195,15 @@ export default function ShoppingListPage() {
   }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems, manualItems]);
 
   const addManualItem = async (name: string, qty: string, unit: string) => {
-    const categoryId = selectedCategory === 'all' ? 'other' : selectedCategory;
+    // אם נמצאים בקטגוריית חוסרים, לשמור כ-other
+    const categoryId = selectedCategory === 'all' || selectedCategory === '__shortages__' ? 'other' : selectedCategory;
     const newItem: ShoppingListItem = {
       name,
       qty: parseFloat(qty) || 1,
       unit,
-      sources: ['הוספה ידנית'],
-      category: categoryId
+      sources: [`הוסף ע"י ${userName}`],
+      category: categoryId,
+      addedBy: userName
     };
 
     const updated = [...manualItems, newItem];
@@ -234,13 +237,24 @@ export default function ShoppingListPage() {
 
   const moveItemToCategory = async (itemName: string, newCategoryId: string) => {
     const normalized = normalizeIngredientName(itemName);
+
+    // עדכון ב-itemCategories mapping
     const updatedItemCategories = {
       ...itemCategories,
       [normalized]: newCategoryId
     };
-    
     setItemCategories(updatedItemCategories);
-    
+
+    // עדכון גם בפריטים הידניים אם הפריט שם
+    const manualItemIndex = manualItems.findIndex(i => i.name === itemName);
+    if (manualItemIndex !== -1) {
+      const updatedManual = manualItems.map(item =>
+        item.name === itemName ? { ...item, category: newCategoryId } : item
+      );
+      setManualItems(updatedManual);
+      await saveManualItems(updatedManual);
+    }
+
     try {
       await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
         categories,
@@ -424,6 +438,9 @@ export default function ShoppingListPage() {
                       <div className="font-semibold text-gray-800">{item.name}</div>
                       <div className="text-sm text-gray-500">
                         {item.qty} {item.unit}
+                        {item.addedBy && (
+                          <span className="mr-2 text-amber-600">• {item.addedBy}</span>
+                        )}
                       </div>
                     </div>
                     <button

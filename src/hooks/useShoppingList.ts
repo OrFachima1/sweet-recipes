@@ -9,6 +9,7 @@ export interface ShoppingListItem {
   unit: string;
   sources: string[];
   category: string;
+  addedBy?: string; // שם העובד שהוסיף את הפריט (לחוסרים)
 }
 
 export interface Recipe {
