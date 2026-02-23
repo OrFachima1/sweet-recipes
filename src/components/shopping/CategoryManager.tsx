@@ -138,7 +138,9 @@ function SortableCategory({ cat, isSelected, isReorderMode, itemCount, onTap, on
     { border: '#fd79a8', bg: 'rgba(253, 121, 168, 0.1)' },
   ];
 
-  const gradientIndex = parseInt(cat.id.replace(/\D/g, '')) % gradients.length;
+  // Handle special category IDs without digits (like __shortages__)
+  const numericPart = cat.id.replace(/\D/g, '');
+  const gradientIndex = numericPart ? parseInt(numericPart) % gradients.length : 0;
   const colors = gradients[gradientIndex];
 
   return (
@@ -413,7 +415,9 @@ export default function CategoryManager({
   const activeCat = activeId ? filteredCategories.find(c => c.id === activeId) : null;
 
   const getColorForCategory = (catId: string) => {
-    const gradientIndex = parseInt(catId.replace(/\D/g, '')) % gradients.length;
+    // Handle special category IDs without digits (like __shortages__)
+    const numericPart = catId.replace(/\D/g, '');
+    const gradientIndex = numericPart ? parseInt(numericPart) % gradients.length : 0;
     return gradients[gradientIndex];
   };
 
