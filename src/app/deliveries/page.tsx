@@ -140,7 +140,7 @@ export default function DeliveriesPage() {
     if (!user) return;
 
     const unsub = onSnapshot(
-      doc(db, 'orderSettings', 'categories'),
+      doc(db, 'orderSettings', 'categoryConfig'),
       (snap) => {
         if (snap.exists()) {
           const data = snap.data() as any;
