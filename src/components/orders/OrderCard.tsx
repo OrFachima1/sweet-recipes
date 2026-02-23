@@ -751,8 +751,8 @@ export default function OrderCard({
               </div>
             )}
 
-            {/* תצוגת פרטי אספקה - במצב צפייה */}
-            {!editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
+            {/* תצוגת פרטי אספקה - במצב צפייה (רק למנהלים) */}
+            {isManager && !editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
               <div className="mb-3 bg-purple-50 rounded-lg p-2 border border-purple-200">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-gray-700">🚚 פרטי אספקה</span>
@@ -773,7 +773,14 @@ export default function OrderCard({
                   {order.address && (
                     <div className="flex items-start gap-1">
                       <span>📍</span>
-                      <span>{order.address}</span>
+                      <a
+                        href={`https://waze.com/ul?q=${encodeURIComponent(order.address)}&navigate=yes`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {order.address}
+                      </a>
                     </div>
                   )}
                   {(order.phone1 || order.phone2) && (
