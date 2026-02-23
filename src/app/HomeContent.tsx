@@ -15,6 +15,7 @@ import {
 import { useIngredientDict } from "@/hooks/useIngredientDict";
 import { useCategoryDict } from "@/hooks/useCategoryDict";
 import { useUnitDict } from "@/hooks/useUnitDict";
+import { invalidateRecipesCache } from "@/hooks/useShoppingList";
 
 // Components
 import Header from "@/components/home/Header";
@@ -211,6 +212,8 @@ const suggestions = useMemo(() => {
       createdAt: serverTimestamp(),
     });
 
+    // 🚀 ניקוי cache של מתכונים כדי שרשימת הקניות תראה את המתכון החדש
+    invalidateRecipesCache();
     setShowForm(false);
     setQ("");
     router.push(`/recipes/${created.id}`);

@@ -1,6 +1,37 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, getDoc, query, where, setDoc, onSnapshot } from 'firebase/firestore';
+
+// 🚀 Cache גלובלי למתכונים - נטען פעם אחת בסשן
+let recipesCache: Recipe[] | null = null;
+let recipesCachePromise: Promise<Recipe[]> | null = null;
+
+async function getRecipesCached(): Promise<Recipe[]> {
+  if (recipesCache) {
+    return recipesCache;
+  }
+
+  if (recipesCachePromise) {
+    return recipesCachePromise;
+  }
+
+  recipesCachePromise = getDocs(collection(db, 'recipes')).then(snap => {
+    const recipes = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    } as Recipe));
+    recipesCache = recipes;
+    return recipes;
+  });
+
+  return recipesCachePromise;
+}
+
+// 🚀 פונקציה לניקוי ה-cache - קוראים לה אחרי עריכת מתכון
+export function invalidateRecipesCache() {
+  recipesCache = null;
+  recipesCachePromise = null;
+}
 import type { Category } from '../components/shopping/CategoryManager';
 
 export interface ShoppingListItem {
@@ -108,11 +139,12 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
       );
 
       // Fetch all data in parallel for better performance
+      // 🚀 משתמש ב-cache למתכונים - לא טוען מחדש בכל כניסה לעמוד
       const [
         ordersSnap,
         menuDoc,
         recipeLinksDoc,
-        allRecipesSnap,
+        allRecipesData,
         mappingsDoc,
         settingsDoc,
         categoriesDoc,
@@ -122,7 +154,7 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
         getDocs(ordersQuery),
         getDoc(doc(db, 'orderSettings', 'menu')),
         getDoc(doc(db, 'orderSettings', 'recipeLinks')),
-        getDocs(collection(db, 'recipes')),
+        getRecipesCached(), // 🚀 מה-cache במקום קריאה ישירה
         getDoc(doc(db, 'orderSettings', 'ingredientMappings')),
         getDoc(doc(db, 'orderSettings', 'shoppingListSettings')),
         getDoc(doc(db, 'orderSettings', 'shoppingCategories')),
@@ -145,11 +177,7 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
       const links = recipeLinksDoc.exists() ? recipeLinksDoc.data().links || {} : {};
       setRecipeLinks(links);
 
-      // Process recipes
-      const allRecipesData: Recipe[] = allRecipesSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      } as Recipe));
+      // Process recipes - 🚀 כבר מעובד מה-cache
       setRecipes(allRecipesData);
 
       // Build menu items from orders

@@ -5,6 +5,7 @@ import { db, ensureAnonAuth } from "../../../../lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import AutocompleteInput from "../../../../components/AutocompleteInput";
 import { useIngredientDict } from "../../../../hooks/useIngredientDict";
+import { invalidateRecipesCache } from "../../../../hooks/useShoppingList";
 import HomeButton from "../../../../components/HomeButton";
 import { useCategoryDict } from "../../../../hooks/useCategoryDict";
 import { useUnitDict } from "../../../../hooks/useUnitDict";
@@ -121,6 +122,8 @@ export default function EditRecipePage() {
       steps: steps.filter((s) => s.text.trim()),
       updatedAt: serverTimestamp(),
     });
+    // 🚀 ניקוי cache של מתכונים כדי שרשימת הקניות תראה את השינויים
+    invalidateRecipesCache();
     router.push(`/recipes/${id}`);
   }
 
