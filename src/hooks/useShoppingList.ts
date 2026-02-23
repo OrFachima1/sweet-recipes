@@ -9,7 +9,8 @@ export interface ShoppingListItem {
   unit: string;
   sources: string[];
   category: string;
-  addedBy?: string; // שם העובד שהוסיף את הפריט (לחוסרים)
+  addedBy?: string; // שם העובד שהוסיף את הפריט
+  isShortage?: boolean; // האם זה חוסר (מאחמ"ש) או פריט ידני רגיל
 }
 
 export interface Recipe {

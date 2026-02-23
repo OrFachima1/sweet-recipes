@@ -142,6 +142,12 @@ export default function ShoppingListPage() {
     return grouped;
   }, [shoppingList, categories]);
 
+    // סינון חוסרים אמיתיים (עם isShortage: true)
+    const shortageItems = useMemo(() =>
+      manualItems.filter(item => item.isShortage === true),
+      [manualItems]
+    );
+
     const itemCounts = useMemo(() => {
     const counts: Record<string, number> = { all: shoppingList.length };
     categories.forEach(cat => {
@@ -150,20 +156,20 @@ export default function ShoppingListPage() {
         counts[cat.id] = groupedList[cat.id]?.length || 0;
         }
     });
-    // הוספת ספירה לקטגוריית חוסרים (רק למנהל)
+    // הוספת ספירה לקטגוריית חוסרים (רק למנהל) - רק פריטים שסומנו כחוסרים
     if (isManager) {
-      counts['__shortages__'] = manualItems.length;
+      counts['__shortages__'] = shortageItems.length;
     }
     return counts;
-    }, [shoppingList, categories, groupedList, isManager, manualItems.length]);
+    }, [shoppingList, categories, groupedList, isManager, shortageItems.length]);
 
   const totalItemsCount = shoppingList.length;
 
 
   const filteredAndSortedItems = useMemo(() => {
-    // קטגוריית חוסרים - מחזירה רק פריטים ידניים
+    // קטגוריית חוסרים - מחזירה רק פריטים שסומנו כחוסרים (isShortage: true)
     if (selectedCategory === '__shortages__') {
-      let items = [...manualItems];
+      let items = [...shortageItems];
       if (searchTerm.trim()) {
         items = items.filter(item =>
           item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -192,40 +198,47 @@ export default function ShoppingListPage() {
     }
 
     return items;
-  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems, manualItems]);
+  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems, shortageItems]);
 
   const addManualItem = async (name: string, qty: string, unit: string) => {
-    // אם נמצאים בקטגוריית חוסרים, לשמור כ-other
+    // קביעת קטגוריה - אם נמצאים בחוסרים או הכל, לשמור כ-other
     const categoryId = selectedCategory === 'all' || selectedCategory === '__shortages__' ? 'other' : selectedCategory;
+
+    // אחמ"ש תמיד מוסיף חוסרים, מנהל מוסיף רק אם נמצא בקטגוריית חוסרים
+    const isShortageItem = isSeniorWorker || selectedCategory === '__shortages__';
+
     const newItem: ShoppingListItem = {
       name,
       qty: parseFloat(qty) || 1,
       unit,
       sources: [`הוסף ע"י ${userName}`],
       category: categoryId,
-      addedBy: userName
+      addedBy: userName,
+      isShortage: isShortageItem
     };
 
     const updated = [...manualItems, newItem];
     setManualItems(updated);
     await saveManualItems(updated);
 
-    // תיקון באג: שמירת הקטגוריה גם ב-itemCategories mapping
-    const normalized = normalizeIngredientName(name);
-    const updatedItemCategories = {
-      ...itemCategories,
-      [normalized]: categoryId
-    };
-    setItemCategories(updatedItemCategories);
+    // שמירת הקטגוריה גם ב-itemCategories mapping (רק אם לא חוסר)
+    if (!isShortageItem) {
+      const normalized = normalizeIngredientName(name);
+      const updatedItemCategories = {
+        ...itemCategories,
+        [normalized]: categoryId
+      };
+      setItemCategories(updatedItemCategories);
 
-    try {
-      await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
-        categories,
-        itemCategories: updatedItemCategories,
-        updatedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('שגיאה בשמירת קטגוריה:', error);
+      try {
+        await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+          categories,
+          itemCategories: updatedItemCategories,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('שגיאה בשמירת קטגוריה:', error);
+      }
     }
   };
 
@@ -412,7 +425,7 @@ export default function ShoppingListPage() {
             </button>
             <div className="text-center">
               <h1 className="text-2xl font-bold">רשימת חוסרים</h1>
-              <p className="text-sm opacity-90">{manualItems.length} פריטים</p>
+              <p className="text-sm opacity-90">{shortageItems.length} פריטים</p>
             </div>
             <div className="w-10"></div>
           </div>
@@ -421,7 +434,7 @@ export default function ShoppingListPage() {
         {/* רשימת החוסרים */}
         <div className="max-w-6xl mx-auto px-4 py-6 pb-24">
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-            {manualItems.length === 0 ? (
+            {shortageItems.length === 0 ? (
               <div className="text-center py-20">
                 <div className="text-7xl mb-4">📦</div>
                 <div className="text-2xl text-gray-400 font-bold">אין חוסרים ברשימה</div>
@@ -429,7 +442,7 @@ export default function ShoppingListPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {manualItems.map((item, idx) => (
+                {shortageItems.map((item, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
