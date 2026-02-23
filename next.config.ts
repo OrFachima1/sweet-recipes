@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    resolveAlias: {
-      canvas: { browser: "./empty-module.js" },
-    },
-  },
+  serverExternalPackages: ["pdfjs-dist"],
   webpack: (config, { isServer }) => {
     // pdfjs-dist optionally requires 'canvas' for DOMMatrix/Path2D polyfills.
     // We only use text extraction (no rendering), so ignore it.
