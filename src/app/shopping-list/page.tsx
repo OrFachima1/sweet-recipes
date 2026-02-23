@@ -30,9 +30,6 @@ export default function ShoppingListPage() {
   const isManager = role === 'manager';
   const isSeniorWorker = role === 'senior_worker';
 
-  // אחמ"ש רואה רק את מצב החוסרים
-  const [viewMode, setViewMode] = useState<'shopping' | 'shortages'>('shopping');
-
   const [selectedPeriod, setSelectedPeriod] = useState<{start: string, end: string}>({
     start: new Date().toISOString().split('T')[0],
     end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -152,19 +149,34 @@ export default function ShoppingListPage() {
         counts[cat.id] = groupedList[cat.id]?.length || 0;
         }
     });
+    // הוספת ספירה לקטגוריית חוסרים (רק למנהל)
+    if (isManager) {
+      counts['__shortages__'] = manualItems.length;
+    }
     return counts;
-    }, [shoppingList, categories, groupedList]);
+    }, [shoppingList, categories, groupedList, isManager, manualItems.length]);
 
   const totalItemsCount = shoppingList.length;
 
 
   const filteredAndSortedItems = useMemo(() => {
-    let items = selectedCategory === 'all' 
-      ? shoppingList 
+    // קטגוריית חוסרים - מחזירה רק פריטים ידניים
+    if (selectedCategory === '__shortages__') {
+      let items = [...manualItems];
+      if (searchTerm.trim()) {
+        items = items.filter(item =>
+          item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      return items;
+    }
+
+    let items = selectedCategory === 'all'
+      ? shoppingList
       : groupedList[selectedCategory] || [];
 
     if (searchTerm.trim()) {
-      items = items.filter(item => 
+      items = items.filter(item =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -179,7 +191,7 @@ export default function ShoppingListPage() {
     }
 
     return items;
-  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems]);
+  }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems, manualItems]);
 
   const addManualItem = async (name: string, qty: string, unit: string) => {
     const categoryId = selectedCategory === 'all' ? 'other' : selectedCategory;
@@ -434,270 +446,142 @@ export default function ShoppingListPage() {
   const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
-  // הצגת החוסרים למנהל (טאב חוסרים)
-  const showShortagesTab = viewMode === 'shortages';
+  // קטגוריות עם "חוסרים" בהתחלה (רק למנהל)
+  const categoriesWithShortages = useMemo(() => {
+    if (!isManager) return categories;
+    const shortagesCategory: Category = {
+      id: '__shortages__',
+      name: 'חוסרים',
+      emoji: '📦',
+      color: '#f59e0b'
+    };
+    return [shortagesCategory, ...categories];
+  }, [categories, isManager]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100" dir="rtl">
+      <ShoppingHeader
+        router={router}
+        totalItems={totalItems}
+        checkedCount={checkedCount}
+        progress={progress}
+        selectedPeriod={selectedPeriod}
+        setSelectedPeriod={setSelectedPeriod}
+        showDatePicker={showDatePicker}
+        setShowDatePicker={setShowDatePicker}
+        resetAll={resetAll}
+        setSettingsOpen={setSettingsOpen}
+      />
 
-      {/* טאבים למנהל: רשימת קניות / חוסרים */}
-      {isManager && (
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-6xl mx-auto flex">
-            <button
-              onClick={() => setViewMode('shopping')}
-              className={`flex-1 py-3 text-center font-semibold transition-all ${
-                viewMode === 'shopping'
-                  ? 'text-rose-600 border-b-2 border-rose-500 bg-rose-50'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              🛒 רשימת קניות
-            </button>
-            <button
-              onClick={() => setViewMode('shortages')}
-              className={`flex-1 py-3 text-center font-semibold transition-all ${
-                viewMode === 'shortages'
-                  ? 'text-amber-600 border-b-2 border-amber-500 bg-amber-50'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              📦 חוסרים ({manualItems.length})
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="sticky top-0 z-40 bg-gradient-to-r from-rose-400 to-pink-400 shadow-md">
+        <CategoryManager
+          categories={categoriesWithShortages}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          onAddCategory={(cat) => {
+            const updated = [...categories, cat];
+            setCategories(updated);
+            setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+              categories: updated,
+              itemCategories,
+              updatedAt: new Date().toISOString()
+            });
+          }}
+          onUpdateCategory={(catId, name, emoji) => {
+            // לא לאפשר עריכה של קטגוריית חוסרים
+            if (catId === '__shortages__') return;
+            updateCategoryName(catId, name, emoji);
+          }}
+          onDeleteCategory={(catId) => {
+            // לא לאפשר מחיקה של קטגוריית חוסרים
+            if (catId === '__shortages__') return;
+            deleteCategory(catId);
+          }}
+          onReorderCategories={handleReorderCategories}
+          itemCounts={itemCounts}
+          totalItems={totalItemsCount}
+        />
+      </div>
 
-      {/* תצוגת חוסרים למנהל */}
-      {showShortagesTab ? (
-        <>
-          <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white p-4 shadow-lg">
-            <div className="max-w-6xl mx-auto flex items-center justify-between">
-              <button
-                onClick={() => router.back()}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all"
-              >
-                <span className="text-xl">➡️</span>
-              </button>
-              <div className="text-center">
-                <h1 className="text-2xl font-bold">חוסרים</h1>
-                <p className="text-sm opacity-90">{manualItems.length} פריטים שנוספו ידנית</p>
+      <div className="max-w-6xl mx-auto px-4 pt-4">
+        <ShoppingToolbar
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          checkedCount={checkedCount}
+          clearCheckedItems={clearCheckedItems}
+        />
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 pb-24">
+        <div className="bg-white rounded-2xl shadow-xl overflow-visible">
+          {filteredAndSortedItems.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-7xl mb-4">
+                {searchTerm ? '🔍' : selectedCategory === '__shortages__' ? '📦' : '🛒'}
               </div>
-              <div className="w-10"></div>
+              <div className="text-2xl text-gray-400 font-bold">
+                {searchTerm ? 'לא נמצאו תוצאות' : selectedCategory === '__shortages__' ? 'אין חוסרים ברשימה' : 'אין פריטים ברשימה'}
+              </div>
+              <div className="text-gray-400 mt-2 text-sm">
+                {searchTerm ? 'נסה חיפוש אחר' : selectedCategory === '__shortages__' ? 'לחץ על + כדי להוסיף חוסר' : 'הוסף פריטים או שנה הגדרות'}
+              </div>
             </div>
-          </div>
-
-          <div className="max-w-6xl mx-auto px-4 py-6 pb-24">
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-              {manualItems.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="text-7xl mb-4">📦</div>
-                  <div className="text-2xl text-gray-400 font-bold">אין חוסרים ברשימה</div>
-                  <div className="text-gray-400 mt-2 text-sm">פריטים שנוספו ידנית יופיעו כאן</div>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {manualItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <button
-                          onClick={() => {
-                            const updated = {
-                              ...checkedItems,
-                              [item.name]: !checkedItems[item.name]
-                            };
-                            setCheckedItems(updated);
-                            saveCheckedItems(updated);
-                          }}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                            checkedItems[item.name]
-                              ? 'bg-green-500 border-green-500 text-white'
-                              : 'border-gray-300 hover:border-green-400'
-                          }`}
-                        >
-                          {checkedItems[item.name] && '✓'}
-                        </button>
-                        <div className={checkedItems[item.name] ? 'opacity-50 line-through' : ''}>
-                          <div className="font-semibold text-gray-800">{item.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {item.qty} {item.unit}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={item.category || 'other'}
-                          onChange={(e) => {
-                            const newCatId = e.target.value;
-                            // עדכון הקטגוריה של הפריט
-                            const updatedManual = manualItems.map(m =>
-                              m.name === item.name ? { ...m, category: newCatId } : m
-                            );
-                            setManualItems(updatedManual);
-                            saveManualItems(updatedManual);
-                            moveItemToCategory(item.name, newCatId);
-                          }}
-                          className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white"
-                        >
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.emoji} {cat.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => removeManualItem(item.name)}
-                          className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-all text-sm"
-                          title="מחק פריט"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filteredAndSortedItems.map((item, idx) => (
+                <ShoppingItem
+                  currentCategory={item.category}
+                  selectedCategory={selectedCategory}
+                  key={idx}
+                  name={item.name}
+                  qty={item.qty}
+                  unit={item.unit}
+                  isManual={item.sources[0] === 'הוספה ידנית'}
+                  isChecked={checkedItems[item.name] || false}
+                  categories={categories}
+                  sources={item.sources}
+                  onToggleCheck={() => {
+                    const updated = {
+                      ...checkedItems,
+                      [item.name]: !checkedItems[item.name]
+                    };
+                    setCheckedItems(updated);
+                    saveCheckedItems(updated);
+                  }}
+                  onChangeCategory={(catId) => moveItemToCategory(item.name, catId)}
+                  onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : () => deleteItem(item.name)}
+                />
+              ))}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          <button
-            onClick={() => setShowAddItem(true)}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
-            title="הוסף פריט לחוסרים"
-          >
-            +
-          </button>
+      <button
+        onClick={() => setShowAddItem(true)}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
+        title="הוסף פריט ידני לרשימה"
+      >
+        +
+      </button>
 
-          <AddItemModal
-            show={showAddItem}
-            onClose={() => setShowAddItem(false)}
-            onAdd={addManualItem}
-          />
-        </>
-      ) : (
-        <>
-          {/* תצוגת רשימת קניות רגילה */}
-          <ShoppingHeader
-            router={router}
-            totalItems={totalItems}
-            checkedCount={checkedCount}
-            progress={progress}
-            selectedPeriod={selectedPeriod}
-            setSelectedPeriod={setSelectedPeriod}
-            showDatePicker={showDatePicker}
-            setShowDatePicker={setShowDatePicker}
-            resetAll={resetAll}
-            setSettingsOpen={setSettingsOpen}
-          />
+      <AddItemModal
+        show={showAddItem}
+        onClose={() => setShowAddItem(false)}
+        onAdd={addManualItem}
+      />
 
-          <div className="sticky top-0 z-40 bg-gradient-to-r from-rose-400 to-pink-400 shadow-md">
-            <CategoryManager
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              onAddCategory={(cat) => {
-                const updated = [...categories, cat];
-                setCategories(updated);
-                setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
-                  categories: updated,
-                  itemCategories,
-                  updatedAt: new Date().toISOString()
-                });
-              }}
-              onUpdateCategory={updateCategoryName}
-              onDeleteCategory={deleteCategory}
-              onReorderCategories={handleReorderCategories}
-              itemCounts={itemCounts}
-              totalItems={totalItemsCount}
-            />
-          </div>
-
-          <div className="max-w-6xl mx-auto px-4 pt-4">
-            <ShoppingToolbar
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              sortBy={sortBy}
-              setSortBy={setSortBy}
-              checkedCount={checkedCount}
-              clearCheckedItems={clearCheckedItems}
-            />
-          </div>
-
-          <div className="max-w-6xl mx-auto px-4 pb-24">
-            <div
-              className="bg-white rounded-2xl shadow-xl overflow-visible"
-                     >
-              {filteredAndSortedItems.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="text-7xl mb-4">
-                    {searchTerm ? '🔍' : '🛒'}
-                  </div>
-                  <div className="text-2xl text-gray-400 font-bold">
-                    {searchTerm ? 'לא נמצאו תוצאות' : 'אין פריטים ברשימה'}
-                  </div>
-                  <div className="text-gray-400 mt-2 text-sm">
-                    {searchTerm ? 'נסה חיפוש אחר' : 'הוסף פריטים או שנה הגדרות'}
-                  </div>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {filteredAndSortedItems.map((item, idx) => (
-                    <ShoppingItem
-                      currentCategory={item.category}
-                      selectedCategory={selectedCategory}
-                      key={idx}
-                      name={item.name}
-                      qty={item.qty}
-                      unit={item.unit}
-                      isManual={item.sources[0] === 'הוספה ידנית'}
-                      isChecked={checkedItems[item.name] || false}
-                      categories={categories}
-                      sources={item.sources}
-                      onToggleCheck={() => {
-                        const updated = {
-                          ...checkedItems,
-                          [item.name]: !checkedItems[item.name]
-                        };
-                        setCheckedItems(updated);
-                        saveCheckedItems(updated);
-                      }}
-                      onChangeCategory={(catId) => moveItemToCategory(item.name, catId)}
-                      onDelete={item.sources[0] === 'הוספה ידנית' ? () => removeManualItem(item.name) : () => deleteItem(item.name)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowAddItem(true)}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-400 shadow-2xl flex items-center justify-center text-4xl text-white hover:scale-110 transition-all active:scale-95 z-40"
-            title="הוסף פריט ידני לרשימה"
-          >
-            +
-          </button>
-
-          <AddItemModal
-            show={showAddItem}
-            onClose={() => setShowAddItem(false)}
-            onAdd={addManualItem}
-          />
-
-          <ShoppingListSettings
-            show={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            menuItems={allMenuItems}
-            recipes={recipes}
-            recipeLinks={recipeLinks}
-            onSave={handleSaveSettings}
-            initialSettings={recipeSettings}
-          />
-        </>
-      )}
+      <ShoppingListSettings
+        show={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        menuItems={allMenuItems}
+        recipes={recipes}
+        recipeLinks={recipeLinks}
+        onSave={handleSaveSettings}
+        initialSettings={recipeSettings}
+      />
     </div>
   );
 }
