@@ -88,17 +88,17 @@ export default function OrderVerificationModal({
   };
 
   return (
-    <>
+    <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 z-50"
+        className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-[51] flex items-center justify-center p-4 pointer-events-none">
+      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="bg-white w-full max-w-2xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col pointer-events-auto"
+          className="bg-white w-full max-w-2xl max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col pointer-events-auto relative"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -256,6 +256,6 @@ export default function OrderVerificationModal({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

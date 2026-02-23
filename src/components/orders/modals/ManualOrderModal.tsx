@@ -23,7 +23,9 @@ interface ManualOrderModalProps {
     deliveryMethod?: DeliveryMethod;
     estimatedTime?: string;
     phone1?: string;
+    phone1Name?: string;
     phone2?: string;
+    phone2Name?: string;
     address?: string;
   }) => void;
   menuOptions: string[];
@@ -59,7 +61,9 @@ export default function ManualOrderModal({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("pickup");
   const [estimatedTime, setEstimatedTime] = useState("");
   const [phone1, setPhone1] = useState("");
+  const [phone1Name, setPhone1Name] = useState("");
   const [phone2, setPhone2] = useState("");
+  const [phone2Name, setPhone2Name] = useState("");
   const [address, setAddress] = useState("");
 
   // Client autocomplete
@@ -234,7 +238,9 @@ export default function ManualOrderModal({
       deliveryMethod,
       estimatedTime: estimatedTime || undefined,
       phone1: phone1.trim() || undefined,
+      phone1Name: phone1Name.trim() || undefined,
       phone2: phone2.trim() || undefined,
+      phone2Name: phone2Name.trim() || undefined,
       address: address.trim() || undefined,
     });
 
@@ -252,7 +258,9 @@ export default function ManualOrderModal({
     setDeliveryMethod("pickup");
     setEstimatedTime("");
     setPhone1("");
+    setPhone1Name("");
     setPhone2("");
+    setPhone2Name("");
     setAddress("");
   };
 
@@ -437,8 +445,20 @@ export default function ManualOrderModal({
             />
           </div>
 
-          {/* Phone Numbers */}
+          {/* Phone 1 with Name */}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                שם איש קשר 1
+              </label>
+              <input
+                type="text"
+                value={phone1Name}
+                onChange={(e) => setPhone1Name(e.target.value)}
+                placeholder="שם..."
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+              />
+            </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 טלפון 1
@@ -450,6 +470,22 @@ export default function ManualOrderModal({
                 placeholder="050-0000000"
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
                 dir="ltr"
+              />
+            </div>
+          </div>
+
+          {/* Phone 2 with Name */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                שם איש קשר 2
+              </label>
+              <input
+                type="text"
+                value={phone2Name}
+                onChange={(e) => setPhone2Name(e.target.value)}
+                placeholder="שם..."
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
               />
             </div>
             <div>

@@ -87,7 +87,9 @@ export default function DeliveriesPage() {
             deliveryMethod: data.deliveryMethod || null,
             estimatedTime: data.estimatedTime || null,
             phone1: data.phone1 || null,
+            phone1Name: data.phone1Name || null,
             phone2: data.phone2 || null,
+            phone2Name: data.phone2Name || null,
             address: data.address || null,
           } as IngestJsonOrder;
         });

@@ -180,7 +180,9 @@ export function useOrdersUpload({
           deliveryMethod: o.deliveryMethod ?? null,
           estimatedTime: o.estimatedTime ?? null,
           phone1: o.phone1 ?? null,
+          phone1Name: o.phone1Name ?? null,
           phone2: o.phone2 ?? null,
+          phone2Name: o.phone2Name ?? null,
           address: o.address ?? null,
         }));
 

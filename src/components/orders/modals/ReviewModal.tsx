@@ -289,8 +289,18 @@ export default function ReviewModal({
                       />
                     </div>
 
-                    {/* טלפונים */}
+                    {/* איש קשר 1 */}
                     <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">שם איש קשר 1</label>
+                        <input
+                          type="text"
+                          value={currentOrder.phone1Name || ""}
+                          onChange={(e) => updateOrder("phone1Name", e.target.value)}
+                          placeholder="שם..."
+                          className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
+                        />
+                      </div>
                       <div>
                         <label className="text-xs text-gray-600 mb-1 block">טלפון 1</label>
                         <input
@@ -300,6 +310,20 @@ export default function ReviewModal({
                           placeholder="050-0000000"
                           className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                           dir="ltr"
+                        />
+                      </div>
+                    </div>
+
+                    {/* איש קשר 2 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">שם איש קשר 2</label>
+                        <input
+                          type="text"
+                          value={currentOrder.phone2Name || ""}
+                          onChange={(e) => updateOrder("phone2Name", e.target.value)}
+                          placeholder="שם..."
+                          className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                         />
                       </div>
                       <div>

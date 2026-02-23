@@ -23,7 +23,9 @@ interface OrderCardProps {
     deliveryMethod?: DeliveryMethod;
     estimatedTime?: string;
     phone1?: string;
+    phone1Name?: string;
     phone2?: string;
+    phone2Name?: string;
     address?: string;
   }) => void;
 
@@ -108,7 +110,9 @@ export default function OrderCard({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(order.deliveryMethod || "pickup");
   const [estimatedTime, setEstimatedTime] = useState(order.estimatedTime || "");
   const [phone1, setPhone1] = useState(order.phone1 || "");
+  const [phone1Name, setPhone1Name] = useState(order.phone1Name || "");
   const [phone2, setPhone2] = useState(order.phone2 || "");
+  const [phone2Name, setPhone2Name] = useState(order.phone2Name || "");
   const [address, setAddress] = useState(order.address || "");
 
   // מצב expanded - חיצוני או מקומי
@@ -437,7 +441,9 @@ export default function OrderCard({
                           setDeliveryMethod(order.deliveryMethod || "pickup");
                           setEstimatedTime(order.estimatedTime || "");
                           setPhone1(order.phone1 || "");
+                          setPhone1Name(order.phone1Name || "");
                           setPhone2(order.phone2 || "");
+                          setPhone2Name(order.phone2Name || "");
                           setAddress(order.address || "");
                           setShowMenu(false);
                         }}
@@ -645,8 +651,18 @@ export default function OrderCard({
                     />
                   </div>
 
-                  {/* טלפונים */}
+                  {/* איש קשר 1 */}
                   <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">שם איש קשר 1</label>
+                      <input
+                        type="text"
+                        value={phone1Name}
+                        onChange={(e) => setPhone1Name(e.target.value)}
+                        placeholder="שם..."
+                        className="w-full text-sm p-2 border border-purple-300 rounded"
+                      />
+                    </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">טלפון 1</label>
                       <input
@@ -656,6 +672,20 @@ export default function OrderCard({
                         placeholder="050-0000000"
                         className="w-full text-sm p-2 border border-purple-300 rounded"
                         dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* איש קשר 2 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">שם איש קשר 2</label>
+                      <input
+                        type="text"
+                        value={phone2Name}
+                        onChange={(e) => setPhone2Name(e.target.value)}
+                        placeholder="שם..."
+                        className="w-full text-sm p-2 border border-purple-300 rounded"
                       />
                     </div>
                     <div>
@@ -690,7 +720,9 @@ export default function OrderCard({
                           deliveryMethod,
                           estimatedTime: estimatedTime || undefined,
                           phone1: phone1.trim() || undefined,
+                          phone1Name: phone1Name.trim() || undefined,
                           phone2: phone2.trim() || undefined,
+                          phone2Name: phone2Name.trim() || undefined,
                           address: address.trim() || undefined,
                         });
                         setEditingDelivery(false);
@@ -705,7 +737,9 @@ export default function OrderCard({
                         setDeliveryMethod(order.deliveryMethod || "pickup");
                         setEstimatedTime(order.estimatedTime || "");
                         setPhone1(order.phone1 || "");
+                        setPhone1Name(order.phone1Name || "");
                         setPhone2(order.phone2 || "");
+                        setPhone2Name(order.phone2Name || "");
                         setAddress(order.address || "");
                       }}
                       className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
@@ -743,16 +777,24 @@ export default function OrderCard({
                     </div>
                   )}
                   {(order.phone1 || order.phone2) && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-1">
                       {order.phone1 && (
-                        <a href={`tel:${order.phone1}`} className="text-blue-600 hover:underline" dir="ltr">
-                          📞 {order.phone1}
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <span>📞</span>
+                          {order.phone1Name && <span className="text-gray-700">{order.phone1Name}:</span>}
+                          <a href={`tel:${order.phone1}`} className="text-blue-600 hover:underline" dir="ltr">
+                            {order.phone1}
+                          </a>
+                        </div>
                       )}
                       {order.phone2 && (
-                        <a href={`tel:${order.phone2}`} className="text-blue-600 hover:underline" dir="ltr">
-                          📞 {order.phone2}
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <span>📞</span>
+                          {order.phone2Name && <span className="text-gray-700">{order.phone2Name}:</span>}
+                          <a href={`tel:${order.phone2}`} className="text-blue-600 hover:underline" dir="ltr">
+                            {order.phone2}
+                          </a>
+                        </div>
                       )}
                     </div>
                   )}

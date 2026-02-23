@@ -30,7 +30,9 @@ export interface IngestJsonOrder {
   deliveryMethod?: DeliveryMethod | null;  // משלוח / איסוף
   estimatedTime?: string | null;           // שעה משוערת (HH:MM)
   phone1?: string | null;                  // טלפון ראשי
+  phone1Name?: string | null;              // שם איש קשר ראשי
   phone2?: string | null;                  // טלפון משני
+  phone2Name?: string | null;              // שם איש קשר משני
   address?: string | null;                 // כתובת למשלוח
 }
 
@@ -59,7 +61,9 @@ export interface NormalizedOrder {
   deliveryMethod?: DeliveryMethod | null;
   estimatedTime?: string | null;
   phone1?: string | null;
+  phone1Name?: string | null;
   phone2?: string | null;
+  phone2Name?: string | null;
   address?: string | null;
 }
 

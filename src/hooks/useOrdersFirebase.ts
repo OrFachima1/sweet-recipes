@@ -81,7 +81,9 @@ export function useOrdersFirebase({
             deliveryMethod: data.deliveryMethod || null,
             estimatedTime: data.estimatedTime || null,
             phone1: data.phone1 || null,
+            phone1Name: data.phone1Name || null,
             phone2: data.phone2 || null,
+            phone2Name: data.phone2Name || null,
             address: data.address || null,
           };
           return o;
@@ -208,7 +210,9 @@ export function useOrdersFirebase({
           deliveryMethod: order.deliveryMethod ?? null,
           estimatedTime: order.estimatedTime ?? null,
           phone1: order.phone1 ?? null,
+          phone1Name: order.phone1Name ?? null,
           phone2: order.phone2 ?? null,
+          phone2Name: order.phone2Name ?? null,
           address: order.address ?? null,
         };
 
