@@ -261,6 +261,11 @@ export default function OrderVerificationModal({
                                 : 'text-gray-700'
                             }`}
                           >
+                            {acc.totalQty > 1 && (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-sm font-bold ml-2">
+                                {acc.totalQty}
+                              </span>
+                            )}
                             {acc.name}
                           </span>
                           {/* Info button */}
