@@ -2,11 +2,16 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { IngestJsonOrder } from '@/types/orders';
-import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from '@/utils/categoryMapping';
+
+interface CategoryConfig {
+  items: Record<string, { color: string; order: number }>;
+  itemMapping: Record<string, string>;
+}
 
 interface OrderVerificationModalProps {
   order: IngestJsonOrder;
   dishAccessories: Record<string, string[]>;
+  categoryConfig?: CategoryConfig;
   onClose: () => void;
 }
 
@@ -24,6 +29,7 @@ interface AggregatedAccessory {
 export default function OrderVerificationModal({
   order,
   dishAccessories,
+  categoryConfig,
   onClose,
 }: OrderVerificationModalProps) {
   const [checkedItems, setCheckedItems] = useState<CheckedState>({});
@@ -38,15 +44,38 @@ export default function OrderVerificationModal({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
+  // Helper functions for categories - local instead of global
+  const getItemCategory = (itemTitle: string): string => {
+    return categoryConfig?.itemMapping?.[itemTitle] || "אחר";
+  };
+
+  const getCategoryColor = (category: string): string => {
+    return categoryConfig?.items?.[category]?.color || "#E5E7EB";
+  };
+
+  const getSortedCategories = (): string[] => {
+    if (!categoryConfig) return ["אחר"];
+    return Object.entries(categoryConfig.items)
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([name]) => name)
+      .concat(["אחר"]);
+  };
+
   // Group items by category
   const groupedItems = useMemo(() => {
-    return groupItemsByCategory(order.items || []);
-  }, [order.items]);
+    const grouped: Record<string, any[]> = {};
+    (order.items || []).forEach(item => {
+      const category = getItemCategory(item.title);
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(item);
+    });
+    return grouped;
+  }, [order.items, categoryConfig]);
 
   // Get sorted category order
   const categoryOrder = useMemo(() => {
-    return getCategoryOrder().filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
-  }, [groupedItems]);
+    return getSortedCategories().filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
+  }, [groupedItems, categoryConfig]);
 
   // Build aggregated accessories - איחוד נלווים מכל המנות
   const aggregatedAccessories = useMemo(() => {

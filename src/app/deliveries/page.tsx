@@ -7,7 +7,6 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 
 import { useUser, useRole } from '@/lib/auth';
 import { useClients } from '@/hooks/useClients';
-import { setCategoryConfig } from '@/utils/categoryMapping';
 import LoadingScreen from '@/components/LoadingScreen';
 import HomeButton from '@/components/HomeButton';
 import DeliveryCard from '@/components/deliveries/DeliveryCard';
@@ -41,6 +40,10 @@ export default function DeliveriesPage() {
   const [loading, setLoading] = useState(true);
   const [verifyOrderId, setVerifyOrderId] = useState<string | null>(null);
   const [dishAccessories, setDishAccessories] = useState<Record<string, string[]>>({});
+  const [categoryConfig, setCategoryConfig] = useState<{
+    items: Record<string, { color: string; order: number }>;
+    itemMapping: Record<string, string>;
+  } | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'delivery' | 'pickup'>('all');
 
   // שמירת רפרנס יציב לפונקציה כדי למנוע לולאת רינדור
@@ -296,6 +299,7 @@ export default function DeliveriesPage() {
         <OrderVerificationModal
           order={verifyOrder}
           dishAccessories={dishAccessories}
+          categoryConfig={categoryConfig || undefined}
           onClose={() => setVerifyOrderId(null)}
         />
       )}
