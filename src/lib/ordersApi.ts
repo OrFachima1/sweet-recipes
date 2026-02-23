@@ -28,7 +28,8 @@ export async function ingestStrict(
   files.forEach(f => fd.append("files", f));
   if (mappingObj && Object.keys(mappingObj).length) fd.append("mapping", JSON.stringify(mappingObj));
   fd.append("mode","json");
-  const res = await fetch(`${apiBase}/ingest`, { method: "POST", body: fd });
+  // Use local API route (TS parser) instead of external Python API
+  const res = await fetch(`/api/ingest`, { method: "POST", body: fd });
   const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
     const err = ct.includes("application/json") ? JSON.stringify(await res.json(), null, 2) : await res.text();

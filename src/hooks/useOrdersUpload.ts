@@ -115,17 +115,9 @@ export function useOrdersUpload({
       }
     }
 
-    // 5) Filter by menu
-    const menuSet = new Set(menuOptions);
-    const filtered = normalized
-      .map(order => ({
-        ...order,
-        items: order.items.filter((item) => menuSet.has(item.title))
-      }))
-      .filter(order => order.items.length > 0);
-
-    // 6) Normalize important notes (map over each order)
-    const withNotes = filtered.map(o => normalizeImportantNotes(o));
+    // 5) Normalize important notes (map over each order)
+    // Note: no silent filtering — items that passed the unknowns check stay visible
+    const withNotes = normalized.map(o => normalizeImportantNotes(o));
 
     // 7) Store in buffer for review
     ingestBufferRef.current = withNotes as any;
@@ -199,17 +191,8 @@ export function useOrdersUpload({
           return;
         }
 
-        // Filter by menu
-        const menuSet = new Set(menuOptions);
-        const filtered = ordersWithDates
-          .map(order => ({
-            ...order,
-            items: order.items.filter((item: any) => menuSet.has(item.title))
-          }))
-          .filter(order => order.items.length > 0);
-
-        // Normalize notes
-        const withNotes = filtered.map(o => normalizeImportantNotes(o));
+        // Normalize notes — no silent filtering
+        const withNotes = ordersWithDates.map(o => normalizeImportantNotes(o));
 
         // Store and show review
         ingestBufferRef.current = withNotes as any;
