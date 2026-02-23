@@ -168,18 +168,45 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
     alert("אין לך הרשאה לערוך הזמנות");
     return;
   }
-  
+
   const next = ordersWithColors.map(o =>
-    o.__id !== orderId 
-      ? o 
-      : { 
-          ...o, 
+    o.__id !== orderId
+      ? o
+      : {
+          ...o,
           eventDate: newDate
         }
   );
-  
+
   firebase.persist(next);
 }, [canEdit, ordersWithColors, firebase]);
+
+const editDelivery = useCallback((orderId: string, delivery: {
+  deliveryMethod?: 'delivery' | 'pickup';
+  estimatedTime?: string;
+  phone1?: string;
+  phone2?: string;
+}) => {
+  if (!canEdit) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+
+  const next = ordersWithColors.map(o =>
+    o.__id !== orderId
+      ? o
+      : {
+          ...o,
+          deliveryMethod: delivery.deliveryMethod ?? o.deliveryMethod,
+          estimatedTime: delivery.estimatedTime ?? o.estimatedTime,
+          phone1: delivery.phone1 ?? o.phone1,
+          phone2: delivery.phone2 ?? o.phone2,
+        }
+  );
+
+  firebase.persist(next);
+}, [canEdit, ordersWithColors, firebase]);
+
   // ===== Loading State =====
   if (authLoading) {
     return <div className="p-8 text-center text-gray-500">טוען...</div>;
@@ -402,6 +429,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
         noteOpen={modals.noteOpen}
         toggleNote={modals.toggleNote}
         onEditEventDate={canEdit ? editEventDate : undefined}
+        onEditDelivery={canEdit ? editDelivery : undefined}
         onEditColor={canEdit ? async (clientName, newColor) => {
           await updateClientColor(clientName, newColor);
         } : undefined}
@@ -423,6 +451,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           onAddClient={canEdit ? () => state.setShowUpload(true) : undefined}
           recipeLinks={settings.recipeLinks}
           onEditEventDate={canEdit ? editEventDate : undefined}
+          onEditDelivery={canEdit ? editDelivery : undefined}
 
           // פרופס לעריכה ומעקב - canEdit לעריכה, canDeleteItems למחיקה
           onEditItem={canEdit ? actions.editOrderItem : undefined}
@@ -457,6 +486,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           toggleNote={modals.toggleNote}
           isManager={canEdit}
           onEditEventDate={canEdit ? editEventDate : undefined}
+          onEditDelivery={canEdit ? editDelivery : undefined}
 
           // העברת updateClientColor ו-getClientColor
           updateClientColor={canEdit ? updateClientColor : undefined}

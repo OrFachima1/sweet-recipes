@@ -15,6 +15,12 @@ interface ClientsViewProps {
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   onRemoveItem?: (orderId: string, idx: number) => void;
   onEditEventDate?: (orderId: string, newDate: string) => void;  // 🔥 הוסף
+  onEditDelivery?: (orderId: string, delivery: {
+    deliveryMethod?: 'delivery' | 'pickup';
+    estimatedTime?: string;
+    phone1?: string;
+    phone2?: string;
+  }) => void;
   onDeleteOrder?: (orderId: string) => void;
   onAddItem?: (orderId: string) => void;
   noteOpen?: Record<string, boolean>;
@@ -36,6 +42,7 @@ export default function ClientsView({
   onAddItem,
   noteOpen,
   onEditEventDate,
+  onEditDelivery,
   toggleNote,
   isManager,
   menuOptions = []
@@ -775,6 +782,7 @@ export default function ClientsView({
                   onEditItem={onEditItem}
                   onEditOrderNotes={onEditOrderNotes}
                   onEditEventDate={onEditEventDate}
+                  onEditDelivery={onEditDelivery}
                   onRemoveItem={onRemoveItem}
                   onDelete={onDeleteOrder}
                   onAddItem={onAddItem}

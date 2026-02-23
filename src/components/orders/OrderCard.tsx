@@ -4,6 +4,7 @@ import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from "@/util
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
 import ClientColorPicker from "./ClientColorPicker";
 import { getTextColor } from "@/utils/colorHelpers";
+import type { DeliveryMethod } from "@/types/orders";
 
 interface OrderCardProps {
   order: any;
@@ -18,7 +19,13 @@ interface OrderCardProps {
   onAddItem?: (orderId: string) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   onEditEventDate?: (orderId: string, newDate: string) => void;
-  
+  onEditDelivery?: (orderId: string, delivery: {
+    deliveryMethod?: DeliveryMethod;
+    estimatedTime?: string;
+    phone1?: string;
+    phone2?: string;
+  }) => void;
+
   recipeLinks?: Record<string, string>;
   
   noteOpen?: Record<string, boolean>;
@@ -56,6 +63,7 @@ export default function OrderCard({
   onAddItem,
   onEditOrderNotes,
   onEditEventDate,
+  onEditDelivery,
   recipeLinks,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -95,6 +103,11 @@ export default function OrderCard({
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingEventDate, setEditingEventDate] = useState(false);
   const [eventDateValue, setEventDateValue] = useState(order.eventDate || "");
+  const [editingDelivery, setEditingDelivery] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(order.deliveryMethod || "pickup");
+  const [estimatedTime, setEstimatedTime] = useState(order.estimatedTime || "");
+  const [phone1, setPhone1] = useState(order.phone1 || "");
+  const [phone2, setPhone2] = useState(order.phone2 || "");
 
   // מצב expanded - חיצוני או מקומי
   const isExpanded = externalExpanded !== undefined ? externalExpanded : localExpanded;
@@ -412,7 +425,26 @@ export default function OrderCard({
                         <span>שנה תאריך</span>
                       </button>
                     )}
-                    
+
+                    {/* כפתור עריכת משלוח */}
+                    {onEditDelivery && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingDelivery(true);
+                          setDeliveryMethod(order.deliveryMethod || "pickup");
+                          setEstimatedTime(order.estimatedTime || "");
+                          setPhone1(order.phone1 || "");
+                          setPhone2(order.phone2 || "");
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">🚚</span>
+                        <span>פרטי אספקה</span>
+                      </button>
+                    )}
+
                     {/* מחיקה */}
                     {canDelete && (
                       <>
@@ -563,7 +595,111 @@ export default function OrderCard({
                 </div>
               </div>
             )}
-            
+
+            {/* עריכת פרטי אספקה */}
+            {editingDelivery && onEditDelivery && (
+              <div className="mb-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-gray-700">🚚 פרטי אספקה</span>
+                </div>
+                <div className="space-y-3">
+                  {/* שיטת אספקה */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("pickup")}
+                      className={`flex-1 px-3 py-2 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm ${
+                        deliveryMethod === "pickup"
+                          ? "border-rose-400 bg-rose-50 text-rose-700 font-semibold"
+                          : "border-gray-300 hover:border-gray-400 text-gray-600"
+                      }`}
+                    >
+                      <span>🏪</span>
+                      <span>איסוף</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("delivery")}
+                      className={`flex-1 px-3 py-2 rounded-lg border-2 transition-all flex items-center justify-center gap-2 text-sm ${
+                        deliveryMethod === "delivery"
+                          ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+                          : "border-gray-300 hover:border-gray-400 text-gray-600"
+                      }`}
+                    >
+                      <span>🚚</span>
+                      <span>משלוח</span>
+                    </button>
+                  </div>
+
+                  {/* שעה משוערת */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">שעה משוערת</label>
+                    <input
+                      type="time"
+                      value={estimatedTime}
+                      onChange={(e) => setEstimatedTime(e.target.value)}
+                      className="w-full text-sm p-2 border border-purple-300 rounded"
+                    />
+                  </div>
+
+                  {/* טלפונים */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">טלפון 1</label>
+                      <input
+                        type="tel"
+                        value={phone1}
+                        onChange={(e) => setPhone1(e.target.value)}
+                        placeholder="050-0000000"
+                        className="w-full text-sm p-2 border border-purple-300 rounded"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">טלפון 2</label>
+                      <input
+                        type="tel"
+                        value={phone2}
+                        onChange={(e) => setPhone2(e.target.value)}
+                        placeholder="050-0000000"
+                        className="w-full text-sm p-2 border border-purple-300 rounded"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        onEditDelivery(order.__id, {
+                          deliveryMethod,
+                          estimatedTime: estimatedTime || undefined,
+                          phone1: phone1.trim() || undefined,
+                          phone2: phone2.trim() || undefined,
+                        });
+                        setEditingDelivery(false);
+                      }}
+                      className="text-sm px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                      💾 שמור
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingDelivery(false);
+                        setDeliveryMethod(order.deliveryMethod || "pickup");
+                        setEstimatedTime(order.estimatedTime || "");
+                        setPhone1(order.phone1 || "");
+                        setPhone2(order.phone2 || "");
+                      }}
+                      className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mb-3 bg-yellow-50 rounded-lg p-2 border border-yellow-200">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-gray-700">הערות להזמנה</span>

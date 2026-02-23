@@ -12,6 +12,12 @@ interface DayOrdersListProps {
   removeItemFromOrder?: (orderId: string, idx: number) => void;
   onAddItem?: (orderId: string) => void;
   onEditEventDate?: (orderId: string, newDate: string) => void;  // 🔥 הוסף
+  onEditDelivery?: (orderId: string, delivery: {
+    deliveryMethod?: 'delivery' | 'pickup';
+    estimatedTime?: string;
+    phone1?: string;
+    phone2?: string;
+  }) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
@@ -34,6 +40,7 @@ export default function DayOrdersList({
   toggleNote,
   onEditColor,
   onEditEventDate,
+  onEditDelivery,
   getClientColor,
   recipeLinks,
   isManager = false,
@@ -214,6 +221,7 @@ export default function DayOrdersList({
               onAddItem={onAddItem}
               onEditOrderNotes={onEditOrderNotes}
               onEditEventDate={onEditEventDate}
+              onEditDelivery={onEditDelivery}
               recipeLinks={recipeLinks}
               noteOpen={noteOpen}
               toggleNote={toggleNote}
