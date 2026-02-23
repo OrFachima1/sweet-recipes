@@ -8,21 +8,29 @@ export interface IngestJsonOrderItem {
   notes?: string | null;        // הערות לפריט (אופציונלי)
 }
 
+// סוג אספקה
+export type DeliveryMethod = 'delivery' | 'pickup';
+
 // הזמנה גולמית כפי שמגיעה מהשרת (לפני נרמול אצלך)
 export interface IngestJsonOrder {
   __id?: string;
   orderId?: string | null;
   clientName: string;
-  clientColor?: string; // ✅ הוסף את זה!
+  clientColor?: string;
   eventDate?: string | null;
   status?: string;
   items: IngestJsonOrderItem[];
-  orderNotes?: string | string[] | null;  // החדש/המועדף
-  notes?: string | string[] | null;       // 🔁 תאימות לאחור (responses ישנים)
+  orderNotes?: string | string[] | null;
+  notes?: string | string[] | null;       // תאימות לאחור
   totalSum?: number | null;
   currency?: string | null;
   source?: string | null;
   meta?: Record<string, unknown>;
+  // שדות משלוח
+  deliveryMethod?: DeliveryMethod | null;  // משלוח / איסוף
+  estimatedTime?: string | null;           // שעה משוערת (HH:MM)
+  phone1?: string | null;                  // טלפון ראשי
+  phone2?: string | null;                  // טלפון משני
 }
 
 
@@ -46,6 +54,11 @@ export interface NormalizedOrder {
   currency: string | null;
   source?: string | null;
   meta?: Record<string, unknown>;
+  // שדות משלוח
+  deliveryMethod?: DeliveryMethod | null;
+  estimatedTime?: string | null;
+  phone1?: string | null;
+  phone2?: string | null;
 }
 
 // תגובות API

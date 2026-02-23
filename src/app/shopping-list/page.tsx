@@ -172,18 +172,37 @@ export default function ShoppingListPage() {
     return items;
   }, [selectedCategory, shoppingList, groupedList, searchTerm, sortBy, checkedItems]);
 
-  const addManualItem = (name: string, qty: string, unit: string) => {
+  const addManualItem = async (name: string, qty: string, unit: string) => {
+    const categoryId = selectedCategory === 'all' ? 'other' : selectedCategory;
     const newItem: ShoppingListItem = {
       name,
       qty: parseFloat(qty) || 1,
       unit,
       sources: ['הוספה ידנית'],
-      category: selectedCategory === 'all' ? 'other' : selectedCategory
+      category: categoryId
     };
-    
+
     const updated = [...manualItems, newItem];
     setManualItems(updated);
-    saveManualItems(updated);
+    await saveManualItems(updated);
+
+    // תיקון באג: שמירת הקטגוריה גם ב-itemCategories mapping
+    const normalized = normalizeIngredientName(name);
+    const updatedItemCategories = {
+      ...itemCategories,
+      [normalized]: categoryId
+    };
+    setItemCategories(updatedItemCategories);
+
+    try {
+      await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+        categories,
+        itemCategories: updatedItemCategories,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('שגיאה בשמירת קטגוריה:', error);
+    }
   };
 
   const removeManualItem = (itemName: string) => {

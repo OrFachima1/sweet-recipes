@@ -20,6 +20,7 @@ import RevenueModal from "@/components/orders/modals/RevenueModal";
 import HomeButton from "@/components/HomeButton";
 import { useClients } from "@/hooks/useClients";
 import { useUser, useRole } from "@/lib/auth";
+import { canAddOrEdit, canDelete, canAccessSettings, canAccessRevenue } from "@/lib/permissions";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -44,6 +45,12 @@ export default function OrdersCalendarPage({
   const { role, displayName } = useRole(user?.uid);
   const isManager = role === "manager";
 
+  // הרשאות מבוססות תפקיד
+  const canEdit = canAddOrEdit(role);
+  const canDeleteItems = canDelete(role);
+  const hasSettingsAccess = canAccessSettings(role);
+  const hasRevenueAccess = canAccessRevenue(role);
+
   // ===== Core State & Actions =====
   const state = useOrdersState();
   const actions = useOrdersActions({
@@ -67,7 +74,7 @@ export default function OrdersCalendarPage({
   // ===== Upload & Review =====
   const upload = useOrdersUpload({
     apiBase,
-    isManager,
+    isManager: canEdit, // עובד בכיר יכול גם להעלות הזמנות
     mapping: settings.mapping,
     ignored: settings.ignored,
     menuOptions: state.menuOptions,
@@ -78,7 +85,7 @@ export default function OrdersCalendarPage({
   // ===== Firebase =====
   const firebase = useOrdersFirebase({
     user,
-    isManager,
+    isManager: canEdit, // עובד בכיר יכול גם לשמור הזמנות
     getClientColor,
     setOrders: state.setOrders,
     orders: state.orders,
@@ -112,7 +119,7 @@ export default function OrdersCalendarPage({
 
   // ===== Add Item =====
   const confirmAddItem = useCallback((title: string) => {
-  if (!isManager) {
+  if (!canEdit) {
     alert("אין לך הרשאה לערוך הזמנות");
     return;
   }
@@ -125,7 +132,7 @@ export default function OrdersCalendarPage({
   );
   firebase.persist(next);
   state.setAddItemFor(null);
-}, [isManager, state.addItemFor, ordersWithColors, firebase, state]);  // ✅ שינוי
+}, [canEdit, state.addItemFor, ordersWithColors, firebase, state]);  // ✅ שינוי
 
   // ===== Update Mapping & Ignored =====
   const updateMapping = useCallback((newMapping: Record<string, string>) => {
@@ -138,7 +145,7 @@ export default function OrdersCalendarPage({
     firebase.saveSettings(settings.mapping, newIgnored);
   }, [settings, firebase]);
 const editOrderNotes = useCallback((orderId: string, notes: string) => {
-  if (!isManager) {
+  if (!canEdit) {
     alert("אין לך הרשאה לערוך הזמנות");
     return;
   }
@@ -155,9 +162,9 @@ const editOrderNotes = useCallback((orderId: string, notes: string) => {
   );
   
   firebase.persist(next);
-}, [isManager, ordersWithColors, firebase]);  // ✅ שינוי
+}, [canEdit, ordersWithColors, firebase]);  // ✅ שינוי
 const editEventDate = useCallback((orderId: string, newDate: string) => {
-  if (!isManager) {
+  if (!canEdit) {
     alert("אין לך הרשאה לערוך הזמנות");
     return;
   }
@@ -172,7 +179,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
   );
   
   firebase.persist(next);
-}, [isManager, ordersWithColors, firebase]);
+}, [canEdit, ordersWithColors, firebase]);
   // ===== Loading State =====
   if (authLoading) {
     return <div className="p-8 text-center text-gray-500">טוען...</div>;
@@ -192,32 +199,32 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       <HomeButton />
 
       {/* כפתורי מנהל - Fixed position */}
-      {isManager && (
-        <>
-          <button
-            onClick={() => modals.setShowSettings(true)}
-            className="fixed left-[3.75rem] top-3 md:left-[4.25rem] md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all"
-            aria-label="הגדרות"
-            title="הגדרות"
-          >
-            <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => modals.setShowRevenue(true)}
-            className="fixed left-[6.75rem] top-3 md:left-[7.5rem] md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all"
-            aria-label="הכנסות"
-            title="הכנסות"
-          >
-            <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
-        </>
+      {hasSettingsAccess && (
+        <button
+          onClick={() => modals.setShowSettings(true)}
+          className="fixed left-[3.75rem] top-3 md:left-[4.25rem] md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all"
+          aria-label="הגדרות"
+          title="הגדרות"
+        >
+          <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      )}
+      {hasRevenueAccess && (
+        <button
+          onClick={() => modals.setShowRevenue(true)}
+          className={`fixed ${hasSettingsAccess ? 'left-[6.75rem] md:left-[7.5rem]' : 'left-[3.75rem] md:left-[4.25rem]'} top-3 md:top-4 z-50 h-11 w-11 md:h-12 md:w-12 rounded-2xl border shadow bg-white/90 hover:bg-white hover:border-gray-300 active:scale-95 grid place-items-center backdrop-blur transition-all`}
+          aria-label="הכנסות"
+          title="הכנסות"
+        >
+          <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
       )}
 
       {/* Header - Layout חדש */}
@@ -226,7 +233,8 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
         <div className="text-xl md:text-2xl font-bold text-gray-900 flex-1 md:flex-none">
           <div className="flex flex-col md:flex-row md:items-center md:gap-2">
             <span>שלום {displayName || user?.email || 'עובד'}</span>
-            {isManager && <span className="text-sm md:text-xl text-blue-600">(מנהל)</span>}
+            {role === "manager" && <span className="text-sm md:text-xl text-blue-600">(מנהל)</span>}
+            {role === "senior_worker" && <span className="text-sm md:text-xl text-purple-600">(אחמ&quot;ש)</span>}
           </div>
         </div>
 
@@ -261,7 +269,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
               onNext={navigation.next}
               onToday={navigation.goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+              onAddClient={canEdit ? () => state.setShowUpload(true) : undefined}
               viewMode={state.viewMode}
               onChangeViewMode={state.setViewMode}
             />
@@ -280,7 +288,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
               onNextWeek={navigation.next}
               onToday={navigation.goToday}
               monthLabel={monthLbl}
-              onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+              onAddClient={canEdit ? () => state.setShowUpload(true) : undefined}
               viewMode={state.viewMode}
               onChangeViewMode={state.setViewMode}
             />
@@ -293,7 +301,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       <div className="relative flex items-center justify-between mb-3">
         {/* שמאל - הוסף לקוח */}
         <div className="flex-shrink-0">
-          {isManager && (
+          {canEdit && (
             <button
               onClick={() => state.setShowUpload(true)}
               className="inline-flex items-center gap-1 md:gap-2 px-2 py-1 md:px-3 md:py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-md text-xs md:text-sm font-medium"
@@ -384,17 +392,17 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       <DayOrdersList
         dayKey={dayKey}
         daysMap={daysMap}
-        isManager={isManager}
+        isManager={canEdit}
         menuOptions={state.menuOptions}
-        deleteOrder={isManager ? actions.deleteOrder : undefined}
-        editOrderItem={isManager ? actions.editOrderItem : undefined}
-        removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
-        onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
-        onEditOrderNotes={isManager ? editOrderNotes : undefined}
+        deleteOrder={canDeleteItems ? actions.deleteOrder : undefined}
+        editOrderItem={canEdit ? actions.editOrderItem : undefined}
+        removeItemFromOrder={canDeleteItems ? actions.removeItemFromOrder : undefined}
+        onAddItem={canEdit ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+        onEditOrderNotes={canEdit ? editOrderNotes : undefined}
         noteOpen={modals.noteOpen}
         toggleNote={modals.toggleNote}
-        onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
-        onEditColor={isManager ? async (clientName, newColor) => {
+        onEditEventDate={canEdit ? editEventDate : undefined}
+        onEditColor={canEdit ? async (clientName, newColor) => {
           await updateClientColor(clientName, newColor);
         } : undefined}
         getClientColor={getClientColor}
@@ -412,23 +420,23 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       {navigation.mainView === "clients" && (
         <ClientsView
           orders={ordersWithColors}
-          onAddClient={isManager ? () => state.setShowUpload(true) : undefined}
+          onAddClient={canEdit ? () => state.setShowUpload(true) : undefined}
           recipeLinks={settings.recipeLinks}
-          onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
+          onEditEventDate={canEdit ? editEventDate : undefined}
 
-          // 🔥 כל הפרופס הנדרשים לעריכה ומעקב
-          onEditItem={isManager ? actions.editOrderItem : undefined}
-          onEditOrderNotes={isManager ? editOrderNotes : undefined}
-          onRemoveItem={isManager ? actions.removeItemFromOrder : undefined}
-          onDeleteOrder={isManager ? actions.deleteOrder : undefined}
-          onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
-          
-          // 🔥 פרופס למעקב אחר הערות
+          // פרופס לעריכה ומעקב - canEdit לעריכה, canDeleteItems למחיקה
+          onEditItem={canEdit ? actions.editOrderItem : undefined}
+          onEditOrderNotes={canEdit ? editOrderNotes : undefined}
+          onRemoveItem={canDeleteItems ? actions.removeItemFromOrder : undefined}
+          onDeleteOrder={canDeleteItems ? actions.deleteOrder : undefined}
+          onAddItem={canEdit ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+
+          // פרופס למעקב אחר הערות
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
-          
-          // 🔥 מידע נוסף
-          isManager={isManager}
+
+          // מידע נוסף
+          isManager={canEdit}
           menuOptions={state.menuOptions}
         />
       )}
@@ -440,25 +448,25 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
           menuOptions={state.menuOptions}
           onClose={() => state.setDayModalKey(null)}
           daysMap={daysMap}
-          deleteOrder={isManager ? actions.deleteOrder : undefined}
-          editOrderItem={isManager ? actions.editOrderItem : undefined}
-          removeItemFromOrder={isManager ? actions.removeItemFromOrder : undefined}
-          onAddItem={isManager ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
-          onEditOrderNotes={isManager ? editOrderNotes : undefined}
+          deleteOrder={canDeleteItems ? actions.deleteOrder : undefined}
+          editOrderItem={canEdit ? actions.editOrderItem : undefined}
+          removeItemFromOrder={canDeleteItems ? actions.removeItemFromOrder : undefined}
+          onAddItem={canEdit ? (orderId: string) => state.setAddItemFor(orderId) : undefined}
+          onEditOrderNotes={canEdit ? editOrderNotes : undefined}
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
-          isManager={isManager}
-          onEditEventDate={isManager ? editEventDate : undefined}  // 🔥 הוסף את השורה הזו
+          isManager={canEdit}
+          onEditEventDate={canEdit ? editEventDate : undefined}
 
-          // 🔥 תיקון קריטי: העברת updateClientColor ו-getClientColor
-          updateClientColor={isManager ? updateClientColor : undefined}
+          // העברת updateClientColor ו-getClientColor
+          updateClientColor={canEdit ? updateClientColor : undefined}
           getClientColor={getClientColor}
           recipeLinks={settings.recipeLinks}
         />
       )}
 
       {/* Add Item Modal */}
-      {isManager && (
+      {canEdit && (
         <AddItemModal
           showFor={state.addItemFor}
           onClose={() => state.setAddItemFor(null)}
@@ -470,7 +478,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Mapping Modal */}
-      {isManager && upload.mapOpen && (
+      {canEdit && upload.mapOpen && (
         <MappingModal
           unknowns={upload.unknowns}
           mapping={settings.mapping}
@@ -488,7 +496,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Upload Modal */}
-      {isManager && (
+      {canEdit && (
         <UploadModal
           show={state.showUpload}
           onClose={() => state.setShowUpload(false)}
@@ -506,7 +514,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Confirm Review Modal */}
-      {isManager && upload.reviewData && (
+      {canEdit && upload.reviewData && (
         <ConfirmReviewModal
           show={upload.showConfirmReview}
           onConfirm={() => {
@@ -521,7 +529,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Review Modal */}
-      {isManager && upload.reviewData && (
+      {canEdit && upload.reviewData && (
         <ReviewModal
           show={upload.showReview}
           onClose={() => {
@@ -537,7 +545,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Date Fix Modal */}
-      {isManager && (
+      {canEdit && (
         <DateFixModal
           show={upload.dateFixOpen}
           onClose={() => upload.setDateFixOpen(false)}
@@ -552,7 +560,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Settings Modal */}
-      {isManager && (
+      {hasSettingsAccess && (
         <SettingsModal
           show={modals.showSettings}
           onClose={() => modals.setShowSettings(false)}
@@ -596,7 +604,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Manual Order Modal */}
-      {isManager && (
+      {canEdit && (
         <ManualOrderModal
           show={state.showManualOrder}
           onClose={() => state.setShowManualOrder(false)}
@@ -606,7 +614,7 @@ const editEventDate = useCallback((orderId: string, newDate: string) => {
       )}
 
       {/* Revenue Modal */}
-      {isManager && (
+      {hasRevenueAccess && (
         <RevenueModal
           show={modals.showRevenue}
           onClose={() => modals.setShowRevenue(false)}

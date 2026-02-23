@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import type { DeliveryMethod } from "@/types/orders";
 
 interface ManualOrderItem {
   title: string;
@@ -17,7 +18,12 @@ interface ManualOrderModalProps {
     eventDate: string;
     items: ManualOrderItem[];
     orderNotes: string;
-    clientColor?: string; // ✅ צבע אופציונלי
+    clientColor?: string;
+    // שדות משלוח
+    deliveryMethod?: DeliveryMethod;
+    estimatedTime?: string;
+    phone1?: string;
+    phone2?: string;
   }) => void;
   menuOptions: string[];
 }
@@ -47,7 +53,13 @@ export default function ManualOrderModal({
   const [searchTerms, setSearchTerms] = useState<string[]>([""]);
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [openNotes, setOpenNotes] = useState<Set<number>>(new Set());
-  
+
+  // שדות משלוח
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("pickup");
+  const [estimatedTime, setEstimatedTime] = useState("");
+  const [phone1, setPhone1] = useState("");
+  const [phone2, setPhone2] = useState("");
+
   // Client autocomplete
   const [clientSearch, setClientSearch] = useState("");
   const [clientSuggestions, setClientSuggestions] = useState<string[]>([]);
@@ -215,19 +227,29 @@ export default function ManualOrderModal({
       eventDate,
       items: validItems,
       orderNotes: orderNotes.trim(),
-      clientColor: clientColor, // ✅ שליחת הצבע
+      clientColor: clientColor,
+      // שדות משלוח
+      deliveryMethod,
+      estimatedTime: estimatedTime || undefined,
+      phone1: phone1.trim() || undefined,
+      phone2: phone2.trim() || undefined,
     });
 
     // Reset
     setClientName("");
     setClientSearch("");
-    setClientColor("#3B82F6"); // ✅ איפוס הצבע
+    setClientColor("#3B82F6");
     setEventDate("");
     setOrderNotes("");
     setItems([{ title: "", qty: 1, notes: "" }]);
     setSearchTerms([""]);
     setActiveDropdown(null);
     setOpenNotes(new Set());
+    // Reset delivery fields
+    setDeliveryMethod("pickup");
+    setEstimatedTime("");
+    setPhone1("");
+    setPhone2("");
   };
 
   const getFilteredMenu = (searchTerm: string) => {
@@ -363,6 +385,82 @@ export default function ManualOrderModal({
               onChange={(e) => setEventDate(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
             />
+          </div>
+
+          {/* Delivery Method */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              שיטת אספקה
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod("pickup")}
+                className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                  deliveryMethod === "pickup"
+                    ? "border-rose-400 bg-rose-50 text-rose-700 font-semibold"
+                    : "border-gray-300 hover:border-gray-400 text-gray-600"
+                }`}
+              >
+                <span>🏪</span>
+                <span>איסוף עצמי</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod("delivery")}
+                className={`flex-1 px-4 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                  deliveryMethod === "delivery"
+                    ? "border-blue-400 bg-blue-50 text-blue-700 font-semibold"
+                    : "border-gray-300 hover:border-gray-400 text-gray-600"
+                }`}
+              >
+                <span>🚚</span>
+                <span>משלוח</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Estimated Time */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              שעה משוערת
+            </label>
+            <input
+              type="time"
+              value={estimatedTime}
+              onChange={(e) => setEstimatedTime(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+            />
+          </div>
+
+          {/* Phone Numbers */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                טלפון 1
+              </label>
+              <input
+                type="tel"
+                value={phone1}
+                onChange={(e) => setPhone1(e.target.value)}
+                placeholder="050-0000000"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                טלפון 2
+              </label>
+              <input
+                type="tel"
+                value={phone2}
+                onChange={(e) => setPhone2(e.target.value)}
+                placeholder="050-0000000"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-rose-400 focus:outline-none transition-all"
+                dir="ltr"
+              />
+            </div>
           </div>
 
           {/* Order Notes */}

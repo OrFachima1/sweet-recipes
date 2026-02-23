@@ -77,6 +77,11 @@ export function useOrdersFirebase({
             currency: data.currency,
             source: data.source,
             meta: data.meta,
+            // שדות משלוח
+            deliveryMethod: data.deliveryMethod || null,
+            estimatedTime: data.estimatedTime || null,
+            phone1: data.phone1 || null,
+            phone2: data.phone2 || null,
           };
           return o;
         });
@@ -193,12 +198,16 @@ export function useOrdersFirebase({
             unit: item.unit ?? null,
             notes: item.notes ?? null,
           })),
-          // 🔥 תיקון קריטי: בדיקה מפורשת ל-undefined
           orderNotes: order.orderNotes === undefined ? null : (order.orderNotes || null),
           totalSum: typeof order.totalSum === 'number' ? order.totalSum : null,
           currency: order.currency ?? null,
           source: order.source ?? null,
           meta: order.meta ?? null,
+          // שדות משלוח
+          deliveryMethod: order.deliveryMethod ?? null,
+          estimatedTime: order.estimatedTime ?? null,
+          phone1: order.phone1 ?? null,
+          phone2: order.phone2 ?? null,
         };
 
         // 🔥 בדיקה נוספת - אם יש undefined בנתונים, החלף ל-null

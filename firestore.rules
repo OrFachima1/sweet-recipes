@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // פונקציית עזר - קבלת תפקיד המשתמש
+    function getUserRole() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
+    }
+
+    // פונקציית עזר - בדיקת מנהל
+    function isManager() {
+      return getUserRole() == 'manager';
+    }
+
+    // פונקציית עזר - בדיקת עובד בכיר
+    function isSeniorWorker() {
+      return getUserRole() == 'senior_worker';
+    }
+
+    // פונקציית עזר - בדיקת הרשאת הוספה/עריכה (מנהל או עובד בכיר)
+    function canAddOrEdit() {
+      return isManager() || isSeniorWorker();
+    }
+
+    // פונקציית עזר - בדיקת משתמש מאומת
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // פונקציית עזר - בדיקת משתמש מורשה (יש לו מסמך roles)
+    function isAuthorized() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/roles/$(request.auth.uid));
+    }
+
+    // ========== הזמנות ==========
+    match /orders/{orderId} {
+      allow read: if isAuthorized();
+      allow create, update: if canAddOrEdit();
+      allow delete: if isManager();
+    }
+
+    // ========== מתכונים ==========
+    match /recipes/{recipeId} {
+      allow read: if isAuthorized();
+      allow create, update: if canAddOrEdit();
+      allow delete: if isManager();
+    }
+
+    // ========== הגדרות הזמנות ==========
+    match /orderSettings/{docId} {
+      allow read: if isAuthorized();
+      // רוב ההגדרות - רק מנהל
+      allow write: if isManager();
+    }
+
+    // ========== לקוחות ==========
+    match /clients/{clientId} {
+      allow read: if isAuthorized();
+      allow write: if canAddOrEdit();
+    }
+
+    // ========== תפקידים ==========
+    match /roles/{userId} {
+      allow read: if isAuthorized();
+      // רק מנהל יכול לשנות תפקידים
+      allow write: if isManager();
+    }
+
+    // ========== מצבי הזמנות (סטטוס פריטים) ==========
+    match /orderStates/{docId} {
+      allow read: if isAuthorized();
+      // כל משתמש מורשה יכול לעדכן סטטוס פריטים
+      allow write: if isAuthorized();
+    }
+
+    // ========== לוגים ==========
+    match /orderLogs/{logId} {
+      allow read: if isAuthorized();
+      // כל משתמש מורשה יכול להוסיף לוגים
+      allow create: if isAuthorized();
+      // אין עדכון או מחיקה של לוגים
+      allow update, delete: if false;
+    }
+  }
+}

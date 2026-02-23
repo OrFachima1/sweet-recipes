@@ -88,19 +88,26 @@ const editOrderItem = useCallback(async (
   }, [orders, setOrders]);
 
   // שמירת הזמנה ידנית
- const saveManualOrder = useCallback(async (orderData: Partial<IngestJsonOrder>) => {
+  const saveManualOrder = useCallback(async (orderData: Partial<IngestJsonOrder>) => {
     const id = generateId();
     const newOrder: IngestJsonOrder = {
       __id: id,
       orderId: orderData.orderId || null,
       clientName: orderData.clientName || '',
+      clientColor: orderData.clientColor || undefined,
       eventDate: orderData.eventDate || fmtYMD(new Date()),
       status: orderData.status || 'pending',
       items: orderData.items || [],
-      notes: orderData.notes || '', // 👈 הוסף ברירת מחדל
+      orderNotes: orderData.orderNotes || '',
+      notes: orderData.notes || '',
       totalSum: orderData.totalSum || null,
       currency: orderData.currency || 'ILS',
       source: 'manual',
+      // שדות משלוח
+      deliveryMethod: orderData.deliveryMethod || null,
+      estimatedTime: orderData.estimatedTime || null,
+      phone1: orderData.phone1 || null,
+      phone2: orderData.phone2 || null,
     };
 
     try {
@@ -109,7 +116,7 @@ const editOrderItem = useCallback(async (
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      
+
       setOrders([...orders, newOrder]);
     } catch (error) {
       console.error('Failed to save manual order:', error);

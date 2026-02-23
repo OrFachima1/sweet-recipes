@@ -11,8 +11,10 @@ export function useUser() {
   return { user, loading };
 }
 
+export type UserRole = "manager" | "senior_worker" | "worker" | "unauthorized";
+
 export function useRole(uid?: string | null) {
-  const [role, setRole] = useState<"manager" | "worker" | "unauthorized" | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +25,14 @@ export function useRole(uid?: string | null) {
       snap => {
         if (snap.exists()) {
           const d = snap.data() as any;
-          setRole(d.role === "manager" ? "manager" : "worker");
+          // תמיכה בתפקיד senior_worker (אחמ"ש)
+          if (d.role === "manager") {
+            setRole("manager");
+          } else if (d.role === "senior_worker") {
+            setRole("senior_worker");
+          } else {
+            setRole("worker");
+          }
           setDisplayName(d.displayName || null);
         } else {
           setRole("unauthorized"); // אין מסמך roles => חסום
