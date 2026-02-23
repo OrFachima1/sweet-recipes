@@ -12,7 +12,7 @@ import { ShoppingToolbar } from '@/components/shopping/ShoppingToolbar';
 import { AddItemModal } from '@/components/shopping/AddItemModal';
 import { useShoppingList, ShoppingListItem } from '@/hooks/useShoppingList';
 import LoadingScreen from "@/components/LoadingScreen";
-import { useUser, useRole } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Debounce hook for search optimization
 function useDebounce<T>(value: T, delay: number): T {
@@ -42,8 +42,7 @@ const normalizeIngredientName = (name: string): string => {
 
 export default function ShoppingListPage() {
   const router = useRouter();
-  const { user } = useUser();
-  const { role, displayName } = useRole(user?.uid);
+  const { user, role, displayName } = useAuth();
   const isManager = role === 'manager';
   const isSeniorWorker = role === 'senior_worker';
   const userName = displayName || user?.email?.split('@')[0] || 'משתמש';

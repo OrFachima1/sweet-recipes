@@ -18,8 +18,8 @@ import ReviewModal from "@/components/orders/modals/ReviewModal";
 import SettingsModal from "@/components/orders/modals/SettingModal";
 import RevenueModal from "@/components/orders/modals/RevenueModal";
 import HomeButton from "@/components/HomeButton";
-import { useClients } from "@/hooks/useClients";
-import { useUser, useRole } from "@/lib/auth";
+import { useClientsContext } from "@/contexts/ClientsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { canAddOrEdit, canDelete, canAccessSettings, canAccessRevenue } from "@/lib/permissions";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -28,7 +28,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useOrdersWithColors } from '@/hooks/useOrdersWithColors';
 import { useOrdersState } from '@/hooks/useOrdersState';
 import { useOrdersActions } from '@/hooks/useOrdersActions';
-import { useOrdersSettings } from '@/hooks/useOrdersSettings';
+import { useOrderSettingsContext } from '@/contexts/OrderSettingsContext';
 import { useOrdersUpload } from '@/hooks/useOrdersUpload';
 import { useOrdersNavigation } from '@/hooks/useOrdersNavigation';
 import { useOrdersModals } from '@/hooks/useOrdersModals';
@@ -41,8 +41,7 @@ export default function OrdersCalendarPage({
   apiBase = "http://127.0.0.1:8000",
 }: { apiBase?: string }) {
   // ===== Auth & Role =====
-  const { user, loading: authLoading } = useUser();
-  const { role, displayName } = useRole(user?.uid);
+  const { user, loading: authLoading, role, displayName } = useAuth();
   const isManager = role === "manager";
 
   // הרשאות מבוססות תפקיד
@@ -57,8 +56,8 @@ export default function OrdersCalendarPage({
     orders: state.orders,
     setOrders: state.setOrders,
   });
-  const settings = useOrdersSettings(user?.uid);
-  const {clients, getClientColor, ensureClient, updateClientColor } = useClients(user?.uid);
+  const settings = useOrderSettingsContext();
+  const {clients, getClientColor, ensureClient, updateClientColor } = useClientsContext();
   const ordersWithColors = useOrdersWithColors(state.orders, clients);
 
   // ===== Navigation =====
@@ -89,7 +88,6 @@ export default function OrdersCalendarPage({
     getClientColor,
     setOrders: state.setOrders,
     orders: state.orders,
-    settings,
     setMenuOptions: state.setMenuOptions,
   });
 

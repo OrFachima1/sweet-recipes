@@ -12,7 +12,6 @@ import {
   writeBatch,
   limit,
 } from 'firebase/firestore';
-import { setCategoryConfig } from '@/utils/categoryMapping';
 import type { IngestJsonOrder } from '@/types/orders';
 
 interface UseOrdersFirebaseProps {
@@ -21,14 +20,6 @@ interface UseOrdersFirebaseProps {
   getClientColor: (clientName: string) => string;
   setOrders: (orders: IngestJsonOrder[]) => void;
   orders: IngestJsonOrder[];
-  settings: {
-    updateMapping: (m: Record<string, string>) => void;
-    updateIgnored: (arr: string[]) => void;
-    updateCategoryConfig: (cfg: {
-      items: Record<string, { color: string; order: number }>;
-      itemMapping: Record<string, string>;
-    }) => void;
-  };
   setMenuOptions: (options: string[]) => void;
 }
 
@@ -38,7 +29,6 @@ export function useOrdersFirebase({
   getClientColor,
   setOrders,
   orders,
-  settings,
   setMenuOptions,
 }: UseOrdersFirebaseProps) {
   // נשמור רפרנס לפונקציה כדי לא לשים אותה בתלויות של useEffect
@@ -98,43 +88,8 @@ export function useOrdersFirebase({
     return () => unsub();
   }, [user, ordersQuery, setOrders]);
 
-  // ===== Load Settings & Category Config (מאוחד) =====
-  useEffect(() => {
-    if (!user) return;
-
-    const settingsDoc = doc(db, 'orderSettings', 'main');
-    const categoryDoc = doc(db, 'orderSettings', 'categoryConfig');
-
-    const unsub1 = onSnapshot(settingsDoc, (snap) => {
-      if (snap.exists()) {
-        const data: any = snap.data();
-        settings.updateMapping(data.mapping || {});
-        settings.updateIgnored(data.ignored || []);
-      }
-    });
-
-    const unsub2 = onSnapshot(categoryDoc, (snap) => {
-      if (snap.exists()) {
-        const data: any = snap.data();
-        const config = {
-          items: data.items || {},
-          itemMapping: data.itemMapping || {},
-        };
-        settings.updateCategoryConfig(config);
-        setCategoryConfig(config);
-      } else {
-        // אופציונלי: איפוס אם אין דוק
-        const empty = { items: {}, itemMapping: {} };
-        settings.updateCategoryConfig(empty);
-        setCategoryConfig(empty as any);
-      }
-    });
-
-    return () => {
-      unsub1();
-      unsub2();
-    };
-  }, [user, settings]);
+  // NOTE: Settings & Category Config listeners removed - already handled by useOrdersSettings hook
+  // This eliminates duplicate Firebase reads for orderSettings/main and orderSettings/categoryConfig
 
   // ===== Load Menu from Firestore =====
   useEffect(() => {

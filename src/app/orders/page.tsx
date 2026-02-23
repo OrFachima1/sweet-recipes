@@ -7,15 +7,13 @@ import OrdersCalendarPage from '@/components/OrdersCalendarPage';
 import { OrderTrackingProvider } from '@/components/orders/tracking/OrderTrackingContext';
 import HomeButton from '@/components/HomeButton';
 
-import { useUser, useRole } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Page() {
   const router = useRouter();
 
-  const { user, loading: userLoading } = useUser();
-  // מחזיר: "manager" | "senior_worker" | "worker" | "unauthorized" | null
-  const { role, displayName } = useRole(user?.uid);
+  const { user, loading: userLoading, role, displayName } = useAuth();
 
   // כל התפקידים המורשים (מנהל, אחמ"ש, עובד)
   const isAuthorized = role === 'manager' || role === 'senior_worker' || role === 'worker';

@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 
-import { useUser, useRole } from '@/lib/auth';
-import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
+import { useClientsContext } from '@/contexts/ClientsContext';
+import { useOrderSettingsContext } from '@/contexts/OrderSettingsContext';
 import LoadingScreen from '@/components/LoadingScreen';
 import HomeButton from '@/components/HomeButton';
 import DeliveryCard from '@/components/deliveries/DeliveryCard';
@@ -31,19 +32,16 @@ function formatDateHebrew(dateStr: string): string {
 
 export default function DeliveriesPage() {
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
-  const { role } = useRole(user?.uid);
-  const { getClientColor } = useClients(user?.uid);
+  const { user, loading: userLoading, role } = useAuth();
+  const { getClientColor } = useClientsContext();
+
+  // Use shared settings context instead of separate listeners
+  const { dishAccessories, categoryConfig } = useOrderSettingsContext();
 
   const [selectedDate, setSelectedDate] = useState(() => formatDateForInput(new Date()));
   const [orders, setOrders] = useState<IngestJsonOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [verifyOrderId, setVerifyOrderId] = useState<string | null>(null);
-  const [dishAccessories, setDishAccessories] = useState<Record<string, string[]>>({});
-  const [categoryConfig, setCategoryConfig] = useState<{
-    items: Record<string, { color: string; order: number }>;
-    itemMapping: Record<string, string>;
-  } | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'delivery' | 'pickup'>('all');
 
   // שמירת רפרנס יציב לפונקציה כדי למנוע לולאת רינדור
@@ -116,45 +114,8 @@ export default function DeliveriesPage() {
     return () => unsub();
   }, [user, selectedDate]);
 
-  // Load dish accessories
-  useEffect(() => {
-    if (!user) return;
-
-    const unsub = onSnapshot(
-      doc(db, 'orderSettings', 'dishAccessories'),
-      (snap) => {
-        if (snap.exists()) {
-          const d = snap.data() as any;
-          setDishAccessories(d.accessories || {});
-        } else {
-          setDishAccessories({});
-        }
-      }
-    );
-
-    return () => unsub();
-  }, [user]);
-
-  // Load category config for verification modal
-  useEffect(() => {
-    if (!user) return;
-
-    const unsub = onSnapshot(
-      doc(db, 'orderSettings', 'categoryConfig'),
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          const config = {
-            items: data.items || {},
-            itemMapping: data.itemMapping || {},
-          };
-          setCategoryConfig(config);
-        }
-      }
-    );
-
-    return () => unsub();
-  }, [user]);
+  // NOTE: dishAccessories and categoryConfig now come from useOrdersSettings hook
+  // This eliminates duplicate Firebase listeners
 
   // Filter by type
   const filteredOrders = useMemo(() => {

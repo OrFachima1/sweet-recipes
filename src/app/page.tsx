@@ -1,13 +1,13 @@
 // src/app/page.tsx
 "use client";
 import LoginForm from "@/components/LoginForm";
-import { useUser, useRole, logout } from "@/lib/auth";
+import { logout } from "@/lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import HomeContent from "./HomeContent";
 import LoadingScreen from "@/components/LoadingScreen";
 
 export default function Page() {
-  const { user, loading } = useUser();
-  const { role, displayName } = useRole(user?.uid);
+  const { user, loading, role, displayName } = useAuth();
 
   // מסך טעינה עם סרטון
   if (loading) return <LoadingScreen />;

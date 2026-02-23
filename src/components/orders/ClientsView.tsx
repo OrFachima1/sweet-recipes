@@ -2,8 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { fmtYMD, addDays } from "@/utils/orders";
 import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from "@/utils/categoryMapping";
-import { useClients } from "@/hooks/useClients";
-import { useUser } from "@/lib/auth";
+import { useClientsContext } from "@/contexts/ClientsContext";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
 import OrderCard from "./OrderCard";
 
@@ -50,8 +49,7 @@ export default function ClientsView({
   showDeliveryDetails,
   menuOptions = []
 }: ClientsViewProps) {
-  const { user } = useUser();
-  const { updateClientColor, getClientColor } = useClients(user?.uid);
+  const { updateClientColor, getClientColor } = useClientsContext();
   
   let tracking;
   try {

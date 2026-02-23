@@ -3,7 +3,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Open_Sans } from "next/font/google";
 import { Noto_Sans_Hebrew } from "next/font/google";
-import localFont from 'next/font/local'; // ⭐ הוסף את זה
+import localFont from 'next/font/local';
+import { AuthProvider } from "@/contexts/AuthContext";
+import { OrderSettingsProvider } from "@/contexts/OrderSettingsContext";
+import { ClientsProvider } from "@/contexts/ClientsContext";
 
 const openSans = Open_Sans({ subsets: ["latin"], weight: ["400","600","700"], variable: "--font-open-sans" });
 const notoHeb  = Noto_Sans_Hebrew({ subsets: ["hebrew"], weight: ["400","500","700"], variable: "--font-hebrew" });
@@ -31,7 +34,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${openSans.variable} ${notoHeb.variable} ${myFont.variable} min-h-screen bg-white text-[#2b2b2b] antialiased`}
       >
-        {children}
+        <AuthProvider>
+          <ClientsProvider>
+            <OrderSettingsProvider>
+              {children}
+            </OrderSettingsProvider>
+          </ClientsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

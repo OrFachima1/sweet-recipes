@@ -6,7 +6,7 @@ import { deleteDoc, doc, getDoc } from "firebase/firestore";
 import HomeButton from "../../../components/HomeButton";
 import FloatingCalculator from "../../../components/FloatingCalculator";
 import NoSleep from "nosleep.js";
-import { useUser, useRole } from "../../../lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import ScaleControl from "../../../components/ScaleControl";
 import { updateDoc, serverTimestamp } from "firebase/firestore";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -204,8 +204,7 @@ function PartyOverlay({
 export default function RecipePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, loading: authLoading } = useUser();
-  const { role } = useRole(user?.uid);
+  const { user, loading: authLoading, role } = useAuth();
   const isManager = role === "manager";
   const canEdit = role === "manager" || role === "senior_worker";
   const [data, setData] = useState<any | null>(null);
