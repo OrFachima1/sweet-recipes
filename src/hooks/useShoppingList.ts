@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, getDoc, query, where, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, query, where, setDoc, onSnapshot } from 'firebase/firestore';
 import type { Category } from '../components/shopping/CategoryManager';
 
 export interface ShoppingListItem {
@@ -157,10 +157,7 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
         setItemCategories(categoriesDoc.data().itemCategories || {});
       }
 
-      const manualDoc = await getDoc(doc(db, 'orderSettings', 'manualShoppingItems'));
-      if (manualDoc.exists()) {
-        setManualItems(manualDoc.data().items || []);
-      }
+      // manualShoppingItems loaded via real-time listener
 
       const checkedDoc = await getDoc(doc(db, 'orderSettings', 'checkedShoppingItems'));
       if (checkedDoc.exists()) {
@@ -182,6 +179,25 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
   useEffect(() => {
     loadData();
   }, [selectedPeriod.start, selectedPeriod.end]);
+
+  // Real-time listener for manual items (including shortages)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'orderSettings', 'manualShoppingItems'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setManualItems(snapshot.data().items || []);
+        } else {
+          setManualItems([]);
+        }
+      },
+      (error) => {
+        console.error('Error listening to manual items:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
 const shoppingList = useMemo(() => {
   const aggregated: Record<string, ShoppingListItem> = {};
