@@ -364,6 +364,23 @@ export default function ShoppingListPage() {
   }
 };
 
+  // קטגוריות עם "חוסרים" בהתחלה (רק למנהל) - חייב להיות לפני כל return!
+  const categoriesWithShortages = useMemo(() => {
+    if (!isManager) return categories;
+    const shortagesCategory: Category = {
+      id: '__shortages__',
+      name: 'חוסרים',
+      emoji: '📦',
+      color: '#f59e0b'
+    };
+    return [shortagesCategory, ...categories];
+  }, [categories, isManager]);
+
+  // חישוב סטטיסטיקות - חייב להיות לפני כל return!
+  const totalItems = filteredAndSortedItems.length;
+  const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
+  const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
+
   if (loading) return <LoadingScreen />;
 
   // אחמ"ש רואה רק מסך חוסרים פשוט
@@ -442,22 +459,6 @@ export default function ShoppingListPage() {
   }
 
   // מנהל רואה את המסך המלא
-  const totalItems = filteredAndSortedItems.length;
-  const checkedCount = filteredAndSortedItems.filter(i => checkedItems[i.name]).length;
-  const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
-
-  // קטגוריות עם "חוסרים" בהתחלה (רק למנהל)
-  const categoriesWithShortages = useMemo(() => {
-    if (!isManager) return categories;
-    const shortagesCategory: Category = {
-      id: '__shortages__',
-      name: 'חוסרים',
-      emoji: '📦',
-      color: '#f59e0b'
-    };
-    return [shortagesCategory, ...categories];
-  }, [categories, isManager]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100" dir="rtl">
       <ShoppingHeader
