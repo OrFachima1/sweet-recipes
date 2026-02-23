@@ -47,10 +47,15 @@ service cloud.firestore {
       allow delete: if isManager();
     }
 
+    // ========== קטגוריות ==========
+    match /categories/{categoryId} {
+      allow read: if isAuthorized();
+      allow write: if isManager();
+    }
+
     // ========== הגדרות הזמנות ==========
     match /orderSettings/{docId} {
       allow read: if isAuthorized();
-      // רוב ההגדרות - רק מנהל
       allow write: if isManager();
     }
 
@@ -63,23 +68,19 @@ service cloud.firestore {
     // ========== תפקידים ==========
     match /roles/{userId} {
       allow read: if isAuthorized();
-      // רק מנהל יכול לשנות תפקידים
       allow write: if isManager();
     }
 
     // ========== מצבי הזמנות (סטטוס פריטים) ==========
     match /orderStates/{docId} {
       allow read: if isAuthorized();
-      // כל משתמש מורשה יכול לעדכן סטטוס פריטים
       allow write: if isAuthorized();
     }
 
     // ========== לוגים ==========
     match /orderLogs/{logId} {
       allow read: if isAuthorized();
-      // כל משתמש מורשה יכול להוסיף לוגים
       allow create: if isAuthorized();
-      // אין עדכון או מחיקה של לוגים
       allow update, delete: if false;
     }
   }

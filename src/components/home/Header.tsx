@@ -8,9 +8,10 @@ type HeaderProps = {
   displayName?: string;
   userEmail?: string;
   isManager: boolean;
+  canAccessShoppingList?: boolean;
 };
 
-export default function Header({ displayName, userEmail, isManager }: HeaderProps) {
+export default function Header({ displayName, userEmail, isManager, canAccessShoppingList }: HeaderProps) {
   const router = useRouter();
 
   const greeting = displayName || userEmail?.split('@')[0] || 'חבר';
@@ -38,7 +39,7 @@ export default function Header({ displayName, userEmail, isManager }: HeaderProp
               📋
             </button>
 
-            {isManager && (
+            {(canAccessShoppingList ?? isManager) && (
               <button
                 onClick={() => router.push('/shopping-list')}
                 className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"

@@ -14,6 +14,7 @@ type SearchBarProps = {
   suggestions: Recipe[];
   onAddToWeigh: (id: string, title: string) => void;
   isManager: boolean;
+  canAddRecipes?: boolean;
   onToggleForm?: () => void;
 };
 
@@ -23,6 +24,7 @@ export default function SearchBar({
   suggestions,
   onAddToWeigh,
   isManager,
+  canAddRecipes,
   onToggleForm,
 }: SearchBarProps) {
   const router = useRouter();
@@ -85,7 +87,7 @@ export default function SearchBar({
         </div>
 
         {/* כפתור הוספת מתכון */}
-        {isManager && onToggleForm && (
+        {(canAddRecipes ?? isManager) && onToggleForm && (
           <div className="mt-6 flex justify-center">
             <button
               onClick={onToggleForm}

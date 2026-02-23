@@ -207,6 +207,7 @@ export default function RecipePage() {
   const { user, loading: authLoading } = useUser();
   const { role } = useRole(user?.uid);
   const isManager = role === "manager";
+  const canEdit = role === "manager" || role === "senior_worker";
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -421,20 +422,24 @@ export default function RecipePage() {
               <span className="text-lg group-hover:-translate-x-1 transition-transform">➡</span>
             </button>
             
-            {isManager && (
+            {(canEdit || isManager) && (
               <div className="flex gap-2">
-                <button 
-                  onClick={() => router.push(`/recipes/${id}/edit`)} 
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-rose-400 to-pink-500 text-white text-sm font-semibold shadow-md shadow-rose-300/30 hover:shadow-lg transition-all hover:scale-105"
-                >
-                  ✏️ ערוך
-                </button>
-                <button 
-                  onClick={handleDelete} 
-                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-red-400 to-rose-500 text-white text-sm font-semibold shadow-md shadow-red-300/30 hover:shadow-lg transition-all hover:scale-105"
-                >
-                  🗑️ מחק
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => router.push(`/recipes/${id}/edit`)}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-rose-400 to-pink-500 text-white text-sm font-semibold shadow-md shadow-rose-300/30 hover:shadow-lg transition-all hover:scale-105"
+                  >
+                    ✏️ ערוך
+                  </button>
+                )}
+                {isManager && (
+                  <button
+                    onClick={handleDelete}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-red-400 to-rose-500 text-white text-sm font-semibold shadow-md shadow-red-300/30 hover:shadow-lg transition-all hover:scale-105"
+                  >
+                    🗑️ מחק
+                  </button>
+                )}
               </div>
             )}
           </div>

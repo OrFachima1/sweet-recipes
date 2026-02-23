@@ -51,10 +51,14 @@ type CategoryDoc = {
 
 export default function HomeContent({
   isManager,
+  canAccessShoppingList,
+  canAddOrEditRecipes,
   user,
   displayName,
 }: {
   isManager: boolean;
+  canAccessShoppingList: boolean;
+  canAddOrEditRecipes: boolean;
   user: import("firebase/auth").User;
   displayName?: string;
 }) {
@@ -219,6 +223,7 @@ const suggestions = useMemo(() => {
         displayName={displayName}
         userEmail={user.email || undefined}
         isManager={isManager}
+        canAccessShoppingList={canAccessShoppingList}
       />
 
       {/* Search Bar */}
@@ -228,6 +233,7 @@ const suggestions = useMemo(() => {
         suggestions={suggestions}
         onAddToWeigh={addToWeigh}
         isManager={isManager}
+        canAddRecipes={canAddOrEditRecipes}
         onToggleForm={() => {
           setShowForm((v) => !v);
           setQ("");
@@ -235,7 +241,7 @@ const suggestions = useMemo(() => {
       />
 
       {/* Recipe Form */}
-      {isManager && showForm && (
+      {canAddOrEditRecipes && showForm && (
         <RecipeForm
           ingredientDict={ingredientDict}
           categoryDict={categoryDict}
