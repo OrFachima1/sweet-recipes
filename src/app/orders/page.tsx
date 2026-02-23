@@ -14,11 +14,11 @@ export default function Page() {
   const router = useRouter();
 
   const { user, loading: userLoading } = useUser();
-  // מחזיר: "manager" | "worker" | "unauthorized" | null
+  // מחזיר: "manager" | "senior_worker" | "worker" | "unauthorized" | null
   const { role, displayName } = useRole(user?.uid);
 
-  // אם גם worker וגם manager מורשים:
-  const isAuthorized = role === 'manager' || role === 'worker';
+  // כל התפקידים המורשים (מנהל, אחמ"ש, עובד)
+  const isAuthorized = role === 'manager' || role === 'senior_worker' || role === 'worker';
 
   // שים לב: לא useMemo – שלא נשבור את סדר ה-hooks
   const userName = displayName || user?.email || 'עובד';
