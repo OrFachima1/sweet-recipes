@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import deepEqual from "fast-deep-equal";
 import { useAuth } from "./AuthContext";
+import { setCategoryConfig as setGlobalCategoryConfig } from "@/utils/categoryMapping";
 
 interface CategoryConfig {
   items: Record<string, { color: string; order: number }>;
@@ -76,10 +77,13 @@ export function OrderSettingsProvider({ children }: { children: ReactNode }) {
     const unsub = onSnapshot(ref, (snap) => {
       if (!snap.exists()) return;
       const d = snap.data() as any;
-      setCategoryConfig({
+      const config = {
         items: d.items || {},
         itemMapping: d.itemMapping || {},
-      });
+      };
+      setCategoryConfig(config);
+      // 🔧 עדכון המשתנה הגלובלי לשימוש ב-OrderCard
+      setGlobalCategoryConfig(config);
     });
     return () => unsub();
   }, [userId]);
