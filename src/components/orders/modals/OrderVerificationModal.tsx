@@ -81,6 +81,12 @@ export default function OrderVerificationModal({
   const aggregatedAccessories = useMemo(() => {
     const accessoryMap: Record<string, AggregatedAccessory> = {};
 
+    // בדיקה אם יש לפחות מנה אחת שמתחילה ב"סלט"
+    const saladItems = order.items.filter(item =>
+      item.title.startsWith('סלט')
+    );
+    const hasSalad = saladItems.length > 0;
+
     order.items.forEach((item) => {
       const accessories = dishAccessories[item.title] || [];
       const qty = item.qty || 1;
@@ -97,6 +103,27 @@ export default function OrderVerificationModal({
         accessoryMap[acc].totalQty += qty;
       });
     });
+
+    // 🥗 אם יש סלט - הוסף מגש אלומיניום וכפפות
+    if (hasSalad) {
+      const saladDishNames = saladItems.map(item => item.title);
+
+      if (!accessoryMap['מגש אלומיניום']) {
+        accessoryMap['מגש אלומיניום'] = {
+          name: 'מגש אלומיניום',
+          dishes: saladDishNames,
+          totalQty: 1,
+        };
+      }
+
+      if (!accessoryMap['כפפות']) {
+        accessoryMap['כפפות'] = {
+          name: 'כפפות',
+          dishes: saladDishNames,
+          totalQty: 1,
+        };
+      }
+    }
 
     return Object.values(accessoryMap);
   }, [order.items, dishAccessories]);
