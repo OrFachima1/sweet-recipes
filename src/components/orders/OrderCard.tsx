@@ -1096,13 +1096,13 @@ export default function OrderCard({
                               </div>
                             )}
                             
-                            {it.notes && (
+                            {(it.notes || editingItemNote === originalIndex) && (
                               <div className="mt-2">
                                 {isManager && isEditMode && editingItemNote === originalIndex ? (
                                   <div className="flex items-center gap-2">
                                     <input
                                       type="text"
-                                      defaultValue={it.notes}
+                                      defaultValue={it.notes || ''}
                                       onBlur={(e) => handleSaveItemNote(originalIndex, e.target.value)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
