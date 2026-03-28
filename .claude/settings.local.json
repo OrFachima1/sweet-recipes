@@ -10,7 +10,11 @@
       "Bash(firebase deploy:*)",
       "Bash(node scripts/list-menu-by-category.js:*)",
       "Bash(npm install:*)",
-      "Bash(node scripts/list-menu-by-category.mjs:*)"
+      "Bash(node scripts/list-menu-by-category.mjs:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

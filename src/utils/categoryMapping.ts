@@ -27,8 +27,9 @@ export const CATEGORY_ORDER: string[] = [];
 
 export function getCategoryOrder(): string[] {
   if (!_config) return ["אחר"];
-  return Object.entries(_config.items)
+  const configCategories = Object.entries(_config.items)
     .sort((a: any, b: any) => a[1].order - b[1].order)
     .map(([name]) => name)
-    .concat(["אחר"]);
+    .filter((name: string) => name !== "אחר"); // prevent duplicate if config has "אחר"
+  return [...configCategories, "אחר"];
 }

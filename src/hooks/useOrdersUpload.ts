@@ -113,6 +113,12 @@ export function useOrdersUpload({
         setMapOpen(true);
         return;
       }
+    } else {
+      // After MappingModal: filter out items not in the menu (not mapped, not in menu)
+      normalized = normalized.map(order => ({
+        ...order,
+        items: order.items.filter(item => menuOptions.includes(item.title)),
+      }));
     }
 
     // 5) Normalize important notes (map over each order)
