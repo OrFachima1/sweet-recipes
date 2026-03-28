@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import ShoppingListSettings from '@/components/shopping/ShoppingListSettings';
 import CategoryManager, { type Category } from '@/components/shopping/CategoryManager';
 import ShoppingItem from '@/components/shopping/ShoppingItem';
@@ -403,12 +403,19 @@ export default function ShoppingListPage() {
 };
 
   const handleReorderCategories = async (reorderedCategories: Category[]) => {
-  setCategories(reorderedCategories);
-  
+  // Safety guard: never overwrite with fewer categories than currently exist
+  const realCategories = reorderedCategories.filter(c => c.id !== 'all' && c.id !== '__shortages__');
+  if (realCategories.length < categories.length) {
+    console.warn('[handleReorderCategories] blocked: would reduce categories', categories.length, '->', realCategories.length);
+    return;
+  }
+
+  setCategories(realCategories);
+
   try {
-    await setDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
-      categories: reorderedCategories,
-      itemCategories,
+    // Use updateDoc — reorder only touches `categories`, never overwrites `itemCategories`
+    await updateDoc(doc(db, 'orderSettings', 'shoppingCategories'), {
+      categories: realCategories,
       updatedAt: new Date().toISOString()
     });
   } catch (error) {

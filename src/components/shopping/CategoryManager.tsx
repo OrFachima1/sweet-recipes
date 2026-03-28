@@ -359,17 +359,19 @@ export default function CategoryManager({
 
       if (oldIndex !== -1 && newIndex !== -1) {
         setPreviousOrder([...categories]);
-        
-        const reordered = arrayMove(filteredCategories, oldIndex, newIndex).map((cat, idx) => ({
+
+        const reordered = arrayMove(filteredCategories, oldIndex, newIndex);
+
+        // Include empty categories too — only reorder the visible ones, keep the rest at the end
+        const reorderedIds = new Set(reordered.map(c => c.id));
+        const emptyCategories = categories.filter(c => c.id !== 'all' && !reorderedIds.has(c.id));
+        const allReordered = [...reordered, ...emptyCategories].map((cat, idx) => ({
           ...cat,
           order: idx
         }));
 
-        const allCategory = categories.find(c => c.id === 'all');
-        const finalOrder = allCategory ? [allCategory, ...reordered] : reordered;
-
         if (onReorderCategories) {
-          onReorderCategories(finalOrder);
+          onReorderCategories(allReordered);
         }
 
         setShowUndo(true);
