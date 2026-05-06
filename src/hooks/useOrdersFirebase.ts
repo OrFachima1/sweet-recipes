@@ -10,7 +10,7 @@ import {
   query,
   orderBy as firestoreOrderBy,
   writeBatch,
-  limit,
+  where,
 } from 'firebase/firestore';
 import type { IngestJsonOrder } from '@/types/orders';
 
@@ -21,6 +21,7 @@ interface UseOrdersFirebaseProps {
   setOrders: (orders: IngestJsonOrder[]) => void;
   orders: IngestJsonOrder[];
   setMenuOptions: (options: string[]) => void;
+  viewDate: Date;
 }
 
 export function useOrdersFirebase({
@@ -30,6 +31,7 @@ export function useOrdersFirebase({
   setOrders,
   orders,
   setMenuOptions,
+  viewDate,
 }: UseOrdersFirebaseProps) {
   // נשמור רפרנס לפונקציה כדי לא לשים אותה בתלויות של useEffect
   const getClientColorRef = useRef(getClientColor);
@@ -37,13 +39,19 @@ export function useOrdersFirebase({
     getClientColorRef.current = getClientColor;
   }, [getClientColor]);
 
-  // ----- שאילתה יציבה להזמנות (אפשר להוסיף כאן סינון תאריכים אם יש צורך) -----
+  // ----- שאילתה דינאמית: ±3 חודשים מסביב ל-viewDate -----
   const ordersQuery = useMemo(() => {
+    const start = new Date(viewDate.getFullYear(), viewDate.getMonth() - 3, 1);
+    const end = new Date(viewDate.getFullYear(), viewDate.getMonth() + 4, 0);
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
     return query(
       collection(db, 'orders'),
-      limit(200) // חשוב: לא למשוך את כל הקולקציה
+      where('eventDate', '>=', startStr),
+      where('eventDate', '<=', endStr),
+      firestoreOrderBy('eventDate', 'asc')
     );
-  }, []);
+  }, [viewDate.getFullYear(), viewDate.getMonth()]);
 
   // ===== Load Orders from Firestore (מאזין יחיד) =====
   useEffect(() => {

@@ -89,6 +89,7 @@ export default function OrdersCalendarPage({
     setOrders: state.setOrders,
     orders: state.orders,
     setMenuOptions: state.setMenuOptions,
+    viewDate: state.viewDate,
   });
 
   // ===== ESC to close modal =====
