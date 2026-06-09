@@ -122,10 +122,15 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
   // Scan all lines for totalSum and deliveryFee BEFORE slicing footer
   let totalSum: number | null = null;
   let deliveryFee: number | null = null;
-  for (const ln of allLines) {
+  for (let i = 0; i < allLines.length; i++) {
+    const ln = allLines[i];
     // Match סה"כ לתשלום with any quote variant (", ", ״, U+05F4)
     if (/סה.?כ לתשלום/.test(ln)) {
-      totalSum = extractAmount(ln) ?? totalSum;
+      // Try current line first, then adjacent lines (amount may be on separate line)
+      totalSum = extractAmount(ln)
+        ?? extractAmount(allLines[i + 1] || "")
+        ?? extractAmount(allLines[i - 1] || "")
+        ?? totalSum;
     } else if (["משלוח", "דמי משלוח", "הובלה"].some(w => ln.includes(w)) && ln.includes("₪")) {
       deliveryFee = extractAmount(ln) ?? deliveryFee;
     }
