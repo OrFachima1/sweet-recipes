@@ -237,7 +237,13 @@ export function useOrdersUpload({
       order.clientColor = color;
     }
 
-    const merged = [...currentOrders, ...finalOrders];
+    // Apply VAT (×1.18) to delivery fee from PDF before saving
+    const ordersToSave = finalOrders.map((o: any) => ({
+      ...o,
+      deliveryFee: o.deliveryFee != null ? Math.round(o.deliveryFee * 1.18 * 100) / 100 : null,
+    }));
+
+    const merged = [...currentOrders, ...ordersToSave];
     await onPersist(merged);
 
     // Check for missing dates
