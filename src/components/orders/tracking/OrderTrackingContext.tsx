@@ -1,14 +1,15 @@
 "use client";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
+import {
+  collection,
+  doc,
+  setDoc,
+  onSnapshot,
   serverTimestamp,
   query,
   orderBy as firestoreOrderBy,
+  limit,
   writeBatch
 } from "firebase/firestore";
 
@@ -104,7 +105,7 @@ export function OrderTrackingProvider({ children, userName, userId }: OrderTrack
     if (!userId) return;
 
     const logsCol = collection(db, "orderLogs");
-    const q = query(logsCol, firestoreOrderBy("timestamp", "desc"));
+    const q = query(logsCol, firestoreOrderBy("timestamp", "desc"), limit(200));
     
     const unsub = onSnapshot(q, (snap) => {
       const logs = snap.docs.map(d => {

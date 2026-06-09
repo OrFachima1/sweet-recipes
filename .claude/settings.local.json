@@ -14,7 +14,8 @@
       "Bash(cat:*)",
       "Bash(ls:*)",
       "Bash(npx ts-node:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
