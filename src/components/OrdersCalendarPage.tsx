@@ -208,6 +208,30 @@ const editDelivery = useCallback((orderId: string, delivery: {
   firebase.persist(next);
 }, [canEdit, ordersWithColors, firebase]);
 
+const editPayment = useCallback((orderId: string, payment: {
+  totalSum?: number | null;
+  deliveryFee?: number | null;
+  deposit?: number | null;
+}) => {
+  if (!canEdit) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+
+  const next = ordersWithColors.map(o =>
+    o.__id !== orderId
+      ? o
+      : {
+          ...o,
+          totalSum: payment.totalSum !== undefined ? payment.totalSum : o.totalSum,
+          deliveryFee: payment.deliveryFee !== undefined ? payment.deliveryFee : o.deliveryFee,
+          deposit: payment.deposit !== undefined ? payment.deposit : o.deposit,
+        }
+  );
+
+  firebase.persist(next);
+}, [canEdit, ordersWithColors, firebase]);
+
   // ===== Loading State =====
   if (authLoading) {
     return <div className="p-8 text-center text-gray-500">טוען...</div>;
@@ -432,6 +456,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
         toggleNote={modals.toggleNote}
         onEditEventDate={canEdit ? editEventDate : undefined}
         onEditDelivery={canEdit ? editDelivery : undefined}
+        onEditPayment={canEdit ? editPayment : undefined}
         onEditColor={canEdit ? async (clientName, newColor) => {
           await updateClientColor(clientName, newColor);
         } : undefined}
@@ -454,6 +479,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
           recipeLinks={settings.recipeLinks}
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
+          onEditPayment={canEdit ? editPayment : undefined}
 
           // פרופס לעריכה ומעקב - canEdit לעריכה, canDeleteItems למחיקה
           onEditItem={canEdit ? actions.editOrderItem : undefined}
@@ -491,6 +517,7 @@ const editDelivery = useCallback((orderId: string, delivery: {
           showDeliveryDetails={isManager}
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
+          onEditPayment={canEdit ? editPayment : undefined}
 
           // העברת updateClientColor ו-getClientColor
           updateClientColor={canEdit ? updateClientColor : undefined}

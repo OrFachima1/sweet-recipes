@@ -28,6 +28,11 @@ interface OrderCardProps {
     phone2Name?: string;
     address?: string;
   }) => void;
+  onEditPayment?: (orderId: string, payment: {
+    totalSum?: number | null;
+    deliveryFee?: number | null;
+    deposit?: number | null;
+  }) => void;
 
   recipeLinks?: Record<string, string>;
   
@@ -68,6 +73,7 @@ export default function OrderCard({
   onEditOrderNotes,
   onEditEventDate,
   onEditDelivery,
+  onEditPayment,
   recipeLinks,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -116,6 +122,10 @@ export default function OrderCard({
   const [phone2, setPhone2] = useState(order.phone2 || "");
   const [phone2Name, setPhone2Name] = useState(order.phone2Name || "");
   const [address, setAddress] = useState(order.address || "");
+  const [editingPayment, setEditingPayment] = useState(false);
+  const [totalSumVal, setTotalSumVal] = useState<string>(order.totalSum != null ? String(order.totalSum) : "");
+  const [deliveryFeeVal, setDeliveryFeeVal] = useState<string>(order.deliveryFee != null ? String(order.deliveryFee) : "");
+  const [depositVal, setDepositVal] = useState<string>(order.deposit != null ? String(order.deposit) : "");
 
   // מצב expanded - חיצוני או מקומי
   const isExpanded = externalExpanded !== undefined ? externalExpanded : localExpanded;
@@ -453,6 +463,24 @@ export default function OrderCard({
                       >
                         <span className="text-base sm:text-lg">🚚</span>
                         <span>ערוך פרטי אספקה</span>
+                      </button>
+                    )}
+
+                    {/* כפתור עריכת תשלום - רק במצב עריכה */}
+                    {onEditPayment && isEditMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTotalSumVal(order.totalSum != null ? String(order.totalSum) : "");
+                          setDeliveryFeeVal(order.deliveryFee != null ? String(order.deliveryFee) : "");
+                          setDepositVal(order.deposit != null ? String(order.deposit) : "");
+                          setEditingPayment(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">💳</span>
+                        <span>ערוך פרטי תשלום</span>
                       </button>
                     )}
 
@@ -806,6 +834,110 @@ export default function OrderCard({
                         </div>
                       )}
                     </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* עריכת פרטי תשלום */}
+            {editingPayment && onEditPayment && (
+              <div className="mb-3 bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                <span className="text-sm font-bold text-gray-700 block mb-3">💳 פרטי תשלום</span>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">סה״כ לתשלום (₪)</label>
+                    <input
+                      type="number"
+                      value={totalSumVal}
+                      onChange={(e) => setTotalSumVal(e.target.value)}
+                      placeholder="0"
+                      className="w-full text-sm p-2 border border-emerald-300 rounded"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">דמי משלוח (₪)</label>
+                    <input
+                      type="number"
+                      value={deliveryFeeVal}
+                      onChange={(e) => setDeliveryFeeVal(e.target.value)}
+                      placeholder="0"
+                      className="w-full text-sm p-2 border border-emerald-300 rounded"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">מקדמה ששולמה (₪)</label>
+                    <input
+                      type="number"
+                      value={depositVal}
+                      onChange={(e) => setDepositVal(e.target.value)}
+                      placeholder="0"
+                      className="w-full text-sm p-2 border border-emerald-300 rounded"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        const ts = totalSumVal.trim() !== "" ? parseFloat(totalSumVal) : null;
+                        const df = deliveryFeeVal.trim() !== "" ? parseFloat(deliveryFeeVal) : null;
+                        const dep = depositVal.trim() !== "" ? parseFloat(depositVal) : null;
+                        onEditPayment(order.__id, {
+                          totalSum: isNaN(ts as number) ? null : ts,
+                          deliveryFee: isNaN(df as number) ? null : df,
+                          deposit: isNaN(dep as number) ? null : dep,
+                        });
+                        setEditingPayment(false);
+                      }}
+                      className="text-sm px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                      💾 שמור
+                    </button>
+                    <button
+                      onClick={() => setEditingPayment(false)}
+                      className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* תצוגת פרטי תשלום - במצב צפייה (רק למנהלים) */}
+            {showDeliveryDetails && !editingPayment && (order.totalSum != null || order.deposit != null) && (
+              <div className="mb-3 bg-emerald-50 rounded-lg p-2 border border-emerald-200">
+                <span className="text-xs font-bold text-gray-700 block mb-1">💳 תשלום</span>
+                <div className="text-xs text-gray-600 space-y-1">
+                  {order.totalSum != null && (
+                    <div className="flex justify-between">
+                      <span>סה״כ לתשלום:</span>
+                      <span className="font-medium">{order.totalSum.toLocaleString()} ₪</span>
+                    </div>
+                  )}
+                  {order.deliveryFee != null && order.deliveryFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>דמי משלוח:</span>
+                      <span className="font-medium">{order.deliveryFee.toLocaleString()} ₪</span>
+                    </div>
+                  )}
+                  {order.deposit != null && order.deposit > 0 && (
+                    <div className="flex justify-between text-blue-700">
+                      <span>מקדמה ששולמה:</span>
+                      <span className="font-medium">{order.deposit.toLocaleString()} ₪</span>
+                    </div>
+                  )}
+                  {order.totalSum != null && (
+                    (() => {
+                      const balance = order.totalSum - (order.deposit || 0);
+                      return (
+                        <div className={`flex justify-between font-bold border-t border-emerald-200 pt-1 mt-1 ${balance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                          <span>יתרה לתשלום:</span>
+                          <span>{balance.toLocaleString()} ₪</span>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               </div>

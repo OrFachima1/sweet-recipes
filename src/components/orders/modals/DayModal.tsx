@@ -24,6 +24,11 @@ interface DayModalProps {
     phone2?: string;
     address?: string;
   }) => void;
+  onEditPayment?: (orderId: string, payment: {
+    totalSum?: number | null;
+    deliveryFee?: number | null;
+    deposit?: number | null;
+  }) => void;
   updateClientColor?: (clientName: string, newColor: string) => Promise<void>;
   getClientColor?: (clientName: string) => string;
   recipeLinks?: Record<string, string>;
@@ -40,6 +45,7 @@ export default function DayModal({
   onAddItem,
   onEditEventDate,
   onEditDelivery,
+  onEditPayment,
   onEditOrderNotes,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -339,6 +345,7 @@ export default function DayModal({
                       onEditOrderNotes={onEditOrderNotes}
                       onEditEventDate={onEditEventDate}
                       onEditDelivery={onEditDelivery}
+                      onEditPayment={onEditPayment}
                       recipeLinks={recipeLinks}
                       noteOpen={externalNoteOpen || localNoteOpen}
                       toggleNote={handleToggleNote}
