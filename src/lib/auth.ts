@@ -11,7 +11,7 @@ export function useUser() {
   return { user, loading };
 }
 
-export type UserRole = "manager" | "senior_worker" | "worker" | "unauthorized";
+export type UserRole = "manager" | "senior_worker" | "worker" | "courier" | "unauthorized";
 
 export function useRole(uid?: string | null) {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -30,6 +30,8 @@ export function useRole(uid?: string | null) {
             setRole("manager");
           } else if (d.role === "senior_worker") {
             setRole("senior_worker");
+          } else if (d.role === "courier") {
+            setRole("courier");
           } else {
             setRole("worker");
           }

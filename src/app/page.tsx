@@ -38,6 +38,11 @@ export default function Page() {
     );
   }
 
+  if (role === "courier") {
+    if (typeof window !== "undefined") window.location.replace("/courier");
+    return <LoadingScreen />;
+  }
+
   const isManager = role === "manager";
   const canAddOrEdit = role === "manager" || role === "senior_worker";
   return <HomeContent isManager={isManager} canAccessShoppingList={canAddOrEdit} canAddOrEditRecipes={canAddOrEdit} user={user} displayName={displayName ?? undefined} />;
