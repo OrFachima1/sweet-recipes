@@ -123,7 +123,8 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
   let totalSum: number | null = null;
   let deliveryFee: number | null = null;
   for (const ln of allLines) {
-    if (ln.includes('סה"כ לתשלום') || ln.includes("סה\"כ לתשלום")) {
+    // Match סה"כ לתשלום with any quote variant (", ", ״, U+05F4)
+    if (/סה.?כ לתשלום/.test(ln)) {
       totalSum = extractAmount(ln) ?? totalSum;
     } else if (["משלוח", "דמי משלוח", "הובלה"].some(w => ln.includes(w)) && ln.includes("₪")) {
       deliveryFee = extractAmount(ln) ?? deliveryFee;
