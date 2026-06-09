@@ -35,6 +35,8 @@ function getTextColor(hex: string): string {
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 
 function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose: () => void }) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
@@ -93,6 +95,41 @@ function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose:
             </div>
           )}
 
+          {/* Address & Phones */}
+          {(order.address || order.phone1 || order.phone2) && (
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 space-y-2">
+              {order.address && (
+                <a
+                  href={`https://waze.com/ul?q=${encodeURIComponent(order.address)}&navigate=yes`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 text-blue-600"
+                >
+                  <span className="text-lg flex-shrink-0">📍</span>
+                  <span className="text-sm font-medium underline">{order.address}</span>
+                </a>
+              )}
+              {order.phone1 && (
+                <a href={`tel:${order.phone1}`} className="flex items-center gap-2 text-blue-600">
+                  <span className="text-lg flex-shrink-0">📞</span>
+                  <div className="flex flex-col leading-tight">
+                    {order.phone1Name && <span className="text-xs text-gray-500">{order.phone1Name}</span>}
+                    <span className="text-sm font-medium" dir="ltr">{order.phone1}</span>
+                  </div>
+                </a>
+              )}
+              {order.phone2 && (
+                <a href={`tel:${order.phone2}`} className="flex items-center gap-2 text-blue-600">
+                  <span className="text-lg flex-shrink-0">📞</span>
+                  <div className="flex flex-col leading-tight">
+                    {order.phone2Name && <span className="text-xs text-gray-500">{order.phone2Name}</span>}
+                    <span className="text-sm font-medium" dir="ltr">{order.phone2}</span>
+                  </div>
+                </a>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           {order.orderNotes && (
             <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200 text-sm text-gray-700">
@@ -105,14 +142,38 @@ function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose:
           <div>
             <h3 className="font-bold text-gray-700 mb-2 text-base">פריטים ({order.items.length})</h3>
             <div className="space-y-2">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between border border-gray-200">
-                  <span className="text-sm font-medium text-gray-800">{item.title}</span>
-                  <span className="text-sm font-bold text-gray-600 bg-white border border-gray-300 px-2 py-0.5 rounded-full">
-                    × {item.qty} {item.unit || ''}
-                  </span>
-                </div>
-              ))}
+              {order.items.map((item, idx) => {
+                const done = checked[idx];
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                    className={`rounded-lg px-3 py-2 flex items-center justify-between border cursor-pointer transition-all ${
+                      done
+                        ? 'bg-green-50 border-green-300'
+                        : 'bg-gray-50 border-gray-200 active:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        done ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                      }`}>
+                        {done && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>}
+                      </div>
+                      <span className={`text-sm font-medium ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                        {item.title}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-bold px-2 py-0.5 rounded-full border ${
+                      done ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-600'
+                    }`}>
+                      × {item.qty} {item.unit || ''}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
