@@ -332,14 +332,17 @@ export default function CourierPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            {!isToday && (
-              <button
-                onClick={() => setSelectedDate(today)}
-                className="px-3 py-1.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors"
-              >
-                היום
-              </button>
-            )}
+            <button
+              onClick={() => setSelectedDate(today)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                isToday
+                  ? 'bg-blue-100 text-blue-400 cursor-default'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+              disabled={isToday}
+            >
+              היום
+            </button>
           </div>
         </div>
       </div>
