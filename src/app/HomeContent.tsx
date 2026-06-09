@@ -227,6 +227,7 @@ const suggestions = useMemo(() => {
         userEmail={user.email || undefined}
         isManager={isManager}
         canAccessShoppingList={canAccessShoppingList}
+        canAccessCourier={isManager}
       />
 
       {/* Search Bar */}

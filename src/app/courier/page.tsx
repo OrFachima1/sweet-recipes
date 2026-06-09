@@ -218,8 +218,10 @@ export default function CourierPage() {
   const [orders, setOrders] = useState<IngestJsonOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<IngestJsonOrder | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => formatDateForInput(new Date()));
 
   const today = formatDateForInput(new Date());
+  const isToday = selectedDate === today;
   const getClientColorRef = useRef(getClientColor);
   useEffect(() => { getClientColorRef.current = getClientColor; }, [getClientColor]);
 
@@ -233,12 +235,12 @@ export default function CourierPage() {
     }
   }, [authLoading, user, role, router]);
 
-  // Load today's deliveries
+  // Load deliveries for selected date
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     const unsub = onSnapshot(
-      query(collection(db, 'orders'), where('eventDate', '==', today), where('deliveryMethod', '==', 'delivery')),
+      query(collection(db, 'orders'), where('eventDate', '==', selectedDate), where('deliveryMethod', '==', 'delivery')),
       (snap) => {
         const list = snap.docs.map((d) => {
           const data: any = d.data();
@@ -276,27 +278,60 @@ export default function CourierPage() {
       (err) => { console.error(err); setLoading(false); }
     );
     return () => unsub();
-  }, [user, today]);
+  }, [user, selectedDate]);
 
   if (authLoading || !user || role === null) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50" dir="rtl">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">🚚 משלוחים היום</h1>
-            <p className="text-sm text-gray-500">{formatDateHebrew(today)}</p>
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-bold text-gray-800">🚚 משלוחים</h1>
+            <div className="flex items-center gap-3">
+              {displayName && <span className="text-sm text-gray-600">{displayName}</span>}
+              <button
+                onClick={() => logout()}
+                className="text-sm text-gray-400 hover:text-red-500 transition-colors"
+              >
+                יציאה
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {displayName && <span className="text-sm text-gray-600">{displayName}</span>}
+          {/* Date navigation */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => logout()}
-              className="text-sm text-gray-400 hover:text-red-500 transition-colors"
+              onClick={() => {
+                const d = new Date(selectedDate);
+                d.setDate(d.getDate() - 1);
+                setSelectedDate(formatDateForInput(d));
+              }}
+              className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
             >
-              יציאה
+              ›
             </button>
+            <div className="flex-1 text-center">
+              <span className="text-sm font-medium text-gray-700">{formatDateHebrew(selectedDate)}</span>
+            </div>
+            <button
+              onClick={() => {
+                const d = new Date(selectedDate);
+                d.setDate(d.getDate() + 1);
+                setSelectedDate(formatDateForInput(d));
+              }}
+              className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+            >
+              ‹
+            </button>
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(today)}
+                className="px-3 h-9 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors"
+              >
+                היום
+              </button>
+            )}
           </div>
         </div>
       </div>
