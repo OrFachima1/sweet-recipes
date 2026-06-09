@@ -31,6 +31,16 @@ export default function ReviewModal({
   const currentOrder = editedOrders[currentOrderIndex];
 
   // יצירת/ניקוי blob URL רק כשמתחלף קובץ
+  // אוטו-סימון משלוח אם יש deliveryFee
+  useEffect(() => {
+    setEditedOrders(prev => prev.map(order => {
+      if (order.deliveryFee && order.deliveryFee > 0 && !order.deliveryMethod) {
+        return { ...order, deliveryMethod: "delivery" };
+      }
+      return order;
+    }));
+  }, []);
+
   useEffect(() => {
     if (baseBlobRef.current) {
       try { URL.revokeObjectURL(baseBlobRef.current); } catch {}
@@ -349,6 +359,60 @@ export default function ReviewModal({
                         placeholder="רחוב, עיר..."
                         className="w-full px-3 py-2 rounded-lg border-2 border-purple-300 focus:border-purple-500 focus:outline-none"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* תשלום */}
+                <div className="bg-gradient-to-l from-green-50 to-emerald-50 rounded-2xl p-4 border-2 border-green-200">
+                  <div className="text-sm font-semibold text-gray-700 mb-3">💰 תשלום</div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">סה"כ לתשלום ₪</label>
+                        <input
+                          type="number"
+                          value={currentOrder.totalSum ?? ""}
+                          onChange={(e) => updateOrder("totalSum", e.target.value ? parseFloat(e.target.value) : null)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-lg border-2 border-green-300 focus:border-green-500 focus:outline-none"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">דמי משלוח ₪</label>
+                        <input
+                          type="number"
+                          value={currentOrder.deliveryFee ?? ""}
+                          onChange={(e) => updateOrder("deliveryFee", e.target.value ? parseFloat(e.target.value) : null)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-lg border-2 border-green-300 focus:border-green-500 focus:outline-none"
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">מקדמה ששולמה ₪</label>
+                        <input
+                          type="number"
+                          value={currentOrder.deposit ?? ""}
+                          onChange={(e) => updateOrder("deposit", e.target.value ? parseFloat(e.target.value) : null)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-lg border-2 border-green-300 focus:border-green-500 focus:outline-none"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">יתרה לתשלום ₪</label>
+                        <div className={`w-full px-3 py-2 rounded-lg border-2 font-semibold text-center ${
+                          ((currentOrder.totalSum ?? 0) - (currentOrder.deposit ?? 0)) > 0
+                            ? "border-orange-300 bg-orange-50 text-orange-700"
+                            : "border-green-300 bg-green-50 text-green-700"
+                        }`}>
+                          {((currentOrder.totalSum ?? 0) - (currentOrder.deposit ?? 0)).toLocaleString("he-IL")} ₪
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -23,6 +23,8 @@ export interface IngestJsonOrder {
   orderNotes?: string | string[] | null;
   notes?: string | string[] | null;       // תאימות לאחור
   totalSum?: number | null;
+  deliveryFee?: number | null;
+  deposit?: number | null;
   currency?: string | null;
   source?: string | null;
   meta?: Record<string, unknown>;
@@ -54,6 +56,8 @@ export interface NormalizedOrder {
   items: NormalizedOrderItem[];
   orderNotes: string | string[] | null;
   totalSum: number | null;
+  deliveryFee?: number | null;
+  deposit?: number | null;
   currency: string | null;
   source?: string | null;
   meta?: Record<string, unknown>;
