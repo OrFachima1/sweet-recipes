@@ -79,7 +79,10 @@ function reconstructLines(items: TextItem[]): string[] {
     // X-descending sort reverses number fragments: "59 . 135 ₪" should be "135.59 ₪".
     // Pattern: decimal_digits SPACE.SPACE integer_digits → swap to integer.decimal
     if (line.includes("₪")) {
+      // Fix reversed decimal: "59 . 135 ₪" → "135.59 ₪"
       line = line.replace(/(\d+)\s+\.\s+(\d+)/g, "$2.$1");
+      // Fix reversed thousands separator: "195 , 2 ₪" → "2,195 ₪"
+      line = line.replace(/(\d+)\s+,\s+(\d+)/g, "$2,$1");
     }
 
     if (line) lines.push(line);
@@ -125,7 +128,7 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
   for (let i = 0; i < allLines.length; i++) {
     const ln = allLines[i];
     // Match סה"כ לתשלום with any quote variant (", ", ״, U+05F4)
-    if (/סה.?כ לתשלום/.test(ln)) {
+    if (/סה.{0,5}כ לתשלום/.test(ln)) {
       // Try current line first, then adjacent lines (amount may be on separate line)
       totalSum = extractAmount(ln)
         ?? extractAmount(allLines[i + 1] || "")
