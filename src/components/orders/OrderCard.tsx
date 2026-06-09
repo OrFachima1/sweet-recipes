@@ -856,7 +856,7 @@ export default function OrderCard({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">דמי משלוח (₪)</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">דמי משלוח ללא מע״מ (₪)</label>
                     <input
                       type="number"
                       value={deliveryFeeVal}
@@ -865,6 +865,11 @@ export default function OrderCard({
                       className="w-full text-sm p-2 border border-emerald-300 rounded"
                       dir="ltr"
                     />
+                    {deliveryFeeVal.trim() !== "" && !isNaN(parseFloat(deliveryFeeVal)) && (
+                      <p className="text-xs text-emerald-600 mt-1">
+                        כולל מע״מ: {(parseFloat(deliveryFeeVal) * 1.18).toFixed(2)} ₪
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">מקדמה ששולמה (₪)</label>
@@ -881,11 +886,12 @@ export default function OrderCard({
                     <button
                       onClick={() => {
                         const ts = totalSumVal.trim() !== "" ? parseFloat(totalSumVal) : null;
-                        const df = deliveryFeeVal.trim() !== "" ? parseFloat(deliveryFeeVal) : null;
+                        const dfRaw = deliveryFeeVal.trim() !== "" ? parseFloat(deliveryFeeVal) : null;
+                        const df = dfRaw != null && !isNaN(dfRaw) ? Math.round(dfRaw * 1.18 * 100) / 100 : null;
                         const dep = depositVal.trim() !== "" ? parseFloat(depositVal) : null;
                         onEditPayment(order.__id, {
                           totalSum: isNaN(ts as number) ? null : ts,
-                          deliveryFee: isNaN(df as number) ? null : df,
+                          deliveryFee: df,
                           deposit: isNaN(dep as number) ? null : dep,
                         });
                         setEditingPayment(false);
