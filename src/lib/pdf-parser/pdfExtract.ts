@@ -20,6 +20,14 @@ const CLIENT_RE = /^לכבוד\s*:\s*(.+?)\s+שובל\s+בוטיק\s+בייקר�
 /** Free date: DD/MM or DD.MM — groups: [1]=a, [2]=b */
 const FREE_DATE_RE = /\b(\d{1,2})[./](\d{1,2})\b/g;
 
+/** Extract the last number from a line (used for amounts) */
+function extractAmount(s: string): number | null {
+  const matches = s.match(/[\d,]+(?:\.\d+)?/g);
+  if (!matches) return null;
+  const n = parseFloat(matches[matches.length - 1].replace(/,/g, ""));
+  return isNaN(n) ? null : n;
+}
+
 /** Table header: contains "מוצר" and "סה" */
 const HEADER_RE = /מוצר.*סה/;
 
@@ -87,6 +95,8 @@ export interface PdfExtractResult {
   client: string;
   eventDate: string | null; // ISO date string YYYY-MM-DD
   dateLine: string | null;  // raw line where date was found (for debug)
+  totalSum: number | null;
+  deliveryFee: number | null;
 }
 
 export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractResult> {
@@ -106,6 +116,17 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
     allLines.push(...pageLines);
     if (pageIdx === 1) {
       page1Lines.push(...pageLines);
+    }
+  }
+
+  // Scan all lines for totalSum and deliveryFee BEFORE slicing footer
+  let totalSum: number | null = null;
+  let deliveryFee: number | null = null;
+  for (const ln of allLines) {
+    if (ln.includes('סה"כ לתשלום') || ln.includes("סה\"כ לתשלום")) {
+      totalSum = extractAmount(ln) ?? totalSum;
+    } else if (["משלוח", "דמי משלוח", "הובלה"].some(w => ln.includes(w)) && ln.includes("₪")) {
+      deliveryFee = extractAmount(ln) ?? deliveryFee;
     }
   }
 
@@ -174,5 +195,5 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
     if (eventDate) break;
   }
 
-  return { lines, client, eventDate, dateLine };
+  return { lines, client, eventDate, dateLine, totalSum, deliveryFee };
 }

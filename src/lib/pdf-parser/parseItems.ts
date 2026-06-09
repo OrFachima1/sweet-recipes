@@ -143,7 +143,7 @@ export function parseItems(lines: string[]): ParseResult {
 
   const tableLines = lines.slice(headerIdx);
 
-  // Build cleaned pairs, filtering noise
+  // Build cleaned pairs, filtering noise — but capture totalSum and deliveryFee first
   const allPairs: { idx: number; s: string }[] = [];
   for (let i = 0; i < tableLines.length; i++) {
     const s = clean(tableLines[i]);

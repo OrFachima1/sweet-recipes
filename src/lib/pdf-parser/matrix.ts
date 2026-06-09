@@ -14,21 +14,30 @@ export interface MatrixResult {
   clientDate: Map<string, string>;
   /** client → [{ product, note }] */
   notesByClient: Map<string, { product: string; note: string }[]>;
+  /** client → total sum */
+  clientTotalSum: Map<string, number>;
+  /** client → delivery fee */
+  clientDeliveryFee: Map<string, number>;
 }
 
 export async function buildMatrixFromPdfs(buffers: ArrayBuffer[]): Promise<MatrixResult> {
   const matrix = new Map<string, Map<string, number>>();
   const clientDate = new Map<string, string>();
   const notesByClient = new Map<string, { product: string; note: string }[]>();
+  const clientTotalSum = new Map<string, number>();
+  const clientDeliveryFee = new Map<string, number>();
 
   for (const buf of buffers) {
-    const { lines, client, eventDate } = await extractFromPdf(buf);
+    const { lines, client, eventDate, totalSum, deliveryFee } = await extractFromPdf(buf);
 
     if (eventDate && !clientDate.has(client)) {
       clientDate.set(client, eventDate);
     }
 
     const { items, notes } = parseItems(lines);
+
+    if (totalSum !== null) clientTotalSum.set(client, totalSum);
+    if (deliveryFee !== null) clientDeliveryFee.set(client, deliveryFee);
 
     // Fill matrix
     for (const { title, qty } of items) {
@@ -54,7 +63,7 @@ export async function buildMatrixFromPdfs(buffers: ArrayBuffer[]): Promise<Matri
     }
   }
 
-  return { matrix, clientDate, notesByClient };
+  return { matrix, clientDate, notesByClient, clientTotalSum, clientDeliveryFee };
 }
 
 /**
@@ -62,7 +71,7 @@ export async function buildMatrixFromPdfs(buffers: ArrayBuffer[]): Promise<Matri
  * (same JSON shape as Python api_server.py _orders_json_from_matrix)
  */
 export function matrixToOrdersJson(result: MatrixResult) {
-  const { matrix, clientDate, notesByClient } = result;
+  const { matrix, clientDate, notesByClient, clientTotalSum, clientDeliveryFee } = result;
 
   // Collect all clients
   const clientsSet = new Set<string>();
@@ -98,7 +107,8 @@ export function matrixToOrdersJson(result: MatrixResult) {
       status: "confirmed",
       items,
       orderNotes,
-      totalSum: null,
+      totalSum: clientTotalSum.get(c) ?? null,
+      deliveryFee: clientDeliveryFee.get(c) ?? null,
       currency: null,
       source: "pdf-import",
       meta: {},
