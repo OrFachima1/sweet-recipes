@@ -43,9 +43,9 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
             <button
               onClick={() => router.push('/deliveries')}
               className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"
-              title="משלוחים"
+              title="וידוא הזמנות"
             >
-              🚚
+              ☑️
             </button>
 
             {canAccessCourier && (

@@ -135,7 +135,10 @@ export async function extractFromPdf(buffer: ArrayBuffer): Promise<PdfExtractRes
         ?? extractAmount(allLines[i - 1] || "")
         ?? totalSum;
     } else if (["משלוח", "דמי משלוח", "הובלה"].some(w => ln.includes(w)) && ln.includes("₪")) {
-      deliveryFee = extractAmount(ln) ?? deliveryFee;
+      const raw = extractAmount(ln);
+      if (raw != null) {
+        deliveryFee = Math.round(raw * 1.18 * 100) / 100;
+      }
     }
   }
 

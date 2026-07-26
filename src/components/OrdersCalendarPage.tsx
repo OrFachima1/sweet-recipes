@@ -184,7 +184,9 @@ const editDelivery = useCallback((orderId: string, delivery: {
   deliveryMethod?: 'delivery' | 'pickup';
   estimatedTime?: string;
   phone1?: string;
+  phone1Name?: string;
   phone2?: string;
+  phone2Name?: string;
   address?: string;
 }) => {
   if (!canEdit) {
@@ -200,7 +202,9 @@ const editDelivery = useCallback((orderId: string, delivery: {
           deliveryMethod: delivery.deliveryMethod ?? o.deliveryMethod,
           estimatedTime: delivery.estimatedTime ?? o.estimatedTime,
           phone1: delivery.phone1 ?? o.phone1,
+          phone1Name: delivery.phone1Name ?? o.phone1Name,
           phone2: delivery.phone2 ?? o.phone2,
+          phone2Name: delivery.phone2Name ?? o.phone2Name,
           address: delivery.address ?? o.address,
         }
   );

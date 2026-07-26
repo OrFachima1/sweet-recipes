@@ -45,6 +45,7 @@ export default function ShoppingListPage() {
   const { user, role, displayName } = useAuth();
   const isManager = role === 'manager';
   const isSeniorWorker = role === 'senior_worker';
+  const isWorker = role === 'worker';
   const userName = displayName || user?.email?.split('@')[0] || 'משתמש';
 
   const [selectedPeriod, setSelectedPeriod] = useState<{start: string, end: string}>({
@@ -442,8 +443,8 @@ export default function ShoppingListPage() {
 
   if (loading) return <LoadingScreen />;
 
-  // אחמ"ש רואה רק מסך חוסרים פשוט
-  if (isSeniorWorker) {
+  // אחמ"ש ועובד רואים רק מסך חוסרים פשוט
+  if (isSeniorWorker || isWorker) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" dir="rtl">
         {/* Header פשוט לאחמ"ש */}

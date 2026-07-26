@@ -21,7 +21,9 @@ interface DayModalProps {
     deliveryMethod?: 'delivery' | 'pickup';
     estimatedTime?: string;
     phone1?: string;
+    phone1Name?: string;
     phone2?: string;
+    phone2Name?: string;
     address?: string;
   }) => void;
   onEditPayment?: (orderId: string, payment: {

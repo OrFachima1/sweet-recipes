@@ -19,6 +19,9 @@ interface PreviewOrder {
   eventDate?: string | null;
   items?: any[];
   orderNotes?: string | string[] | null;
+  totalSum?: number | null;
+  deliveryFee?: number | null;
+  deposit?: number | null;
   _fileId?: string;
 }
 

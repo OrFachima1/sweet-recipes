@@ -45,5 +45,6 @@ export default function Page() {
 
   const isManager = role === "manager";
   const canAddOrEdit = role === "manager" || role === "senior_worker";
-  return <HomeContent isManager={isManager} canAccessShoppingList={canAddOrEdit} canAddOrEditRecipes={canAddOrEdit} user={user} displayName={displayName ?? undefined} />;
+  const canAccessShoppingList = role === "manager" || role === "senior_worker" || role === "worker";
+  return <HomeContent isManager={isManager} canAccessShoppingList={canAccessShoppingList} canAddOrEditRecipes={canAddOrEdit} user={user} displayName={displayName ?? undefined} />;
 }
