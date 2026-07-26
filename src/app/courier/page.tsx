@@ -353,16 +353,29 @@ export default function CourierPage() {
               <h1 className="text-xl font-bold text-gray-800">משלוחים 🚚</h1>
               {displayName && <span className="text-sm text-gray-500">| {displayName}</span>}
             </div>
-            <button
-              onClick={() => logout()}
-              className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center shadow-sm"
-              title="התנתקות"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {role !== 'courier' && (
+                <button
+                  onClick={() => router.back()}
+                  className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center shadow-sm"
+                  title="חזרה"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => logout()}
+                className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center shadow-sm"
+                title="התנתקות"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
           </div>
           {/* Date navigation */}
           <div className="flex items-center gap-2">

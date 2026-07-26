@@ -54,12 +54,14 @@ export default function HomeContent({
   isManager,
   canAccessShoppingList,
   canAddOrEditRecipes,
+  canAccessCourier,
   user,
   displayName,
 }: {
   isManager: boolean;
   canAccessShoppingList: boolean;
   canAddOrEditRecipes: boolean;
+  canAccessCourier?: boolean;
   user: import("firebase/auth").User;
   displayName?: string;
 }) {
@@ -227,7 +229,7 @@ const suggestions = useMemo(() => {
         userEmail={user.email || undefined}
         isManager={isManager}
         canAccessShoppingList={canAccessShoppingList}
-        canAccessCourier={isManager}
+        canAccessCourier={canAccessCourier}
       />
 
       {/* Search Bar */}
