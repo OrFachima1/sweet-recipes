@@ -18,16 +18,16 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
   const greeting = displayName || userEmail?.split('@')[0] || 'חבר';
 
   return (
-    <header className="relative pt-2 pb-2 px-4">
+    <header className="relative pt-1 pb-1 px-4">
       <div className="max-w-7xl mx-auto">
         {/* ברכה + כפתורי פעולה */}
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           {/* ברכה */}
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-0.5">
               שלום, {greeting}
             </h1>
-            <p className="text-sm text-gray-500 mb-2">מה נבשל היום?</p>
+            <p className="text-xs text-gray-500 mb-1">מה נבשל היום?</p>
           </div>
 
           {/* כפתורי פעולה */}
@@ -82,11 +82,11 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
         </div>
 
         {/* לוגו */}
-        <div className="flex justify-center mb-1">
+        <div className="flex justify-center mb-0">
           <img
             src="/logo-web.png"
             alt="Logo"
-            className="w-72 sm:w-80 lg:w-96 h-auto object-contain opacity-90"
+            className="w-48 sm:w-56 lg:w-64 h-auto object-contain opacity-90"
           />
         </div>
 
