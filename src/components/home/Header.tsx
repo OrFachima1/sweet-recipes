@@ -30,16 +30,21 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  const menuItems = [
-    { icon: "📋", label: "מעקב הזמנות", path: "/orders", bg: "bg-emerald-100", show: true },
-    { icon: "☑️", label: "וידוא הזמנות", path: "/deliveries", bg: "bg-purple-100", show: true },
-    { icon: "🛵", label: "מסך שליח", path: "/courier", bg: "bg-blue-100", show: !!canAccessCourier },
-    { icon: "🛒", label: "רשימת קניות", path: "/shopping-list", bg: "bg-blue-100", show: !!(canAccessShoppingList ?? isManager) },
+  const allItems = [
+    { icon: "📋", label: "מעקב הזמנות",  action: () => { router.push('/orders');        setMenuOpen(false); }, show: true },
+    { icon: "☑️", label: "וידוא הזמנות", action: () => { router.push('/deliveries');    setMenuOpen(false); }, show: true },
+    { icon: "🛵", label: "מסך שליח",      action: () => { router.push('/courier');       setMenuOpen(false); }, show: !!canAccessCourier },
+    { icon: "🛒", label: "רשימת קניות",   action: () => { router.push('/shopping-list'); setMenuOpen(false); }, show: !!(canAccessShoppingList ?? isManager) },
+    { icon: "🚪", label: "התנתקות",       action: () => { logout(); setMenuOpen(false); },                      show: true },
   ].filter(i => i.show);
+
+  // fan: quarter-circle from straight-right (0°) to straight-down (90°)
+  const radius = 74;
 
   return (
     <header className="relative pt-1 pb-1 px-4">
       <div className="max-w-7xl mx-auto">
+
         {/* ברכה + כפתור תפריט */}
         <div className="flex items-center justify-between mb-1">
           <div className="flex-1">
@@ -49,43 +54,61 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
             <p className="text-xs text-gray-500 mb-1">מה נבשל היום?</p>
           </div>
 
-          {/* כפתור שלוש נקודות */}
-          <div className="relative" ref={menuRef}>
+          {/* Radial menu container */}
+          <div className="relative" ref={menuRef} style={{ zIndex: 50 }}>
+
+            {/* פריטי התפריט הרדיאלי */}
+            {allItems.map((item, i) => {
+              const count = allItems.length;
+              // fan from 45° to 135° → spreading down-left and down-right
+              const startAngle = 45;
+              const endAngle   = 135;
+              const angleDeg   = count === 1 ? 90 : startAngle + (endAngle - startAngle) * (i / (count - 1));
+              const rad        = (angleDeg * Math.PI) / 180;
+              const tx         = Math.round(radius * Math.cos(rad));
+              const ty         = Math.round(radius * Math.sin(rad));
+              const delay      = menuOpen ? i * 35 : (count - 1 - i) * 25;
+
+              return (
+                <button
+                  key={i}
+                  onClick={item.action}
+                  title={item.label}
+                  style={{
+                    position:   'absolute',
+                    top:        '50%',
+                    left:       '50%',
+                    transform:  menuOpen
+                      ? `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(1)`
+                      : `translate(-50%, -50%) scale(0)`,
+                    opacity:    menuOpen ? 1 : 0,
+                    transition: `transform 0.3s cubic-bezier(0.34,1.56,0.64,1) ${delay}ms,
+                                 opacity  0.2s ease ${delay}ms`,
+                    pointerEvents: menuOpen ? 'auto' : 'none',
+                  }}
+                  className="w-11 h-11 rounded-full bg-white border border-gray-200 shadow-lg
+                             flex items-center justify-center text-xl
+                             hover:scale-110 active:scale-95 transition-transform"
+                >
+                  {item.icon}
+                </button>
+              );
+            })}
+
+            {/* כפתור מרכזי */}
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm hover:shadow text-xl leading-none"
+              className="relative w-10 h-10 rounded-full bg-white border border-gray-200
+                         hover:border-gray-400 transition-all flex items-center justify-center
+                         shadow-sm hover:shadow text-xl leading-none select-none"
+              style={{
+                transform:  menuOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s ease',
+              }}
               title="תפריט"
             >
-              ⋮
+              {menuOpen ? '✕' : '⋮'}
             </button>
-
-            {menuOpen && (
-              <div className="absolute left-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                {menuItems.map((item) => (
-                  <button
-                    key={item.path}
-                    onClick={() => { router.push(item.path); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-gray-700 text-sm font-medium"
-                  >
-                    <span className={`w-8 h-8 rounded-full ${item.bg} flex items-center justify-center text-base flex-shrink-0`}>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-                <div className="border-t border-gray-100" />
-                <button
-                  onClick={() => { logout(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-red-500 text-sm font-medium"
-                >
-                  <span className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                  </span>
-                  <span>התנתקות</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -100,14 +123,6 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
 
         <InstallPrompt />
       </div>
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-8px) scale(0.95); }
-          to   { opacity: 1; transform: translateY(0)   scale(1);    }
-        }
-        .animate-fadeIn { animation: fadeIn 0.15s ease-out; }
-      `}</style>
     </header>
   );
 }
