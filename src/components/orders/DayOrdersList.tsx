@@ -26,6 +26,7 @@ interface DayOrdersListProps {
     deliveryFee?: number | null;
     deposit?: number | null;
   }) => void;
+  onEditClientName?: (orderId: string, newName: string) => void;
   onEditOrderNotes?: (orderId: string, notes: string) => void;
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
@@ -51,6 +52,7 @@ export default function DayOrdersList({
   onEditEventDate,
   onEditDelivery,
   onEditPayment,
+  onEditClientName,
   getClientColor,
   recipeLinks,
   isManager = false,
@@ -234,6 +236,7 @@ export default function DayOrdersList({
               onEditEventDate={onEditEventDate}
               onEditDelivery={onEditDelivery}
               onEditPayment={onEditPayment}
+              onEditClientName={onEditClientName}
               recipeLinks={recipeLinks}
               noteOpen={noteOpen}
               toggleNote={toggleNote}

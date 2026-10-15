@@ -229,8 +229,8 @@ export default function ShoppingListPage() {
     // קביעת קטגוריה - אם נמצאים בחוסרים או הכל, לשמור כ-other
     const categoryId = selectedCategory === 'all' || selectedCategory === '__shortages__' ? 'other' : selectedCategory;
 
-    // אחמ"ש תמיד מוסיף חוסרים, מנהל מוסיף רק אם נמצא בקטגוריית חוסרים
-    const isShortageItem = isSeniorWorker || selectedCategory === '__shortages__';
+    // אחמ"ש ועובד תמיד מוסיפים חוסרים, מנהל מוסיף רק אם נמצא בקטגוריית חוסרים
+    const isShortageItem = isSeniorWorker || isWorker || selectedCategory === '__shortages__';
 
     const newItem: ShoppingListItem = {
       name,

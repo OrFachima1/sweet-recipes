@@ -212,6 +212,19 @@ const editDelivery = useCallback((orderId: string, delivery: {
   firebase.persist(next);
 }, [canEdit, ordersWithColors, firebase]);
 
+const editClientName = useCallback((orderId: string, newName: string) => {
+  if (!canEdit) {
+    alert("אין לך הרשאה לערוך הזמנות");
+    return;
+  }
+
+  const next = ordersWithColors.map(o =>
+    o.__id !== orderId ? o : { ...o, clientName: newName }
+  );
+
+  firebase.persist(next);
+}, [canEdit, ordersWithColors, firebase]);
+
 const editPayment = useCallback((orderId: string, payment: {
   totalSum?: number | null;
   deliveryFee?: number | null;
@@ -461,6 +474,7 @@ const editPayment = useCallback((orderId: string, payment: {
         onEditEventDate={canEdit ? editEventDate : undefined}
         onEditDelivery={canEdit ? editDelivery : undefined}
         onEditPayment={canEdit ? editPayment : undefined}
+        onEditClientName={canEdit ? editClientName : undefined}
         onEditColor={canEdit ? async (clientName, newColor) => {
           await updateClientColor(clientName, newColor);
         } : undefined}
@@ -484,6 +498,7 @@ const editPayment = useCallback((orderId: string, payment: {
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
           onEditPayment={canEdit ? editPayment : undefined}
+          onEditClientName={canEdit ? editClientName : undefined}
 
           // פרופס לעריכה ומעקב - canEdit לעריכה, canDeleteItems למחיקה
           onEditItem={canEdit ? actions.editOrderItem : undefined}
@@ -522,6 +537,7 @@ const editPayment = useCallback((orderId: string, payment: {
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
           onEditPayment={canEdit ? editPayment : undefined}
+          onEditClientName={canEdit ? editClientName : undefined}
 
           // העברת updateClientColor ו-getClientColor
           updateClientColor={canEdit ? updateClientColor : undefined}

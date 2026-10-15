@@ -28,6 +28,7 @@ interface ClientsViewProps {
     deliveryFee?: number | null;
     deposit?: number | null;
   }) => void;
+  onEditClientName?: (orderId: string, newName: string) => void;
   onDeleteOrder?: (orderId: string) => void;
   onAddItem?: (orderId: string) => void;
   noteOpen?: Record<string, boolean>;
@@ -52,6 +53,7 @@ export default function ClientsView({
   onEditEventDate,
   onEditDelivery,
   onEditPayment,
+  onEditClientName,
   toggleNote,
   isManager,
   showDeliveryDetails,
@@ -793,6 +795,7 @@ export default function ClientsView({
                   onEditEventDate={onEditEventDate}
                   onEditDelivery={onEditDelivery}
                   onEditPayment={onEditPayment}
+                  onEditClientName={onEditClientName}
                   onRemoveItem={onRemoveItem}
                   onDelete={onDeleteOrder}
                   onAddItem={onAddItem}

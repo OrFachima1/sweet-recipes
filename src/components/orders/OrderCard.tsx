@@ -33,6 +33,7 @@ interface OrderCardProps {
     deliveryFee?: number | null;
     deposit?: number | null;
   }) => void;
+  onEditClientName?: (orderId: string, newName: string) => void;
 
   recipeLinks?: Record<string, string>;
   
@@ -74,6 +75,7 @@ export default function OrderCard({
   onEditEventDate,
   onEditDelivery,
   onEditPayment,
+  onEditClientName,
   recipeLinks,
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
@@ -114,6 +116,8 @@ export default function OrderCard({
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingEventDate, setEditingEventDate] = useState(false);
   const [eventDateValue, setEventDateValue] = useState(order.eventDate || "");
+  const [editingClientName, setEditingClientName] = useState(false);
+  const [clientNameValue, setClientNameValue] = useState(order.clientName || "");
   const [editingDelivery, setEditingDelivery] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(order.deliveryMethod || "pickup");
   const [estimatedTime, setEstimatedTime] = useState(order.estimatedTime || "");
@@ -444,6 +448,22 @@ export default function OrderCard({
                       </button>
                     )}
 
+                    {/* כפתור שינוי שם לקוח */}
+                    {onEditClientName && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setClientNameValue(order.clientName || "");
+                          setEditingClientName(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-right px-3 sm:px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-700"
+                      >
+                        <span className="text-base sm:text-lg">👤</span>
+                        <span>שנה שם לקוח</span>
+                      </button>
+                    )}
+
                     {/* כפתור עריכת משלוח - רק במצב עריכה */}
                     {onEditDelivery && isEditMode && (
                       <button
@@ -625,6 +645,46 @@ export default function OrderCard({
                       onClick={() => {
                         setEditingEventDate(false);
                         setEventDateValue(order.eventDate || "");
+                      }}
+                      className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* עריכת שם לקוח */}
+            {editingClientName && onEditClientName && (
+              <div className="mb-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-gray-700">👤 שנה שם לקוח</span>
+                </div>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={clientNameValue}
+                    onChange={(e) => setClientNameValue(e.target.value)}
+                    className="w-full text-sm p-2 border border-green-300 rounded"
+                    placeholder="שם לקוח..."
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (clientNameValue.trim()) {
+                          onEditClientName(order.__id, clientNameValue.trim());
+                          setEditingClientName(false);
+                        }
+                      }}
+                      className="text-sm px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                      💾 שמור
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingClientName(false);
+                        setClientNameValue(order.clientName || "");
                       }}
                       className="text-sm px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
                     >
