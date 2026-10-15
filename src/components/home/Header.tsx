@@ -31,10 +31,10 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
   }, [menuOpen]);
 
   const menuItems = [
-    { icon: "📋", label: "מעקב הזמנות", path: "/orders", show: true },
-    { icon: "☑️", label: "וידוא הזמנות", path: "/deliveries", show: true },
-    { icon: "🛵", label: "מסך שליח", path: "/courier", show: !!canAccessCourier },
-    { icon: "🛒", label: "רשימת קניות", path: "/shopping-list", show: !!(canAccessShoppingList ?? isManager) },
+    { icon: "📋", label: "מעקב הזמנות", path: "/orders", bg: "bg-emerald-100", show: true },
+    { icon: "☑️", label: "וידוא הזמנות", path: "/deliveries", bg: "bg-purple-100", show: true },
+    { icon: "🛵", label: "מסך שליח", path: "/courier", bg: "bg-blue-100", show: !!canAccessCourier },
+    { icon: "🛒", label: "רשימת קניות", path: "/shopping-list", bg: "bg-blue-100", show: !!(canAccessShoppingList ?? isManager) },
   ].filter(i => i.show);
 
   return (
@@ -53,14 +53,10 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm hover:shadow"
+              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm hover:shadow text-xl leading-none"
               title="תפריט"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="12" cy="12" r="2" />
-                <circle cx="12" cy="19" r="2" />
-              </svg>
+              ⋮
             </button>
 
             {menuOpen && (
@@ -69,21 +65,23 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
                   <button
                     key={item.path}
                     onClick={() => { router.push(item.path); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-gray-50 transition-colors text-gray-700 text-sm font-medium"
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-gray-700 text-sm font-medium"
                   >
-                    <span className="text-lg">{item.icon}</span>
+                    <span className={`w-8 h-8 rounded-full ${item.bg} flex items-center justify-center text-base flex-shrink-0`}>{item.icon}</span>
                     <span>{item.label}</span>
                   </button>
                 ))}
                 <div className="border-t border-gray-100" />
                 <button
                   onClick={() => { logout(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-red-50 transition-colors text-red-500 text-sm font-medium"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors text-red-500 text-sm font-medium"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
+                  <span className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  </span>
                   <span>התנתקות</span>
                 </button>
               </div>
