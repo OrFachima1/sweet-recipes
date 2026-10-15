@@ -18,16 +18,16 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
   const greeting = displayName || userEmail?.split('@')[0] || 'חבר';
 
   return (
-    <header className="relative pt-6 pb-4 px-4">
+    <header className="relative pt-2 pb-2 px-4">
       <div className="max-w-7xl mx-auto">
         {/* ברכה + כפתורי פעולה */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-3">
           {/* ברכה */}
           <div className="flex-1">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1">
               שלום, {greeting}
             </h1>
-            <p className="text-sm text-gray-500">מה נבשל היום?</p>
+            <p className="text-sm text-gray-500 mb-2">מה נבשל היום?</p>
           </div>
 
           {/* כפתורי פעולה */}
