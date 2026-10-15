@@ -38,8 +38,8 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
     { icon: "🚪", label: "התנתקות",       action: () => { logout(); setMenuOpen(false); },                      show: true },
   ].filter(i => i.show);
 
-  // fan: quarter-circle from straight-right (0°) to straight-down (90°)
-  const radius = 74;
+  // fan: quarter-circle from right (5°) to down (90°) — stays within screen bounds for top-left button
+  const radius = 90;
 
   return (
     <header className="relative pt-1 pb-1 px-4">
@@ -60,9 +60,9 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
             {/* פריטי התפריט הרדיאלי */}
             {allItems.map((item, i) => {
               const count = allItems.length;
-              // fan from 45° to 135° → spreading down-left and down-right
-              const startAngle = 45;
-              const endAngle   = 135;
+              // fan from 5° (right) to 90° (down) — quarter-circle into available space
+              const startAngle = 5;
+              const endAngle   = 90;
               const angleDeg   = count === 1 ? 90 : startAngle + (endAngle - startAngle) * (i / (count - 1));
               const rad        = (angleDeg * Math.PI) / 180;
               const tx         = Math.round(radius * Math.cos(rad));
