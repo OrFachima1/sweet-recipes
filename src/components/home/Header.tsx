@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
 import InstallPrompt from "../InstallPrompt";
@@ -14,15 +15,33 @@ type HeaderProps = {
 
 export default function Header({ displayName, userEmail, isManager, canAccessShoppingList, canAccessCourier }: HeaderProps) {
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const greeting = displayName || userEmail?.split('@')[0] || 'חבר';
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  const menuItems = [
+    { icon: "📋", label: "מעקב הזמנות", path: "/orders", show: true },
+    { icon: "☑️", label: "וידוא הזמנות", path: "/deliveries", show: true },
+    { icon: "🛵", label: "מסך שליח", path: "/courier", show: !!canAccessCourier },
+    { icon: "🛒", label: "רשימת קניות", path: "/shopping-list", show: !!(canAccessShoppingList ?? isManager) },
+  ].filter(i => i.show);
 
   return (
     <header className="relative pt-1 pb-1 px-4">
       <div className="max-w-7xl mx-auto">
-        {/* ברכה + כפתורי פעולה */}
+        {/* ברכה + כפתור תפריט */}
         <div className="flex items-center justify-between mb-1">
-          {/* ברכה */}
           <div className="flex-1">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-0.5">
               שלום, {greeting}
@@ -30,54 +49,45 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
             <p className="text-xs text-gray-500 mb-1">מה נבשל היום?</p>
           </div>
 
-          {/* כפתורי פעולה */}
-          <div className="flex items-center gap-2">
+          {/* כפתור שלוש נקודות */}
+          <div className="relative" ref={menuRef}>
             <button
-              onClick={() => router.push('/orders')}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"
-              title="מעקב הזמנות"
+              onClick={() => setMenuOpen(v => !v)}
+              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm hover:shadow"
+              title="תפריט"
             >
-              📋
-            </button>
-
-            <button
-              onClick={() => router.push('/deliveries')}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"
-              title="וידוא הזמנות"
-            >
-              ☑️
-            </button>
-
-            {canAccessCourier && (
-              <button
-                onClick={() => router.push('/courier')}
-                className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"
-                title="מסך שליח"
-              >
-                🛵
-              </button>
-            )}
-
-            {(canAccessShoppingList ?? isManager) && (
-              <button
-                onClick={() => router.push('/shopping-list')}
-                className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center text-xl shadow-sm hover:shadow"
-                title="רשימת קניות"
-              >
-                🛒
-              </button>
-            )}
-
-            <button
-              onClick={logout}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center shadow-sm hover:shadow"
-              title="התנתקות"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
               </svg>
             </button>
+
+            {menuOpen && (
+              <div className="absolute left-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => { router.push(item.path); setMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-gray-50 transition-colors text-gray-700 text-sm font-medium"
+                  >
+                    <span className="text-lg">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={() => { logout(); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-red-50 transition-colors text-red-500 text-sm font-medium"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>התנתקות</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -92,6 +102,14 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
 
         <InstallPrompt />
       </div>
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+          to   { opacity: 1; transform: translateY(0)   scale(1);    }
+        }
+        .animate-fadeIn { animation: fadeIn 0.15s ease-out; }
+      `}</style>
     </header>
   );
 }
