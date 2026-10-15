@@ -1,6 +1,6 @@
 {
-  "name": "Sweet Recipes",
-  "short_name": "Recipes",
+  "name": "שוביטה",
+  "short_name": "שוביטה",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fde2e4",

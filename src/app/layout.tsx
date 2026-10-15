@@ -22,8 +22,8 @@ export const viewport: Viewport = {
   width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#fde2e4",
 };
 export const metadata: Metadata = {
-  title: "Sweet Recipes — מתכונים",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Sweet Recipes" },
+  title: "שוביטה",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "שוביטה" },
   icons: { apple: "/apple-touch-icon.png" },
   manifest: "/manifest.json",
 };

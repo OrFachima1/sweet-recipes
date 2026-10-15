@@ -86,7 +86,7 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
           <img
             src="/logo-web.png"
             alt="Logo"
-            className="w-full max-w-[32rem] sm:max-w-[42rem] lg:max-w-[56rem] h-auto object-contain opacity-90"
+            className="w-72 sm:w-80 lg:w-96 h-auto object-contain opacity-90"
           />
         </div>
 
