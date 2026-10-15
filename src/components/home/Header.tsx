@@ -38,8 +38,8 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
     { icon: "🚪", label: "התנתקות",       action: () => { logout(); setMenuOpen(false); },                      show: true },
   ].filter(i => i.show);
 
-  // fan: quarter-circle from right (5°) to down (90°) — stays within screen bounds for top-left button
-  const radius = 90;
+  // r ≥ itemSize / (2 × sin(arcSpan/(2×(n-1)))) — calculated for 5 items × 44px buttons × 90° arc
+  const radius = 125;
 
   return (
     <header className="relative pt-1 pb-1 px-4">
