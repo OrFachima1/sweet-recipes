@@ -82,7 +82,7 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
         </div>
 
         {/* לוגו */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-3">
           <img
             src="/logo-web.png"
             alt="Logo"
