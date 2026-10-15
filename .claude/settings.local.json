@@ -15,7 +15,22 @@
       "Bash(ls:*)",
       "Bash(npx ts-node:*)",
       "Bash(git restore:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(done)",
+      "Bash(powershell -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First 20 Name, CPU, WorkingSet, Id | Format-Table -AutoSize\")",
+      "Bash(powershell -Command \"Stop-Process -Id 90592, 96288 -Force; Stop-Process -Name explorer -Force; Start-Sleep -Seconds 2; Start-Process explorer\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_PerfFormattedData_PerfProc_Process | Where-Object {$_Name -ne ''_Total'' -and $_Name -ne ''Idle''} | Sort-Object PercentProcessorTime -Descending | Select-Object -First 15 Name, PercentProcessorTime, IDProcess | Format-Table -AutoSize\")",
+      "Bash(powershell -Command \"wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime,IDProcess /format:csv 2>$null | ConvertFrom-Csv | Where-Object PercentProcessorTime -gt 1 | Sort-Object {[int]$_PercentProcessorTime} -Descending | Select-Object -First 15 | Format-Table -AutoSize\")",
+      "Bash(cmd.exe /c \"wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime,IDProcess 2>nul\")",
+      "Bash(cmd.exe /c \"wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime,IDProcess\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\ah118\\\\AppData\\\\Local\\\\Temp\\\\check_cpu.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\ah118\\\\AppData\\\\Local\\\\Temp\\\\check_node.ps1\")",
+      "Bash(powershell -Command \"Stop-Process -Id 81308, 98920, 107952, 81424, 97332, 111420, 85292, 99224, 58176, 95320 -Force -ErrorAction SilentlyContinue; Write-Host ''Done''\")",
+      "Bash(find c:Usersah118OneDriveDesktop -name *.pdf)",
+      "Bash(node debug-pdf.mjs)",
+      "Bash(node -e \"const fs=require\\(''fs''\\); const files=fs.readdirSync\\(''.''\\).filter\\(f=>f.includes\\(''2352''\\)||f.includes\\(''2486''\\)\\); files.forEach\\(f=>console.log\\(JSON.stringify\\(f\\)\\)\\);\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\); const files=fs.readdirSync\\(''.''\\).filter\\(f=>f.includes\\(''2352''\\)||f.includes\\(''2486''\\)\\); files.forEach\\(f=>{ const buf=Buffer.from\\(f\\); console.log\\(buf.slice\\(0,6\\).toString\\(''hex''\\), JSON.stringify\\(f\\)\\); }\\);\")",
+      "Bash(xargs grep:*)"
     ]
   }
 }
