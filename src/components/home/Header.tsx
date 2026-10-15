@@ -84,7 +84,7 @@ export default function Header({ displayName, userEmail, isManager, canAccessSho
         {/* לוגו */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo-web.png"
+            src="/logo-web.jpg"
             alt="Logo"
             className="w-64 sm:w-80 lg:w-96 h-auto object-contain opacity-90"
           />
