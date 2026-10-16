@@ -7,6 +7,7 @@ import localFont from 'next/font/local';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrderSettingsProvider } from "@/contexts/OrderSettingsContext";
 import { ClientsProvider } from "@/contexts/ClientsContext";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const openSans = Open_Sans({ subsets: ["latin"], weight: ["400","600","700"], variable: "--font-open-sans" });
 const notoHeb  = Noto_Sans_Hebrew({ subsets: ["hebrew"], weight: ["400","500","700"], variable: "--font-hebrew" });
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${openSans.variable} ${notoHeb.variable} ${myFont.variable} min-h-screen bg-white text-[#2b2b2b] antialiased`}
       >
+        <OfflineBanner />
         <AuthProvider>
           <ClientsProvider>
             <OrderSettingsProvider>

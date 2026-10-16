@@ -152,7 +152,7 @@ export default function Categories({ categories, isManager }: CategoriesProps) {
   async function handleUploadImage(catKey: string, catLabel: string, file: File) {
     const dataUrl = await fileToDataUrl(file);
     const compressed = await compressForCategory(dataUrl);
-    const imageUrl = await uploadToStorage(compressed, `categories/${catKey}.jpg`);
+    const imageUrl = await uploadToStorage(compressed, `categories/${catKey}.webp`);
     await setDoc(
       doc(db, "categories", catKey),
       { key: catKey, name: catLabel, imageUrl, active: true },

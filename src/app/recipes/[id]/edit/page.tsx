@@ -27,26 +27,21 @@ async function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-async function downscaleImage(
-  dataUrl: string,
-  maxW = 1280,
-  quality = 0.8
-): Promise<string> {
+async function downscaleImage(dataUrl: string): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
     el.onerror = reject;
     el.src = dataUrl;
   });
-  const scale = Math.min(1, maxW / img.naturalWidth);
+  const scale = Math.min(1, 800 / img.naturalWidth, 600 / img.naturalHeight);
   const w = Math.round(img.naturalWidth * scale);
   const h = Math.round(img.naturalHeight * scale);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
+  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/webp", 0.78);
 }
 
 export default function EditRecipePage() {
@@ -94,7 +89,7 @@ export default function EditRecipePage() {
     const f = e.target.files?.[0];
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
-    const compressed = await downscaleImage(dataUrl, 1280, 0.8);
+    const compressed = await downscaleImage(dataUrl);
     setNewImageDataUrl(compressed);
     setImagePreview(compressed);
     setImageRemoved(false);
@@ -133,7 +128,7 @@ export default function EditRecipePage() {
     if (newImageDataUrl) {
       // User picked a new image — upload to Storage
       try {
-        const imageUrl = await uploadToStorage(newImageDataUrl, `recipes/${id}.jpg`);
+        const imageUrl = await uploadToStorage(newImageDataUrl, `recipes/${id}.webp`);
         patch.imageUrl = imageUrl;
         patch.imageDataUrl = deleteField();
       } catch (err) {

@@ -179,6 +179,7 @@ export default function CategoryPage() {
                         <img
                           src={(recipe.imageUrl || recipe.imageDataUrl)!}
                           alt={recipe.title}
+                          loading="lazy"
                           className="w-full h-full object-cover transition-transform duration-500"
                           style={{
                             transform: hoveredId === recipe.id ? 'scale(1.1)' : 'scale(1)'

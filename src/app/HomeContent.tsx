@@ -23,6 +23,7 @@ import Header from "@/components/home/Header";
 import SearchBar from "@/components/home/SearchBar";
 import RecipeForm from "@/components/home/RecipeForm";
 import Categories from "@/components/home/Categories";
+import CategoryCardSkeleton from "@/components/home/CategoryCardSkeleton";
 import WeighingBar from "@/components/home/WeighingBar";
 
 // Types
@@ -206,7 +207,7 @@ const suggestions = useMemo(() => {
       try {
         const imageUrl = await uploadToStorage(
           recipe.imageDataUrl,
-          `recipes/${created.id}.jpg`
+          `recipes/${created.id}.webp`
         );
         await updateDoc(doc(db, "recipes", created.id), { imageUrl });
       } catch (err) {
@@ -270,10 +271,15 @@ const suggestions = useMemo(() => {
           </button>
         </div>
       ) : recipesLoading ? (
-        <div className="px-4 mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 animate-pulse">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl bg-gray-200" />
-          ))}
+        <div className="px-4 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="h-8 w-28 rounded-full skeleton-shimmer mb-8" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CategoryCardSkeleton key={i} />
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <Categories categories={categories} isManager={isManager} />

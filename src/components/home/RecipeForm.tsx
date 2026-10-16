@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import AutocompleteInput from "@/components/AutocompleteInput";
-import { fileToDataUrl, compressImage, generateId } from "@/utils/imageHelpers";
+import { fileToDataUrl, compressForRecipe, generateId } from "@/utils/imageHelpers";
 
 type Ingredient = { id: string; name: string; qty: string; unit: string };
 type IngredientGroup = { id: string; groupName: string; items: Ingredient[] };
@@ -135,7 +135,7 @@ export default function RecipeForm({
     const f = e.target.files?.[0];
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
-    const compressed = await compressImage(dataUrl, 1280, 0.8);
+    const compressed = await compressForRecipe(dataUrl);
     setImageDataUrl(compressed);
   }
 

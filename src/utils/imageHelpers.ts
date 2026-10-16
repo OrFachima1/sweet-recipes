@@ -7,33 +7,43 @@ export async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function compressToWebP(
+  dataUrl: string,
+  maxW: number,
+  maxH: number,
+  quality: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/webp', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+export async function compressForRecipe(dataUrl: string): Promise<string> {
+  return compressToWebP(dataUrl, 800, 600, 0.78);
+}
+
+export async function compressForCategory(dataUrl: string): Promise<string> {
+  return compressToWebP(dataUrl, 500, 500, 0.78);
+}
+
 export async function compressImage(
   dataUrl: string,
   maxWidth = 1280,
   quality = 0.8
 ): Promise<string> {
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = dataUrl;
-  });
-
-  const scale = Math.min(1, maxWidth / img.naturalWidth);
-  const w = Math.round(img.naturalWidth * scale);
-  const h = Math.round(img.naturalHeight * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL('image/jpeg', quality);
-
-  
-}
-
-export async function compressForCategory(dataUrl: string): Promise<string> {
-  return compressImage(dataUrl, 800, 0.75);
+  return compressToWebP(dataUrl, maxWidth, maxWidth, quality);
 }
 
 export function generateId(): string {

@@ -74,6 +74,7 @@ export default function CategoryCard({
             <img
               src={(category.imageUrl || category.imageDataUrl)!}
               alt=""
+              loading="lazy"
               className="max-h-full max-w-full object-contain transition-transform duration-200 ease-out group-hover:scale-105"
             />
           ) : (

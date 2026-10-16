@@ -4,6 +4,7 @@ const withPWA = require("next-pwa")({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  fallbacks: { document: "/offline" },
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -33,7 +34,7 @@ const withPWA = require("next-pwa")({
       handler: "NetworkFirst",
       options: {
         cacheName: "firebase-rt",
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 3,
       },
     },
     {
@@ -41,7 +42,7 @@ const withPWA = require("next-pwa")({
       handler: "NetworkFirst",
       options: {
         cacheName: "firestore",
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 3,
       },
     },
     {
@@ -57,6 +58,9 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfjs-dist"],
+  images: {
+    remotePatterns: [{ hostname: "firebasestorage.googleapis.com" }],
+  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.resolve = config.resolve || {};
