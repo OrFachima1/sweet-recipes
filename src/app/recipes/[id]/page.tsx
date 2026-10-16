@@ -603,7 +603,7 @@ export default function RecipePage() {
             </div>
 
             {/* Right Column: Image + Progress Bar */}
-            {!data.imageDataUrl && (
+            {!(data.imageUrl || data.imageDataUrl) && (
               <div className="lg:col-span-1">
                 <div className="lg:sticky lg:top-6">
                   {/* Just Progress Bar */}
@@ -643,13 +643,13 @@ export default function RecipePage() {
               </div>
             )}
             
-            {data.imageDataUrl && (
+            {(data.imageUrl || data.imageDataUrl) && (
               <div className="lg:col-span-1">
                 <div className="lg:sticky lg:top-6 space-y-3">
                   <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg shadow-rose-200/20 p-3 border border-white/50 overflow-hidden">
                     <div className="relative">
                       <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-pink-500/10 to-orange-500/10 rounded-xl"></div>
-                      <AutoFit src={data.imageDataUrl} height={320} />
+                      <AutoFit src={(data.imageUrl || data.imageDataUrl)!} height={320} />
                     </div>
                   </div>
                   

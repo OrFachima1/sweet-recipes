@@ -9,6 +9,7 @@ export type RecipeDoc = {
   title?: string;
   category?: string | null;
   note?: string | null;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
   ingredients?: Array<{ id?: string; groupName?: string; items?: Array<{ id?: string; name?: string; qty?: string; unit?: string | null }> }>;
   steps?: Array<{ id?: string; text?: string }>;
@@ -19,6 +20,7 @@ export type CategoryDoc = {
   id: string;
   key?: string;
   name?: string | null;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
   color?: string | null;
   order?: number | null;

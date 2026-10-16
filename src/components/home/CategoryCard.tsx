@@ -8,6 +8,7 @@ type CategoryCardProps = {
     key: string;
     label: string;
     count: number;
+    imageUrl?: string | null;
     imageDataUrl?: string | null;
   };
   isManager: boolean;
@@ -69,9 +70,9 @@ export default function CategoryCard({
 
         {/* תמונה */}
         <div className="h-32 sm:h-36 md:h-40 w-full bg-white flex items-center justify-center p-3 relative">
-          {category.imageDataUrl ? (
+          {(category.imageUrl || category.imageDataUrl) ? (
             <img
-              src={category.imageDataUrl}
+              src={(category.imageUrl || category.imageDataUrl)!}
               alt=""
               className="max-h-full max-w-full object-contain transition-transform duration-200 ease-out group-hover:scale-105"
             />

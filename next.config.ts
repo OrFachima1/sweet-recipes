@@ -44,6 +44,14 @@ const withPWA = require("next-pwa")({
         networkTimeoutSeconds: 10,
       },
     },
+    {
+      urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "firebase-storage",
+        expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+      },
+    },
   ],
 });
 

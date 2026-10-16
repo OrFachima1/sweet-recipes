@@ -2,7 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db, ensureAnonAuth } from "../../../../lib/firebase";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp, deleteField } from "firebase/firestore";
+import { uploadToStorage } from "@/utils/storageUpload";
 import AutocompleteInput from "../../../../components/AutocompleteInput";
 import { useIngredientDict } from "../../../../hooks/useIngredientDict";
 import { invalidateRecipesCache } from "../../../../hooks/useShoppingList";
@@ -58,7 +59,11 @@ export default function EditRecipePage() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  // imagePreview: what's shown in UI (existing URL or newly selected data URL)
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // newImageDataUrl: set only when user picks a new file — triggers Storage upload on save
+  const [newImageDataUrl, setNewImageDataUrl] = useState<string | null>(null);
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const [groups, setGroups] = useState<IngredientGroup[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -78,7 +83,7 @@ export default function EditRecipePage() {
       setTitle(d.title || "");
       setCategory(d.category || "");
       setNote(d.note || "");
-      setImageDataUrl(d.imageDataUrl || null);
+      setImagePreview(d.imageUrl || d.imageDataUrl || null);
       setGroups((d.ingredients || []) as IngredientGroup[]);
       setSteps((d.steps || []) as Step[]);
       setLoading(false);
@@ -90,7 +95,9 @@ export default function EditRecipePage() {
     if (!f) return;
     const dataUrl = await fileToDataUrl(f);
     const compressed = await downscaleImage(dataUrl, 1280, 0.8);
-    setImageDataUrl(compressed);
+    setNewImageDataUrl(compressed);
+    setImagePreview(compressed);
+    setImageRemoved(false);
   }
 
   // --- עזר לעריכת קבוצות/שלבים ---
@@ -113,16 +120,33 @@ export default function EditRecipePage() {
   async function saveChanges() {
     if (!title.trim()) return alert("חסר שם מתכון");
     await ensureAnonAuth();
-    await updateDoc(doc(db, "recipes", id), {
+
+    const patch: Record<string, any> = {
       title: title.trim(),
       category: (category || "").trim(),
       note: note.trim() || null,
-      imageDataUrl: imageDataUrl || null,
       ingredients: groups,
       steps: steps.filter((s) => s.text.trim()),
       updatedAt: serverTimestamp(),
-    });
-    // 🚀 ניקוי cache של מתכונים כדי שרשימת הקניות תראה את השינויים
+    };
+
+    if (newImageDataUrl) {
+      // User picked a new image — upload to Storage
+      try {
+        const imageUrl = await uploadToStorage(newImageDataUrl, `recipes/${id}.jpg`);
+        patch.imageUrl = imageUrl;
+        patch.imageDataUrl = deleteField();
+      } catch (err) {
+        alert("שגיאה בהעלאת תמונה. המתכון נשמר ללא תמונה.");
+        patch.imageUrl = null;
+        patch.imageDataUrl = deleteField();
+      }
+    } else if (imageRemoved) {
+      patch.imageUrl = null;
+      patch.imageDataUrl = deleteField();
+    }
+
+    await updateDoc(doc(db, "recipes", id), patch);
     invalidateRecipesCache();
     router.push(`/recipes/${id}`);
   }
@@ -160,9 +184,9 @@ export default function EditRecipePage() {
         </div>
 
         {/* תצוגה מקדימה פשוטה */}
-        {imageDataUrl && (
+        {imagePreview && (
           <div className="mt-4 w-full h-[240px] overflow-hidden rounded-xl border bg-neutral-100">
-            <img src={imageDataUrl} alt="" className="w-full h-full object-contain object-center" />
+            <img src={imagePreview} alt="" className="w-full h-full object-contain object-center" />
           </div>
         )}
 
@@ -171,7 +195,14 @@ export default function EditRecipePage() {
           <label className="text-sm text-gray-600">תמונה</label>
           <div className="mt-1 flex items-center gap-3">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onSelectImage} className="text-sm" />
-            {imageDataUrl && <button onClick={() => setImageDataUrl(null)} className="text-sm underline">הסר תמונה</button>}
+            {imagePreview && (
+              <button
+                onClick={() => { setImagePreview(null); setNewImageDataUrl(null); setImageRemoved(true); }}
+                className="text-sm underline"
+              >
+                הסר תמונה
+              </button>
+            )}
           </div>
         </div>
 

@@ -11,6 +11,7 @@ type Recipe = {
   id: string;
   title: string;
   category: string;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
 };
 
@@ -173,10 +174,10 @@ export default function CategoryPage() {
                 <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-pink-100/50 hover:border-pink-200 active:scale-[0.98]">
                   {/* Image */}
                   <div className="relative h-40 md:h-56 overflow-hidden bg-gradient-to-br from-pink-50 to-purple-50">
-                    {recipe.imageDataUrl ? (
+                    {(recipe.imageUrl || recipe.imageDataUrl) ? (
                       <>
                         <img
-                          src={recipe.imageDataUrl}
+                          src={(recipe.imageUrl || recipe.imageDataUrl)!}
                           alt={recipe.title}
                           className="w-full h-full object-cover transition-transform duration-500"
                           style={{

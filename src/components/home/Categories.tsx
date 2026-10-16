@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { fileToDataUrl, compressForCategory } from "@/utils/imageHelpers";
+import { uploadToStorage } from "@/utils/storageUpload";
 import { useLongPress } from "@/hooks/useLongPress";
 import CategoryCard from "./CategoryCard";
 
@@ -31,6 +32,7 @@ type Category = {
   key: string;
   label: string;
   count: number;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
   order?: number | null;
   active?: boolean | null;
@@ -146,13 +148,14 @@ export default function Categories({ categories, isManager }: CategoriesProps) {
     await updateCategoryOrder(localOrder);
   }
 
-  // העלאת תמונה לקטגוריה
+  // העלאת תמונה לקטגוריה — מעלה ל-Firebase Storage ושומר URL
   async function handleUploadImage(catKey: string, catLabel: string, file: File) {
     const dataUrl = await fileToDataUrl(file);
     const compressed = await compressForCategory(dataUrl);
+    const imageUrl = await uploadToStorage(compressed, `categories/${catKey}.jpg`);
     await setDoc(
       doc(db, "categories", catKey),
-      { key: catKey, name: catLabel, imageDataUrl: compressed, active: true },
+      { key: catKey, name: catLabel, imageUrl, active: true },
       { merge: true }
     );
   }

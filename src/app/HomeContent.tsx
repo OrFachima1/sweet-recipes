@@ -7,7 +7,10 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
+import { uploadToStorage } from "@/utils/storageUpload";
 
 import { useRecipesContext } from "@/contexts/RecipesContext";
 import { useIngredientDict } from "@/hooks/useIngredientDict";
@@ -32,6 +35,7 @@ type Recipe = {
   title: string;
   category: string;
   note?: string | null;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
   ingredients: IngredientGroup[];
   steps: Step[];
@@ -42,6 +46,7 @@ type CategoryDoc = {
   id: string;
   key: string;
   name: string;
+  imageUrl?: string | null;
   imageDataUrl?: string | null;
   color?: string | null;
   order?: number | null;
@@ -96,6 +101,7 @@ export default function HomeContent({
         key: string;
         label: string;
         count: number;
+        imageUrl?: string | null;
         imageDataUrl?: string | null;
         order?: number | null;
         active?: boolean | null;
@@ -111,6 +117,7 @@ export default function HomeContent({
       if (!k) continue;
       if (!map[k]) map[k] = { key: k, label: cd.name || k, count: 0 };
       map[k].label = cd.name || map[k].label;
+      map[k].imageUrl = cd.imageUrl ?? map[k].imageUrl;
       map[k].imageDataUrl = cd.imageDataUrl ?? map[k].imageDataUrl;
       map[k].order = cd.order ?? map[k].order;
       map[k].active = cd.active ?? true;
@@ -189,11 +196,23 @@ const suggestions = useMemo(() => {
       title: recipe.title,
       category: recipe.category,
       note: recipe.note || null,
-      imageDataUrl: recipe.imageDataUrl || null,
+      imageUrl: null,
       ingredients: recipe.groups,
       steps: recipe.steps,
       createdAt: serverTimestamp(),
     });
+
+    if (recipe.imageDataUrl) {
+      try {
+        const imageUrl = await uploadToStorage(
+          recipe.imageDataUrl,
+          `recipes/${created.id}.jpg`
+        );
+        await updateDoc(doc(db, "recipes", created.id), { imageUrl });
+      } catch (err) {
+        console.error("Image upload failed:", err);
+      }
+    }
 
     // 🚀 ניקוי cache של מתכונים כדי שרשימת הקניות תראה את המתכון החדש
     invalidateRecipesCache();
