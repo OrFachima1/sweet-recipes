@@ -4,7 +4,7 @@
 // מריץ אותו דרך /migrate-images (מנהל בלבד), ואז אפשר למחוק
 
 import React, { useState } from "react";
-import { db, storage } from "@/lib/firebase";
+import { db, storage, auth } from "@/lib/firebase";
 import {
   collection,
   getDocs,
@@ -12,7 +12,7 @@ import {
   doc,
   deleteField,
 } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL, deleteObject, getBlob } from "firebase/storage";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
 type LogEntry = { text: string; ok: boolean };
 
@@ -22,13 +22,21 @@ async function uploadDataUrl(dataUrl: string, path: string): Promise<string> {
   return getDownloadURL(storageRef);
 }
 
-// מוריד תמונה מ-Firebase Storage דרך SDK (עוקף CORS), דוחס ל-WebP ב-canvas
+// מוריד תמונה דרך API proxy (server-side — עוקף CORS לחלוטין), דוחס ל-WebP ב-canvas
 async function downloadAndCompressToWebP(
   storagePath: string,
   maxW: number,
   maxH: number
 ): Promise<string> {
-  const blob = await getBlob(ref(storage, storagePath));
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("לא מחובר");
+
+  const res = await fetch(`/api/storage-proxy?path=${encodeURIComponent(storagePath)}`, {
+    headers: { Authorization: `Firebase ${token}` },
+  });
+  if (!res.ok) throw new Error(`proxy ${res.status}`);
+
+  const blob = await res.blob();
   const blobUrl = URL.createObjectURL(blob);
   try {
     return await new Promise((resolve, reject) => {
