@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   collection,
-  onSnapshot,
   addDoc,
   serverTimestamp,
-  orderBy,
-  query,
 } from "firebase/firestore";
 
+import { useRecipesContext } from "@/contexts/RecipesContext";
 import { useIngredientDict } from "@/hooks/useIngredientDict";
 import { useCategoryDict } from "@/hooks/useCategoryDict";
 import { useUnitDict } from "@/hooks/useUnitDict";
@@ -72,32 +70,15 @@ export default function HomeContent({
   const { names: categoryDict } = useCategoryDict();
   const { names: unitDict } = useUnitDict();
 
+  // Shared recipes + categories from context (single listeners)
+  const { recipes: rawRecipes, catsDocs: rawCatsDocs, recipesLoading, recipesError } = useRecipesContext();
+  const recipes = rawRecipes as Recipe[];
+  const catsDocs = rawCatsDocs as CategoryDoc[];
+
   // State
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [catsDocs, setCatsDocs] = useState<CategoryDoc[]>([]);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [weighSel, setWeighSel] = useState<Record<string, { title: string }>>({});
-
-  // Load recipes
-  useEffect(() => {
-    const qCol = query(collection(db, "recipes"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(qCol, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Recipe[];
-      setRecipes(list);
-    });
-    return () => unsub();
-  }, []);
-
-  // Load categories
-  useEffect(() => {
-    const qCol = query(collection(db, "categories"));
-    const unsub = onSnapshot(qCol, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as CategoryDoc[];
-      setCatsDocs(list);
-    });
-    return () => unsub();
-  }, []);
 
   // Process categories
   const categories = useMemo(() => {
@@ -257,8 +238,27 @@ const suggestions = useMemo(() => {
         />
       )}
 
-      {/* Categories */}
-      <Categories categories={categories} isManager={isManager} />
+      {/* Categories — loading / error / data */}
+      {recipesError ? (
+        <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
+          <div className="text-2xl mb-1">⚠️</div>
+          <div>{recipesError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-xs underline text-red-500"
+          >
+            נסה שוב
+          </button>
+        </div>
+      ) : recipesLoading ? (
+        <div className="px-4 mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 animate-pulse">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl bg-gray-200" />
+          ))}
+        </div>
+      ) : (
+        <Categories categories={categories} isManager={isManager} />
+      )}
 
       {/* Weighing Bar */}
       <WeighingBar

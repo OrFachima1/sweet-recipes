@@ -118,7 +118,9 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
   const [orders, setOrders] = useState<Order[]>([]);
   const [recipeLinks, setRecipeLinks] = useState<Record<string, string>>({});
   const [ingredientMappings, setIngredientMappings] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [manualItemsReady, setManualItemsReady] = useState(false);
+  const loading = dataLoading || !manualItemsReady;
   const [recipeSettings, setRecipeSettings] = useState<RecipeSettings[]>([]);
   const [allMenuItems, setAllMenuItems] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -128,7 +130,7 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
   const [deletedItems, setDeletedItems] = useState<string[]>([]);
 
   const loadData = async () => {
-    setLoading(true);
+    setDataLoading(true);
     try {
       // Build orders query
       const ordersRef = collection(db, 'orders');
@@ -226,7 +228,7 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
@@ -234,19 +236,17 @@ export function useShoppingList(selectedPeriod: { start: string; end: string }) 
     loadData();
   }, [selectedPeriod.start, selectedPeriod.end]);
 
-  // Real-time listener for manual items (including shortages)
+  // Real-time listener for manual items — marks ready after first snapshot
   useEffect(() => {
     const unsubscribe = onSnapshot(
       doc(db, 'orderSettings', 'manualShoppingItems'),
       (snapshot) => {
-        if (snapshot.exists()) {
-          setManualItems(snapshot.data().items || []);
-        } else {
-          setManualItems([]);
-        }
+        setManualItems(snapshot.exists() ? snapshot.data().items || [] : []);
+        setManualItemsReady(true);
       },
       (error) => {
         console.error('Error listening to manual items:', error);
+        setManualItemsReady(true); // unblock loading even on error
       }
     );
 

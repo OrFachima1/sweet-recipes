@@ -22,7 +22,7 @@ import { useClientsContext } from "@/contexts/ClientsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { canAddOrEdit, canDelete, canAccessSettings, canAccessRevenue } from "@/lib/permissions";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 // ===== Custom Hooks =====
 import { useOrdersWithColors } from '@/hooks/useOrdersWithColors';
@@ -117,21 +117,20 @@ export default function OrdersCalendarPage({
 
 
   // ===== Add Item =====
-  const confirmAddItem = useCallback((title: string) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
-  }
+  const confirmAddItem = useCallback(async (title: string) => {
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
   if (!state.addItemFor || !title) return;
 
-  const next = ordersWithColors.map(o =>  // ✅ שינוי
-    o.__id !== state.addItemFor
-      ? o
-      : { ...o, items: [...o.items, { title, qty: 1, unit: "יח'", notes: "" }] }
-  );
-  firebase.persist(next);
+  const order = ordersWithColors.find(o => o.__id === state.addItemFor);
+  if (!order) return;
+  const newItems = [...order.items, { title, qty: 1, unit: "יח'", notes: "" }];
+  try {
+    await updateDoc(doc(db, 'orders', state.addItemFor), { items: newItems });
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+  }
   state.setAddItemFor(null);
-}, [canEdit, state.addItemFor, ordersWithColors, firebase, state]);  // ✅ שינוי
+}, [canEdit, state.addItemFor, ordersWithColors, state]);
 
   // ===== Update Mapping & Ignored =====
   const updateMapping = useCallback((newMapping: Record<string, string>) => {
@@ -143,44 +142,25 @@ export default function OrdersCalendarPage({
     settings.updateIgnored(newIgnored);
     firebase.saveSettings(settings.mapping, newIgnored);
   }, [settings, firebase]);
-const editOrderNotes = useCallback((orderId: string, notes: string) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
-  }
-  
+const editOrderNotes = useCallback(async (orderId: string, notes: string) => {
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
   const cleanNotes = notes?.trim() || null;
-  
-  const next = ordersWithColors.map(o =>  // ✅ שינוי
-    o.__id !== orderId 
-      ? o 
-      : { 
-          ...o, 
-          orderNotes: cleanNotes
-        }
-  );
-  
-  firebase.persist(next);
-}, [canEdit, ordersWithColors, firebase]);  // ✅ שינוי
-const editEventDate = useCallback((orderId: string, newDate: string) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
+  try {
+    await updateDoc(doc(db, 'orders', orderId), { orderNotes: cleanNotes });
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
   }
+}, [canEdit]);
+const editEventDate = useCallback(async (orderId: string, newDate: string) => {
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  try {
+    await updateDoc(doc(db, 'orders', orderId), { eventDate: newDate });
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+  }
+}, [canEdit]);
 
-  const next = ordersWithColors.map(o =>
-    o.__id !== orderId
-      ? o
-      : {
-          ...o,
-          eventDate: newDate
-        }
-  );
-
-  firebase.persist(next);
-}, [canEdit, ordersWithColors, firebase]);
-
-const editDelivery = useCallback((orderId: string, delivery: {
+const editDelivery = useCallback(async (orderId: string, delivery: {
   deliveryMethod?: 'delivery' | 'pickup';
   estimatedTime?: string;
   phone1?: string;
@@ -189,65 +169,49 @@ const editDelivery = useCallback((orderId: string, delivery: {
   phone2Name?: string;
   address?: string;
 }) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  const patch: Record<string, any> = {};
+  if (delivery.deliveryMethod !== undefined) patch.deliveryMethod = delivery.deliveryMethod;
+  if (delivery.estimatedTime !== undefined) patch.estimatedTime = delivery.estimatedTime;
+  if (delivery.phone1 !== undefined) patch.phone1 = delivery.phone1;
+  if (delivery.phone1Name !== undefined) patch.phone1Name = delivery.phone1Name;
+  if (delivery.phone2 !== undefined) patch.phone2 = delivery.phone2;
+  if (delivery.phone2Name !== undefined) patch.phone2Name = delivery.phone2Name;
+  if (delivery.address !== undefined) patch.address = delivery.address;
+  if (!Object.keys(patch).length) return;
+  try {
+    await updateDoc(doc(db, 'orders', orderId), patch);
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
   }
+}, [canEdit]);
 
-  const next = ordersWithColors.map(o =>
-    o.__id !== orderId
-      ? o
-      : {
-          ...o,
-          deliveryMethod: delivery.deliveryMethod ?? o.deliveryMethod,
-          estimatedTime: delivery.estimatedTime ?? o.estimatedTime,
-          phone1: delivery.phone1 ?? o.phone1,
-          phone1Name: delivery.phone1Name ?? o.phone1Name,
-          phone2: delivery.phone2 ?? o.phone2,
-          phone2Name: delivery.phone2Name ?? o.phone2Name,
-          address: delivery.address ?? o.address,
-        }
-  );
-
-  firebase.persist(next);
-}, [canEdit, ordersWithColors, firebase]);
-
-const editClientName = useCallback((orderId: string, newName: string) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
+const editClientName = useCallback(async (orderId: string, newName: string) => {
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  try {
+    await updateDoc(doc(db, 'orders', orderId), { clientName: newName });
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
   }
+}, [canEdit]);
 
-  const next = ordersWithColors.map(o =>
-    o.__id !== orderId ? o : { ...o, clientName: newName }
-  );
-
-  firebase.persist(next);
-}, [canEdit, ordersWithColors, firebase]);
-
-const editPayment = useCallback((orderId: string, payment: {
+const editPayment = useCallback(async (orderId: string, payment: {
   totalSum?: number | null;
   deliveryFee?: number | null;
   deposit?: number | null;
 }) => {
-  if (!canEdit) {
-    alert("אין לך הרשאה לערוך הזמנות");
-    return;
+  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  const patch: Record<string, any> = {};
+  if (payment.totalSum !== undefined) patch.totalSum = payment.totalSum;
+  if (payment.deliveryFee !== undefined) patch.deliveryFee = payment.deliveryFee;
+  if (payment.deposit !== undefined) patch.deposit = payment.deposit;
+  if (!Object.keys(patch).length) return;
+  try {
+    await updateDoc(doc(db, 'orders', orderId), patch);
+  } catch (e: any) {
+    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
   }
-
-  const next = ordersWithColors.map(o =>
-    o.__id !== orderId
-      ? o
-      : {
-          ...o,
-          totalSum: payment.totalSum !== undefined ? payment.totalSum : o.totalSum,
-          deliveryFee: payment.deliveryFee !== undefined ? payment.deliveryFee : o.deliveryFee,
-          deposit: payment.deposit !== undefined ? payment.deposit : o.deposit,
-        }
-  );
-
-  firebase.persist(next);
-}, [canEdit, ordersWithColors, firebase]);
+}, [canEdit]);
 
   // ===== Loading State =====
   if (authLoading) {

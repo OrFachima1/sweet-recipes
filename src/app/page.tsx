@@ -5,6 +5,7 @@ import { logout } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import HomeContent from "./HomeContent";
 import LoadingScreen from "@/components/LoadingScreen";
+import { RecipesProvider } from "@/contexts/RecipesContext";
 
 export default function Page() {
   const { user, loading, role, displayName } = useAuth();
@@ -47,5 +48,9 @@ export default function Page() {
   const canAddOrEdit = role === "manager" || role === "senior_worker";
   const canAccessShoppingList = role === "manager" || role === "senior_worker" || role === "worker";
   const canAccessCourier = role === "manager" || role === "senior_worker";
-  return <HomeContent isManager={isManager} canAccessShoppingList={canAccessShoppingList} canAddOrEditRecipes={canAddOrEdit} canAccessCourier={canAccessCourier} user={user} displayName={displayName ?? undefined} />;
+  return (
+    <RecipesProvider>
+      <HomeContent isManager={isManager} canAccessShoppingList={canAccessShoppingList} canAddOrEditRecipes={canAddOrEdit} canAccessCourier={canAccessCourier} user={user} displayName={displayName ?? undefined} />
+    </RecipesProvider>
+  );
 }
