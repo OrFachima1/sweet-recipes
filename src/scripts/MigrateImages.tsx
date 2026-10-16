@@ -12,7 +12,7 @@ import {
   doc,
   deleteField,
 } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadString, getDownloadURL, deleteObject, getBlob } from "firebase/storage";
 
 type LogEntry = { text: string; ok: boolean };
 
@@ -22,15 +22,13 @@ async function uploadDataUrl(dataUrl: string, path: string): Promise<string> {
   return getDownloadURL(storageRef);
 }
 
-// מוריד תמונה מ-URL, דוחס ל-WebP ב-canvas, מחזיר data URL
-async function fetchAndCompressToWebP(
-  imageUrl: string,
+// מוריד תמונה מ-Firebase Storage דרך SDK (עוקף CORS), דוחס ל-WebP ב-canvas
+async function downloadAndCompressToWebP(
+  storagePath: string,
   maxW: number,
   maxH: number
 ): Promise<string> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const blob = await response.blob();
+  const blob = await getBlob(ref(storage, storagePath));
   const blobUrl = URL.createObjectURL(blob);
   try {
     return await new Promise((resolve, reject) => {
@@ -182,7 +180,7 @@ export default function MigrateImages() {
         addWebpLog(`🔄 ${data.title || docSnap.id}`);
 
         try {
-          const webpDataUrl = await fetchAndCompressToWebP(imageUrl, 800, 600);
+          const webpDataUrl = await downloadAndCompressToWebP(oldPath, 800, 600);
           const newUrl = await uploadDataUrl(webpDataUrl, newPath);
           await updateDoc(doc(db, "recipes", docSnap.id), { imageUrl: newUrl });
           await deleteObject(ref(storage, oldPath));
@@ -217,7 +215,7 @@ export default function MigrateImages() {
         addWebpLog(`🔄 ${data.name || catKey}`);
 
         try {
-          const webpDataUrl = await fetchAndCompressToWebP(imageUrl, 500, 500);
+          const webpDataUrl = await downloadAndCompressToWebP(oldPath, 500, 500);
           const newUrl = await uploadDataUrl(webpDataUrl, newPath);
           await updateDoc(doc(db, "categories", docSnap.id), { imageUrl: newUrl });
           await deleteObject(ref(storage, oldPath));
