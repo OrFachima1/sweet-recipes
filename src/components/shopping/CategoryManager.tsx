@@ -412,9 +412,13 @@ export default function CategoryManager({
     const count = safeItemCounts[c.id] || 0;
     return count > 0;
   });
+
+  // בניהול — מציגים גם קטגוריות ריקות (כדי לאפשר מחיקה)
+  const manageCategories = categories.filter(c => c.id !== 'all' && c.id !== '__shortages__');
+  const visibleCategories = isReorderMode ? manageCategories : filteredCategories;
   
   const allCategory = { id: 'all', name: 'הכל', emoji: '🛒', color: '' };
-  const activeCat = activeId ? filteredCategories.find(c => c.id === activeId) : null;
+  const activeCat = activeId ? visibleCategories.find(c => c.id === activeId) : null;
 
   const getColorForCategory = (catId: string) => {
     // Handle special category IDs without digits (like __shortages__)
@@ -534,8 +538,8 @@ export default function CategoryManager({
             </div>
           </div>
 
-          <SortableContext items={filteredCategories.map(c => c.id)} strategy={horizontalListSortingStrategy}>
-            {filteredCategories.map((cat) => (
+          <SortableContext items={visibleCategories.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+            {visibleCategories.map((cat) => (
               <SortableCategory
                 key={cat.id}
                 cat={cat}
@@ -548,6 +552,37 @@ export default function CategoryManager({
               />
             ))}
           </SortableContext>
+
+          {!isReorderMode && (
+            <div className="flex-shrink-0 select-none">
+              <div
+                onClick={() => setIsReorderMode(true)}
+                className="cursor-pointer active:scale-95 hover:scale-105 transition-transform duration-200"
+                style={{ transition: 'transform 0.2s ease' }}
+                title="ניהול קטגוריות"
+              >
+                <div className="relative">
+                  <div
+                    className="w-[88px] h-[88px] rounded-full p-[3px]"
+                    style={{
+                      background: 'rgba(156, 163, 175, 0.1)',
+                      border: '3px dashed #9ca3af',
+                    }}
+                  >
+                    <div
+                      className="w-full h-full rounded-full bg-white flex items-center justify-center"
+                      style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}
+                    >
+                      <div style={{ fontSize: '32px', lineHeight: '1' }}>✏️</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center mt-3">
+                <div className="text-sm font-bold text-gray-800">ניהול</div>
+              </div>
+            </div>
+          )}
 
           {!isReorderMode && (
             <div className="flex-shrink-0 select-none">

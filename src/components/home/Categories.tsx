@@ -210,14 +210,6 @@ export default function Categories({ categories, isManager }: CategoriesProps) {
         {/* כותרת */}
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold text-gray-800">קטגוריות</h2>
-          {isManager && isEditing && (
-            <button
-              onClick={exitEditMode}
-              className="px-6 py-2.5 rounded-full bg-pink-500 text-white text-sm font-semibold shadow-lg hover:bg-pink-600 transition-all"
-            >
-              ✓ סיום
-            </button>
-          )}
         </div>
 
         {/* תוכן */}
@@ -233,6 +225,7 @@ export default function Categories({ categories, isManager }: CategoriesProps) {
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveId(null)}
           >
             <SortableContext
               items={displayCategories.map((cat) => cat.key)}
@@ -280,6 +273,19 @@ export default function Categories({ categories, isManager }: CategoriesProps) {
           </div>
         )}
       </div>
+
+      {/* כפתור סיום צף — מחוץ לגריד כדי שלא ייחסם על ידי האנימציה */}
+      {isEditing && isManager && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <button
+            onClick={exitEditMode}
+            className="px-8 py-3 rounded-full bg-pink-500 text-white font-bold shadow-xl hover:bg-pink-600 active:scale-95 transition-all"
+            style={{ touchAction: 'manipulation' }}
+          >
+            ✓ סיום
+          </button>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes fadeIn {
