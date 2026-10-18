@@ -58,6 +58,10 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfjs-dist"],
+  // pdfjs טוען את ה-worker דרך eval("require"), כך ש-Vercel לא מזהה אותו ולא אורז אותו
+  outputFileTracingIncludes: {
+    "/api/ingest": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.js"],
+  },
   images: {
     remotePatterns: [{ hostname: "firebasestorage.googleapis.com" }],
   },
