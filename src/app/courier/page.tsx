@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Fredoka } from 'next/font/google';
 import { db } from '@/lib/firebase';
 import {
   collection, query, where, onSnapshot, doc, setDoc, updateDoc, deleteField, FieldPath,
@@ -12,10 +11,8 @@ import { useClientsContext } from '@/contexts/ClientsContext';
 import { logout } from '@/lib/auth';
 import { fmtYMD, addDays } from '@/utils/orders';
 import LoadingScreen from '@/components/LoadingScreen';
+import { displayFont as display } from '@/lib/fonts';
 import type { IngestJsonOrder } from '@/types/orders';
-
-// פונט התצוגה של העצירה הנוכחית (שם הלקוח, שעה, סכום לגבייה)
-const display = Fredoka({ subsets: ['hebrew', 'latin'], weight: ['500', '600'] });
 
 const ROSE = '#A3204A';
 const GREEN = '#2E8B4E';

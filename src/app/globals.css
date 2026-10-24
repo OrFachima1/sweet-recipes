@@ -49,3 +49,25 @@ body {
   font-family: var(--font-hebrew), var(--font-open-sans), system-ui, "Segoe UI", Arial, sans-serif;
 }
 
+
+/* ===== וידוא הזמנות: תנועה שעונה לפעולה ===== */
+@keyframes vf-pop { 0% { transform: scale(.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes vf-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes vf-wave { 0% { transform: scaleY(1); } 40% { transform: scaleY(1.9); } 100% { transform: scaleY(1); } }
+@keyframes vf-stamp {
+  0% { transform: scale(2.4) rotate(-24deg); opacity: 0; }
+  55% { transform: scale(.9) rotate(-9deg); opacity: 1; }
+  75% { transform: scale(1.05) rotate(-9deg); }
+  100% { transform: scale(1) rotate(-9deg); }
+}
+@keyframes vf-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.vf-tick { animation: vf-pop .24s cubic-bezier(.3,1.4,.5,1) both; }
+.vf-tick path { stroke-dasharray: 24; animation: vf-draw .22s ease-out .06s both; }
+.vf-wave { animation: vf-wave .42s ease-out both; }
+.vf-stamp { animation: vf-stamp .55s cubic-bezier(.2,.9,.3,1) .32s both; }
+.vf-rise { animation: vf-rise .3s ease-out .7s both; }
+@media (prefers-reduced-motion: reduce) {
+  .vf-tick, .vf-tick path, .vf-wave, .vf-stamp, .vf-rise { animation: none !important; }
+}
+.vf-page button, .vf-page label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.vf-page :focus-visible { outline: 3px solid #A3204A; outline-offset: 2px; }
