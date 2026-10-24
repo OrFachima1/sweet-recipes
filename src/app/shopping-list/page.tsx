@@ -120,13 +120,18 @@ function ManagerView({ userName }: { userName: string }) {
     if (ok) setSelectedId(null);
   };
 
-  const addShortageToList = async (s: Shortage) => {
+  const addShortageToList = async (s: Shortage, categoryId: string | null) => {
     if (!targetList) return;
     const key = ingredientKey(s.name, data.ingredientMappings);
     const actions = listActions(targetList.id);
+    // קטגוריה שנבחרה ידנית נשמרת לזיכרון, כדי שבפעם הבאה היא תוצע מראש
+    if (categoryId && data.itemCategories[key] !== categoryId) {
+      updateDoc(doc(db, 'orderSettings', 'shoppingCategories'), new FieldPath('itemCategories', key), categoryId)
+        .catch((e) => console.error(e));
+    }
     await actions.addExtra({
       name: s.name, qty: s.qty, unit: s.unit,
-      category: data.itemCategories[key] ?? null,
+      category: categoryId ?? data.itemCategories[key] ?? null,
       source: `דווח על ידי ${s.reportedBy}`,
       addedBy: s.reportedBy,
       shortageId: s.id,
@@ -384,11 +389,13 @@ function ShortagesBox({
   categories: Category[];
   rowKeys?: Map<string, string>;
   compact?: boolean;
-  onAdd: (s: Shortage) => Promise<void>;
+  onAdd: (s: Shortage, categoryId: string | null) => Promise<void>;
   onDismiss: (s: Shortage) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const catName = (id?: string) => categories.find(c => c.id === id)?.name || 'כללי';
+  // הקטגוריה שנבחרה לכל חוסר; ברירת המחדל היא מה שהמערכת זוכרת
+  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const options = categories.some(c => c.id === 'other') ? categories : [...categories, { id: 'other', name: 'כללי', emoji: '', color: '' }];
   return (
     <section aria-label="חוסרים שדווחו" className="flex flex-col gap-0.5 rounded-[20px] bg-[#FFF7E6] px-4 py-3.5">
       <div className="flex items-center gap-2 text-[15px] font-bold text-[#6B3A00]">
@@ -399,9 +406,10 @@ function ShortagesBox({
       {shortages.map(s => {
         const key = ingredientKey(s.name, ingredientMappings);
         const existing = rowKeys?.get(key);
-        const label = existing ? `צירוף ל${existing}` : compact ? 'לרשימה' : `הוספה ל${catName(itemCategories[key])}`;
+        const remembered = itemCategories[key];
+        const cat = chosen[s.id] ?? (remembered && options.some(o => o.id === remembered) ? remembered : 'other');
         return (
-          <div key={s.id} className="flex min-h-[56px] items-center justify-between gap-2 border-t border-[#F2E2BF]">
+          <div key={s.id} className="flex flex-col gap-2 border-t border-[#F2E2BF] py-2.5">
             <span className="flex min-w-0 flex-col">
               <span className="text-base font-semibold">
                 {s.name} <span className="font-medium tabular-nums text-[#6E5A1E]">{fmtQty(s.qty)} {s.unit}</span>
@@ -410,18 +418,32 @@ function ShortagesBox({
                 דווח על ידי {s.reportedBy}{s.reportedAt ? `, ${timeAgo(s.reportedAt)}` : ''}
               </span>
             </span>
-            <span className="flex flex-shrink-0 gap-1.5">
+            <span className={`flex flex-wrap items-center gap-1.5 ${compact ? '' : 'sm:flex-nowrap'}`}>
+              {existing ? (
+                <span className="min-w-0 flex-1 text-[13px] text-[#6E5A1E]">כבר ברשימה, הכמות תתווסף</span>
+              ) : (
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">קטגוריה עבור {s.name}</span>
+                  <select
+                    value={cat}
+                    onChange={(e) => setChosen(c => ({ ...c, [s.id]: e.target.value }))}
+                    className="h-10 w-full rounded-xl border border-[#F2DDB0] bg-white px-2 text-sm text-[#231C1C]"
+                  >
+                    {options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                </label>
+              )}
               <button
                 disabled={!targetList || busy === s.id}
-                onClick={async () => { setBusy(s.id); await onAdd(s); setBusy(null); }}
-                className="h-10 rounded-xl bg-white px-3 text-sm font-bold disabled:opacity-50"
+                onClick={async () => { setBusy(s.id); await onAdd(s, existing ? null : cat); setBusy(null); }}
+                className="h-10 flex-shrink-0 rounded-xl bg-[#231C1C] px-3 text-sm font-bold text-white disabled:opacity-50"
               >
-                {busy === s.id ? '…' : label}
+                {busy === s.id ? '…' : existing ? `צירוף ל${existing}` : 'הוספה לרשימה'}
               </button>
               <button
                 onClick={() => onDismiss(s)}
                 aria-label={`התעלמות מ${s.name}`}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-[#6E5A1E] hover:bg-white/60"
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-[#6E5A1E] hover:bg-white/60"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
@@ -444,7 +466,7 @@ function ListPanel({
   shortages: Shortage[];
   legacyManualCount: number;
   onMigrateLegacy: () => Promise<void>;
-  onAddShortage: (s: Shortage) => Promise<void>;
+  onAddShortage: (s: Shortage, categoryId: string | null) => Promise<void>;
   onDismissShortage: (s: Shortage) => void;
   onBack: () => void;
   onDelete: () => void;
@@ -526,13 +548,79 @@ function ListPanel({
 
   const jumpTo = (catId: string) => {
     setJumpOpen(false);
+    setActiveCat(catId);
     setCollapsed(c => ({ ...c, [catId]: false }));
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     requestAnimationFrame(() => document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }));
   };
 
+  // כל הקטגוריות לסרגל — גם ריקות, כדי שקטגוריה חדשה תופיע מיד
+  const railItems = sectionCats.map(({ cat, index }) => {
+    const all = visibleRows.filter(r => catOf(r) === cat.id);
+    return {
+      id: cat.id,
+      name: cat.name,
+      color: categoryColor(cat, index),
+      done: all.filter(r => checked[r.key]).length,
+      total: all.length,
+      editable: knownCategoryIds.has(cat.id),
+      deletable: knownCategoryIds.has(cat.id) && cat.id !== 'other',
+    };
+  });
+
+  // הקטגוריה שגוללים בה עכשיו — מודגשת בסרגל
+  const [activeCat, setActiveCat] = useState<string | null>(null);
+  const sectionIds = sections.map(s => s.cat.id).join('|');
+  useEffect(() => {
+    const els = sectionIds.split('|').map(id => document.getElementById(`cat-${id}`)).filter(Boolean) as HTMLElement[];
+    if (!els.length || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveCat(visible[0].target.id.replace(/^cat-/, ''));
+      },
+      { rootMargin: '-15% 0px -65% 0px' }
+    );
+    els.forEach(el => obs.observe(el));
+    return () => obs.disconnect();
+  }, [sectionIds]);
+
+  const categoriesRef = doc(db, 'orderSettings', 'shoppingCategories');
+  const realCategories = data.categories.filter(c => knownCategoryIds.has(c.id));
+  const addCategory = async (name: string) => {
+    const id = `cat_${Date.now().toString(36)}`;
+    const color = PALETTE[realCategories.length % PALETTE.length];
+    try {
+      await updateDoc(categoriesRef, { categories: [...realCategories, { id, name, emoji: '', color }], updatedAt: new Date().toISOString() });
+      toast.success(`הקטגוריה "${name}" נוספה`);
+    } catch (e) {
+      console.error(e);
+      toast.error(`הוספת הקטגוריה נכשלה. ${RETRY}`);
+    }
+  };
+  const renameCategory = async (id: string, name: string) => {
+    try {
+      await updateDoc(categoriesRef, { categories: realCategories.map(c => (c.id === id ? { ...c, name } : c)), updatedAt: new Date().toISOString() });
+    } catch (e) {
+      console.error(e);
+      toast.error(`שינוי השם לא נשמר. ${RETRY}`);
+    }
+  };
+  const deleteCategory = async (id: string) => {
+    // מצרכים מהקטגוריה עוברים ל"כללי"
+    const moves: unknown[] = [];
+    for (const [k, v] of Object.entries(data.itemCategories)) if (v === id) moves.push(new FieldPath('itemCategories', k), 'other');
+    try {
+      await updateDoc(categoriesRef, 'categories', realCategories.filter(c => c.id !== id), ...moves);
+      toast.success('הקטגוריה נמחקה, המצרכים שלה עברו ל"כללי"');
+    } catch (e) {
+      console.error(e);
+      toast.error(`מחיקת הקטגוריה נכשלה. ${RETRY}`);
+    }
+  };
+
   return (
-    <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 pb-12 pt-4">
+    <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 pb-12 pt-4 lg:max-w-[1060px]">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <button onClick={onBack} className="flex h-11 items-center gap-1.5 self-start text-[15px] font-semibold text-[#4D4342] md:hidden">
@@ -623,12 +711,12 @@ function ListPanel({
           />
         </label>
         <button
-          onClick={() => setJumpOpen(v => !v)}
+          onClick={() => setJumpOpen(true)}
           aria-expanded={jumpOpen}
-          className="flex h-11 items-center gap-1.5 rounded-[14px] bg-[#F2EAE7] px-3.5 text-[15px] font-semibold"
+          className="flex h-11 items-center gap-1.5 rounded-[14px] bg-[#F2EAE7] px-3.5 text-[15px] font-semibold lg:hidden"
         >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
           קטגוריות
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
         </button>
         <button
           onClick={() => setHideBought(v => !v)}
@@ -640,25 +728,30 @@ function ListPanel({
       </div>
 
       {jumpOpen && (
-        <nav aria-label="קפיצה לקטגוריה" className="grid grid-cols-2 gap-1 rounded-[18px] border border-[#EAE1DE] bg-white p-1.5">
-          {sections.map(s => (
-            <button
-              key={s.cat.id}
-              onClick={() => jumpTo(s.cat.id)}
-              className="flex min-h-[48px] items-center justify-between gap-2 rounded-xl px-3 text-right hover:bg-[#F0E8E5]"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="h-3 w-3 flex-shrink-0 rounded" style={{ backgroundColor: s.color }} />
-                <span className="truncate text-[15px] font-semibold">{s.cat.name}</span>
-              </span>
-              <span className="flex-shrink-0 text-[13px] tabular-nums text-[#6E6260]">
-                {s.all.filter(r => checked[r.key]).length} מתוך {s.all.length}
-              </span>
-            </button>
-          ))}
-        </nav>
+        <CategoryDrawer onClose={() => setJumpOpen(false)}>
+          <CategoryRail
+            items={railItems}
+            activeId={activeCat}
+            onJump={jumpTo}
+            onAdd={addCategory}
+            onRename={renameCategory}
+            onDelete={deleteCategory}
+          />
+        </CategoryDrawer>
       )}
 
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <aside aria-label="ניווט בין קטגוריות" className="hidden lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <CategoryRail
+            items={railItems}
+            activeId={activeCat}
+            onJump={jumpTo}
+            onAdd={addCategory}
+            onRename={renameCategory}
+            onDelete={deleteCategory}
+          />
+        </aside>
+        <div className="flex min-w-0 flex-col gap-4">
       {/* Sections */}
       {sections.map(s => {
         const open = !collapsed[s.cat.id];
@@ -703,7 +796,7 @@ function ListPanel({
                           </span>
                           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span className={`text-[17px] ${on ? 'text-[#6E6260] line-through decoration-[#B8ABA8]' : 'font-semibold'}`}>{r.name}</span>
-                            {r.sources.length > 0 && <span className="truncate text-[13px] text-[#6E6260]">{r.sources.join('. ')}</span>}
+                            {r.sources.length > 0 && <span className="break-words text-[13px] leading-snug text-[#6E6260]">{r.sources.join('. ')}</span>}
                           </span>
                           <span className={`${displayFont.className} flex-shrink-0 text-[19px] font-semibold tabular-nums ${on ? 'text-[#8C807E]' : ''}`}>{r.qtyText}</span>
                         </button>
@@ -776,6 +869,192 @@ function ListPanel({
           toast.success(rowKeys.has(key) ? `הכמות נוספה ל${rowKeys.get(key)}` : `${name} נוסף לרשימה`);
         }}
       />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Category navigation ──────────────────────────────────────────────────────
+
+interface RailItem {
+  id: string;
+  name: string;
+  color: string;
+  done: number;
+  total: number;
+  editable: boolean;
+  deletable: boolean;
+}
+
+function CategoryRail({
+  items, activeId, onJump, onAdd, onRename, onDelete,
+}: {
+  items: RailItem[];
+  activeId: string | null;
+  onJump: (id: string) => void;
+  onAdd: (name: string) => Promise<void>;
+  onRename: (id: string, name: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+
+  const startEdit = (it: RailItem) => { setEditing(it.id); setDraft(it.name); setConfirmDelete(null); };
+
+  return (
+    <nav aria-label="קטגוריות" className="flex flex-col gap-1">
+      <h3 className="mb-1 px-2 text-sm font-semibold text-[#6E6260]">קטגוריות</h3>
+      {items.map(it => {
+        const active = it.id === activeId;
+        if (editing === it.id) {
+          return (
+            <form
+              key={it.id}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const name = draft.trim();
+                if (name && name !== it.name) await onRename(it.id, name);
+                setEditing(null);
+              }}
+              className="flex flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_0_#E7DDDA]"
+            >
+              <label className="flex flex-col gap-1 text-[13px] text-[#6E6260]">
+                שם הקטגוריה
+                <input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditing(null); }}
+                  autoComplete="off"
+                  className="h-11 rounded-xl border border-[#E3D8DC] bg-white px-3 text-base text-[#231C1C]"
+                />
+              </label>
+              <div className="flex gap-1.5">
+                <button type="submit" className="h-10 flex-1 rounded-xl bg-[#231C1C] text-sm font-bold text-white">שמירה</button>
+                <button type="button" onClick={() => setEditing(null)} className="h-10 rounded-xl bg-[#F2EAE7] px-3 text-sm font-semibold">ביטול</button>
+              </div>
+              {it.deletable && (
+                confirmDelete === it.id ? (
+                  <div className="flex flex-col gap-1.5 rounded-xl bg-[#FCEBE9] p-2.5">
+                    <span className="text-sm font-semibold text-[#8E1F18]">
+                      למחוק את "{it.name}"? {it.total ? `${it.total} מצרכים יעברו ל"כללי".` : ''}
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button type="button" onClick={async () => { await onDelete(it.id); setEditing(null); setConfirmDelete(null); }} className="h-10 rounded-xl bg-[#B3261E] px-3 text-sm font-bold text-white">מחיקה</button>
+                      <button type="button" onClick={() => setConfirmDelete(null)} className="h-10 rounded-xl bg-white px-3 text-sm font-semibold">ביטול</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setConfirmDelete(it.id)} className="h-10 self-start rounded-xl px-2 text-sm font-semibold text-[#B3261E] hover:bg-[#FCEBE9]">
+                    מחיקת הקטגוריה
+                  </button>
+                )
+              )}
+            </form>
+          );
+        }
+        return (
+          <div
+            key={it.id}
+            className={`group flex items-center gap-1 rounded-2xl transition-colors ${active ? 'bg-white shadow-[0_0_0_2px_#A3204A]' : 'hover:bg-[#F0E8E5]'}`}
+          >
+            <button
+              onClick={() => onJump(it.id)}
+              aria-current={active ? 'true' : undefined}
+              className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2.5 py-2 pr-3 text-right"
+            >
+              <span aria-hidden="true" className="h-3 w-3 flex-shrink-0 rounded" style={{ backgroundColor: it.color }} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className={`break-words text-[15px] leading-snug ${it.total ? 'font-semibold' : 'text-[#6E6260]'}`}>{it.name}</span>
+                <span className="text-[12px] tabular-nums text-[#6E6260]">
+                  {it.total === 0 ? 'ריקה' : it.done === it.total ? 'הכל נקנה' : `${it.done} מתוך ${it.total}`}
+                </span>
+              </span>
+            </button>
+            {it.editable && (
+              <button
+                onClick={() => startEdit(it)}
+                aria-label={`עריכת הקטגוריה ${it.name}`}
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-[#6E6260] hover:bg-[#EDE5E2] lg:opacity-0 lg:focus-visible:opacity-100 lg:group-hover:opacity-100"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" /></svg>
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {adding ? (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const name = newName.trim();
+            if (!name) return;
+            await onAdd(name);
+            setNewName('');
+            setAdding(false);
+          }}
+          className="mt-1 flex flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_0_#E7DDDA]"
+        >
+          <label className="flex flex-col gap-1 text-[13px] text-[#6E6260]">
+            שם הקטגוריה החדשה
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setAdding(false); }}
+              placeholder="למשל: ספק ירקות…"
+              autoComplete="off"
+              className="h-11 rounded-xl border border-[#E3D8DC] bg-white px-3 text-base text-[#231C1C]"
+            />
+          </label>
+          <div className="flex gap-1.5">
+            <button type="submit" disabled={!newName.trim()} className="h-10 flex-1 rounded-xl bg-[#231C1C] text-sm font-bold text-white disabled:opacity-50">הוספה</button>
+            <button type="button" onClick={() => setAdding(false)} className="h-10 rounded-xl bg-[#F2EAE7] px-3 text-sm font-semibold">ביטול</button>
+          </div>
+        </form>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-1 flex min-h-[44px] items-center gap-2 rounded-2xl px-3 text-[15px] font-semibold text-[#4D4342] hover:bg-[#F0E8E5]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          קטגוריה חדשה
+        </button>
+      )}
+    </nav>
+  );
+}
+
+// מגירה מהצד למסך צר — אותו סרגל קטגוריות
+function CategoryDrawer({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="קטגוריות">
+      <div className="drawer-fade absolute inset-0 bg-black/35" onClick={onClose} />
+      <div
+        dir="rtl"
+        className="drawer-in absolute inset-y-0 right-0 flex w-[86%] max-w-[340px] flex-col overflow-y-auto bg-[#F7F3F1] p-3 shadow-[0_0_40px_rgba(35,28,28,0.25)]"
+        style={{ overscrollBehavior: 'contain', paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+      >
+        <div className="mb-1 flex justify-end">
+          <button onClick={onClose} aria-label="סגירה" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-[#EDE5E2]">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

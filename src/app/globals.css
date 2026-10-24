@@ -98,3 +98,10 @@ body {
 /* ===== שליח: מילוי קו המסלול ===== */
 .route-fill { transform-origin: top; transition: transform .45s cubic-bezier(.4,0,.2,1); }
 @media (prefers-reduced-motion: reduce) { .route-fill { transition: none !important; } }
+
+/* ===== מגירת קטגוריות (נכנסת מימין, RTL) ===== */
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes drawer-fade { from { opacity: 0; } to { opacity: 1; } }
+.drawer-in { animation: drawer-in .24s cubic-bezier(.2,.8,.3,1) both; }
+.drawer-fade { animation: drawer-fade .2s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .drawer-in, .drawer-fade { animation: none !important; } }
