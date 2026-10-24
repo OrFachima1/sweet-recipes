@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useEffect } from "react";
 import { fmtYMD, startOfWeek, addDays, startOfMonth } from "@/utils/orders";
+import { useSlideDirection } from "@/hooks/useSlideDirection";
 
 // ✅ פונקציה לחישוב צבע טקסט
 function getTextColor(bgColor: string): string {
@@ -58,6 +59,9 @@ export default function WeekView({
   const firstDayOfMonth = startOfMonth(viewDate);
   const firstWeekStart = startOfWeek(firstDayOfMonth, 0);
   const currentWeekStart = startOfWeek(viewDate, 0);
+  // הגריד מחליק בכיוון המעבר בין שבועות
+  const weekKey = currentWeekStart.getTime();
+  const slideDir = useSlideDirection(weekKey);
   const weekNumber = Math.floor((currentWeekStart.getTime() - firstWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
 
   useEffect(() => {
@@ -257,7 +261,10 @@ export default function WeekView({
 
       {/* עמודות השבוע - מסתיר שבתות במובייל */}
       <div className="p-1 md:p-2 bg-gradient-to-br from-white to-gray-50">
-        <div className="grid grid-cols-6 md:grid-cols-7 gap-0.5 md:gap-1">
+        <div
+          key={weekKey}
+          className={`grid grid-cols-6 md:grid-cols-7 gap-0.5 md:gap-1 ${slideDir === 'next' ? 'cal-in-next' : slideDir === 'prev' ? 'cal-in-prev' : ''}`}
+        >
           {weekDays.map((d, idx) => {
             const key = fmtYMD(d);
             const list = daysMap.get(key) || [];

@@ -80,3 +80,21 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .toast-in, .animate-pulse, .animate-bounce, .animate-ping, .animate-spin-slow { animation: none !important; }
 }
+
+/* ===== לוח שנה: הגריד מחליק בכיוון המעבר (RTL — הבא נכנס משמאל) ===== */
+@keyframes cal-in-next { from { opacity: .35; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+@keyframes cal-in-prev { from { opacity: .35; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+.cal-in-next { animation: cal-in-next .26s cubic-bezier(.2,.8,.3,1) both; }
+.cal-in-prev { animation: cal-in-prev .26s cubic-bezier(.2,.8,.3,1) both; }
+
+/* ===== הכנסות: עמודות צומחות מהבסיס ===== */
+@keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.bar-grow { transform-origin: bottom; animation: bar-grow .45s cubic-bezier(.2,.8,.3,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-in-next, .cal-in-prev, .bar-grow { animation: none !important; }
+}
+
+/* ===== שליח: מילוי קו המסלול ===== */
+.route-fill { transform-origin: top; transition: transform .45s cubic-bezier(.4,0,.2,1); }
+@media (prefers-reduced-motion: reduce) { .route-fill { transition: none !important; } }

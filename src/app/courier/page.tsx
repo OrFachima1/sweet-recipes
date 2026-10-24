@@ -452,16 +452,25 @@ export default function CourierPage() {
                   </div>
 
                   <div aria-hidden="true" className="relative flex justify-center">
+                    {/* קטעי הקו: מסלול אפור, ומילוי ירוק שזורם למטה כשהעצירה נמסרת */}
+                    {i > 0 && (
+                      <div className="absolute top-0 h-[26px] w-[3px] overflow-hidden rounded-sm" style={{ backgroundColor: TRACK }}>
+                        <div
+                          className="route-fill h-full w-full"
+                          style={{ backgroundColor: GREEN, transform: `scaleY(${prevDone ? 1 : 0})`, transitionDelay: prevDone ? '.35s' : '0s' }}
+                        />
+                      </div>
+                    )}
+                    {i < orders.length - 1 && (
+                      <div className="absolute bottom-0 top-[26px] w-[3px] overflow-hidden rounded-sm" style={{ backgroundColor: TRACK }}>
+                        <div
+                          className="route-fill h-full w-full"
+                          style={{ backgroundColor: GREEN, transform: `scaleY(${done ? 1 : 0})`, transitionDelay: done ? '.1s' : '0s' }}
+                        />
+                      </div>
+                    )}
                     <div
-                      className="absolute top-0 h-[26px] w-[3px] rounded-sm"
-                      style={{ backgroundColor: i === 0 ? 'transparent' : prevDone ? GREEN : TRACK }}
-                    />
-                    <div
-                      className="absolute bottom-0 top-[26px] w-[3px] rounded-sm"
-                      style={{ backgroundColor: i === orders.length - 1 ? 'transparent' : done ? GREEN : TRACK }}
-                    />
-                    <div
-                      className="relative box-border flex items-center justify-center rounded-full"
+                      className="relative box-border flex items-center justify-center rounded-full transition-[background-color,border-color,width,height,margin] duration-300"
                       style={{
                         marginTop: 26 - nodeSize / 2,
                         width: nodeSize,
@@ -474,7 +483,7 @@ export default function CourierPage() {
                       }}
                     >
                       {done && (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                        <svg className="vf-tick" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
                       )}
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { fmtYMD, addDays, startOfWeek, isOrderInRange, orderDay, type DayRange } from '@/utils/orders';
 import { getItemCategory, getCategoryOrder } from '@/utils/categoryMapping';
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 
 interface Order {
   __id?: string;
@@ -350,6 +351,9 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
     };
   }, [period, orders, prices]);
 
+  // הסכום הגדול מתגלגל לערך החדש כשמחליפים תקופה
+  const animatedTotal = useAnimatedNumber(data?.total ?? 0);
+
   if (!show) return null;
 
   const selectedIdx = data
@@ -472,7 +476,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
               <section aria-label="סיכום" className="flex flex-col gap-3.5 rounded-2xl bg-white p-5">
                 <div className="flex flex-col gap-1">
                   <div className="text-sm text-[#6E6569]">סה״כ הכנסות</div>
-                  <div className="text-5xl font-bold leading-tight tracking-tight">{fmtMoney(data.total)}</div>
+                  <div className="text-5xl font-bold leading-tight tracking-tight" aria-label={fmtMoney(data.total)}>{fmtMoney(animatedTotal)}</div>
                   <div className="flex flex-wrap items-center gap-1.5 text-sm">
                     {delta !== null ? (
                       <>
@@ -594,10 +598,12 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
                               <span className="whitespace-nowrap text-xs font-semibold tabular-nums">{fmtMoney(b.value)}</span>
                             )}
                             <div
-                              className={`rounded-t ${b.planned ? 'bg-[#E9BFCD]' : 'bg-[#B0234F]'}`}
+                              key={`${rangeKey}-${b.start}`}
+                              className={`bar-grow rounded-t ${b.planned ? 'bg-[#E9BFCD]' : 'bg-[#B0234F]'}`}
                               style={{
                                 height: h,
                                 width: `min(${isWide ? 32 : 24}px, calc(100% - 6px))`,
+                                animationDelay: `${i * 18}ms`,
                                 boxShadow: isSel && h > 0 ? `0 0 0 2px #fff, 0 0 0 4px ${b.planned ? '#C98DA2' : '#7E1739'}` : undefined,
                               }}
                             />

@@ -2,6 +2,7 @@
 import React, { useMemo, useEffect } from "react";
 import { fmtYMD, getMonthGridMax5, addDays } from "@/utils/orders";
 import HebrewDayBadge, { shouldHighlightDay } from "@/components/orders/HebrewDayBadge";
+import { useSlideDirection } from "@/hooks/useSlideDirection";
 
 // ✅ פונקציה לחישוב צבע טקסט
 function getTextColor(bgColor: string): string {
@@ -47,6 +48,9 @@ export default function MonthView({
   onChangeViewMode,
 }: MonthViewProps) {
   const monthGrid = useMemo(() => getMonthGridMax5(viewDate, 0), [viewDate]);
+  // הגריד מחליק בכיוון המעבר בין חודשים
+  const monthIndex = viewDate.getFullYear() * 12 + viewDate.getMonth();
+  const slideDir = useSlideDirection(monthIndex);
   const weeksHeader = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   const weeksHeaderShort = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -250,7 +254,10 @@ export default function MonthView({
 
       {/* גריד הימים - מסתיר שבתות במובייל */}
       <div className="p-0.5 sm:p-1 md:p-2 bg-gradient-to-br from-white to-gray-50">
-        <div className="grid grid-cols-6 md:grid-cols-7 gap-[2px] sm:gap-0.5 md:gap-1">
+        <div
+          key={monthIndex}
+          className={`grid grid-cols-6 md:grid-cols-7 gap-[2px] sm:gap-0.5 md:gap-1 ${slideDir === 'next' ? 'cal-in-next' : slideDir === 'prev' ? 'cal-in-prev' : ''}`}
+        >
           {monthGrid.cells.map((cell, idx) => {
             const key = cell.date ? fmtYMD(cell.date) : `empty-${idx}`;
             const dayOrders = cell.date ? daysMap.get(key) || [] : [];
