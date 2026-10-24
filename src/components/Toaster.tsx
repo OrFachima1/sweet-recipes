@@ -54,7 +54,8 @@ export default function Toaster() {
       dir="rtl"
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 bottom-0 z-[10000] flex flex-col items-center gap-2 px-4"
-      style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+      // --toast-offset: מסכים עם פס קבוע בתחתית מרימים את ההודעות מעליו
+      style={{ paddingBottom: 'calc(max(16px, env(safe-area-inset-bottom)) + var(--toast-offset, 0px))' }}
     >
       <div className="flex w-full max-w-md flex-col gap-2">
         {toasts.map(t => <ToastRow key={t.id} t={t} />)}

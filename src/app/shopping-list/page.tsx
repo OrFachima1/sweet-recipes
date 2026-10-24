@@ -585,6 +585,17 @@ function ListPanel({
     return () => obs.disconnect();
   }, [sectionIds]);
 
+  // הפס התחתון במסך צר — ההודעות עולות מעליו
+  const hasBar = sections.length > 0;
+  useEffect(() => {
+    if (!hasBar) return;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const apply = () => document.documentElement.style.setProperty('--toast-offset', mq.matches ? '72px' : '0px');
+    apply();
+    mq.addEventListener('change', apply);
+    return () => { mq.removeEventListener('change', apply); document.documentElement.style.removeProperty('--toast-offset'); };
+  }, [hasBar]);
+
   const categoriesRef = doc(db, 'orderSettings', 'shoppingCategories');
   const realCategories = data.categories.filter(c => knownCategoryIds.has(c.id));
   const addCategory = async (name: string) => {
@@ -620,7 +631,7 @@ function ListPanel({
   };
 
   return (
-    <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 pb-12 pt-4 lg:max-w-[1060px]">
+    <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 pb-28 pt-4 lg:max-w-[1060px] lg:pb-12">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <button onClick={onBack} className="flex h-11 items-center gap-1.5 self-start text-[15px] font-semibold text-[#4D4342] md:hidden">
@@ -711,14 +722,6 @@ function ListPanel({
           />
         </label>
         <button
-          onClick={() => setJumpOpen(true)}
-          aria-expanded={jumpOpen}
-          className="flex h-11 items-center gap-1.5 rounded-[14px] bg-[#F2EAE7] px-3.5 text-[15px] font-semibold lg:hidden"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
-          קטגוריות
-        </button>
-        <button
           onClick={() => setHideBought(v => !v)}
           aria-pressed={hideBought}
           className={`h-11 rounded-[14px] px-3.5 text-[15px] font-semibold ${hideBought ? 'bg-[#231C1C] text-white' : 'bg-[#F2EAE7]'}`}
@@ -726,6 +729,33 @@ function ListPanel({
           {hideBought ? 'הצגת הכל' : 'הסתרת מה שנקנה'}
         </button>
       </div>
+
+      {/* פס קטגוריות קבוע בתחתית — במסך צר */}
+      {sections.length > 0 && !jumpOpen && (() => {
+        const current = sections.find(x => x.cat.id === activeCat) || sections[0];
+        const done = current.all.filter(r => checked[r.key]).length;
+        return (
+          <button
+            onClick={() => setJumpOpen(true)}
+            aria-haspopup="dialog"
+            aria-label={`קטגוריות. עכשיו ב${current.cat.name}, ${done} מתוך ${current.all.length} נקנו. פתיחת כל הקטגוריות`}
+            className="cat-bar fixed inset-x-3 z-30 mx-auto flex h-14 max-w-md items-center gap-3 rounded-[18px] bg-[#231C1C] px-4 text-right text-white shadow-[0_10px_30px_rgba(35,28,28,0.28)] active:scale-[.98] lg:hidden"
+            style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}
+          >
+            <span aria-hidden="true" className="h-3 w-3 flex-shrink-0 rounded" style={{ backgroundColor: current.color }} />
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="truncate text-[16px] font-bold">{current.cat.name}</span>
+              <span className="text-[12px] tabular-nums text-white/75">
+                {done === current.all.length ? 'הכל נקנה' : `${done} מתוך ${current.all.length} נקנו`}
+              </span>
+            </span>
+            <span className="flex flex-shrink-0 items-center gap-1.5 text-[14px] font-semibold text-white/90">
+              כל הקטגוריות
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+            </span>
+          </button>
+        );
+      })()}
 
       {jumpOpen && (
         <CategoryDrawer onClose={() => setJumpOpen(false)}>
