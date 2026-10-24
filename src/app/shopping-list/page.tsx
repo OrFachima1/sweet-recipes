@@ -3,9 +3,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, FieldPath, setDoc, updateDoc } from 'firebase/firestore';
-import ShoppingListSettings from '@/components/shopping/ShoppingListSettings';
-import CategoryManager, { type Category } from '@/components/shopping/CategoryManager';
+import { doc, FieldPath, updateDoc } from 'firebase/firestore';
+import DishEditor from '@/components/shopping/DishEditor';
+import { DishesPanel, IngredientsPanel } from '@/components/shopping/SettingsPanels';
+import type { Category } from '@/lib/shopping/types';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useAuth } from '@/contexts/AuthContext';
 import { displayFont } from '@/lib/fonts';
@@ -14,7 +15,7 @@ import { addDays, fmtYMD, startOfWeek } from '@/utils/orders';
 import { useShoppingData } from '@/hooks/useShoppingData';
 import { useShoppingLists, listActions, type ShoppingListDoc } from '@/hooks/useShoppingLists';
 import { useShortages, type Shortage } from '@/hooks/useShortages';
-import { fmtQty, ingredientKey, type ComputedItem } from '@/lib/shopping/compute';
+import { fmtQty, ingredientKey, type BreakdownLine, type ComputedItem } from '@/lib/shopping/compute';
 
 const ROSE = '#A3204A';
 const GREEN = '#1E6B37';
@@ -56,6 +57,8 @@ interface Row {
   sources: string[];
   category: string;
   extraIds: string[];
+  breakdown: BreakdownLine[];
+  manual: Array<{ label: string; qty: number; unit: string }>;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -85,8 +88,9 @@ function ManagerView({ userName }: { userName: string }) {
   const { shortages, legacyManual, setStatus, removeReport, clearLegacyManual } = useShortages();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  // מה מוצג בחלק הראשי: הרשימה, או אחד ממסכי ההגדרות
+  const [panel, setPanel] = useState<'list' | 'dishes' | 'ingredients'>('list');
+  const [editingDish, setEditingDish] = useState<string | null>(null);
 
   const activeLists = lists.filter(l => l.end >= today);
   const pastLists = lists.filter(l => l.end < today);
@@ -147,7 +151,7 @@ function ManagerView({ userName }: { userName: string }) {
         {/* Lists */}
         <aside
           aria-label="רשימות קניות"
-          className={`${selected ? 'hidden md:flex' : 'flex'} flex-col gap-5 px-4 pb-10 pt-4 md:border-l md:border-[#EAE1DE]`}
+          className={`${selected || panel !== 'list' ? 'hidden md:flex' : 'flex'} flex-col gap-5 px-4 pb-10 pt-4 md:border-l md:border-[#EAE1DE]`}
         >
           <div className="flex items-center justify-between gap-2">
             <button
@@ -192,7 +196,7 @@ function ManagerView({ userName }: { userName: string }) {
               <p className="text-[15px] leading-relaxed text-[#6E6260]">אין רשימה פעילה. רשימה חדשה נבנית מההזמנות של התקופה שבוחרים.</p>
             ) : (
               activeLists.map(l => (
-                <ListRow key={l.id} list={l} current={l.id === selectedId} onOpen={() => setSelectedId(l.id)} />
+                <ListRow key={l.id} list={l} current={l.id === selectedId && panel === 'list'} onOpen={() => { setSelectedId(l.id); setPanel('list'); }} />
               ))
             )}
           </section>
@@ -201,26 +205,32 @@ function ManagerView({ userName }: { userName: string }) {
             <section aria-label="רשימות קודמות" className="flex flex-col gap-0.5">
               <h2 className="mb-1 text-sm font-semibold text-[#6E6260]">רשימות קודמות</h2>
               {pastLists.map(l => (
-                <ListRow key={l.id} list={l} past current={l.id === selectedId} onOpen={() => setSelectedId(l.id)} />
+                <ListRow key={l.id} list={l} past current={l.id === selectedId && panel === 'list'} onOpen={() => { setSelectedId(l.id); setPanel('list'); }} />
               ))}
             </section>
           )}
 
           <div className="mt-auto flex flex-col gap-1 border-t border-[#EAE1DE] pt-4">
-            <button onClick={() => setSettingsOpen(true)} className="flex min-h-[44px] items-center gap-2 rounded-xl px-2 text-[15px] font-semibold text-[#4D4342] hover:bg-[#EDE5E2]">
+            <h2 className="mb-1 px-2 text-sm font-semibold text-[#6E6260]">הגדרות</h2>
+            <button onClick={() => setPanel('dishes')} aria-current={panel === 'dishes'} className={`flex min-h-[44px] items-center gap-2 rounded-xl px-2 text-[15px] font-semibold text-[#4D4342] hover:bg-[#EDE5E2] ${panel === 'dishes' ? 'bg-white shadow-[0_0_0_2px_#A3204A]' : ''}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" /></svg>
-              הגדרות מתכונים
+              מנות ומתכונים
+              {data.dishes.some(d => d.status === 'missing') && <span className="mr-auto h-2.5 w-2.5 rounded-full bg-[#B3261E]" aria-label="יש מנות שלא נספרות" />}
             </button>
-            <button onClick={() => setCategoriesOpen(true)} className="flex min-h-[44px] items-center gap-2 rounded-xl px-2 text-[15px] font-semibold text-[#4D4342] hover:bg-[#EDE5E2]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-              עריכת קטגוריות
+            <button onClick={() => setPanel('ingredients')} aria-current={panel === 'ingredients'} className={`flex min-h-[44px] items-center gap-2 rounded-xl px-2 text-[15px] font-semibold text-[#4D4342] hover:bg-[#EDE5E2] ${panel === 'ingredients' ? 'bg-white shadow-[0_0_0_2px_#A3204A]' : ''}`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></svg>
+              רכיבים
             </button>
           </div>
         </aside>
 
         {/* Selected list */}
-        <main className={`${selected ? 'block' : 'hidden md:block'} min-w-0 bg-white`}>
-          {!selected ? (
+        <main className={`${selected || panel !== 'list' ? 'block' : 'hidden md:block'} min-w-0 bg-white`}>
+          {panel === 'dishes' ? (
+            <DishesPanel data={data} onEdit={setEditingDish} onBack={() => setPanel('list')} />
+          ) : panel === 'ingredients' ? (
+            <IngredientsPanel data={data} onBack={() => setPanel('list')} />
+          ) : !selected ? (
             <div className="flex min-h-[60vh] items-center justify-center p-6 text-center text-[17px] text-[#6E6260]">
               {listsLoading ? 'טוען…' : lists.length ? 'בחרו רשימה כדי לפתוח אותה' : 'צרו רשימה חדשה כדי להתחיל'}
             </div>
@@ -247,33 +257,15 @@ function ManagerView({ userName }: { userName: string }) {
               onDismissShortage={(s) => (s.legacy ? removeReport(s) : setStatus(s, { status: 'dismissed' }))}
               onBack={() => setSelectedId(null)}
               onDelete={() => handleDelete(selected)}
+              onEditDish={setEditingDish}
+              onOpenIngredients={() => setPanel('ingredients')}
               userName={userName}
             />
           )}
         </main>
       </div>
 
-      <ShoppingListSettings
-        show={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        menuItems={data.allMenuItems}
-        recipes={data.recipes}
-        recipeLinks={data.recipeLinks}
-        initialSettings={data.recipeSettings}
-        // ShoppingListSettings מגדיר טיפוס RecipeSettings משלו, זהה במבנה
-        onSave={async (settings: any[]) => {
-          await setDoc(doc(db, 'orderSettings', 'shoppingListSettings'), { settings, updatedAt: new Date().toISOString() });
-          data.setRecipeSettings(settings);
-        }}
-      />
-
-      {categoriesOpen && (
-        <CategoriesModal
-          categories={data.categories}
-          itemCategories={data.itemCategories}
-          onClose={() => setCategoriesOpen(false)}
-        />
-      )}
+      {editingDish && <DishEditor dish={editingDish} data={data} onClose={() => setEditingDish(null)} />}
     </div>
   );
 }
@@ -458,7 +450,7 @@ function ShortagesBox({
 // ─── List panel ───────────────────────────────────────────────────────────────
 
 function ListPanel({
-  list, data, isActive, shortages, legacyManualCount, onMigrateLegacy, onAddShortage, onDismissShortage, onBack, onDelete, userName,
+  list, data, isActive, shortages, legacyManualCount, onMigrateLegacy, onAddShortage, onDismissShortage, onBack, onDelete, onEditDish, onOpenIngredients, userName,
 }: {
   list: ShoppingListDoc;
   data: ReturnType<typeof useShoppingData>;
@@ -470,9 +462,12 @@ function ListPanel({
   onDismissShortage: (s: Shortage) => void;
   onBack: () => void;
   onDelete: () => void;
+  onEditDish: (dish: string) => void;
+  onOpenIngredients: () => void;
   userName: string;
 }) {
   const actions = useMemo(() => listActions(list.id), [list.id]);
+  const [breakdownFor, setBreakdownFor] = useState<string | null>(null);
   const checked = list.checked || {};
   const removed = list.removed || {};
   const [query, setQuery] = useState('');
@@ -490,19 +485,20 @@ function ListPanel({
     for (const it of data.items) {
       map.set(it.key, {
         key: it.key, name: it.name, qtyText: '', sources: it.sources.length ? [`בשביל ${it.sources.join(', ')}`] : [],
-        category: '', extraIds: [], parts: new Map([[it.unit?.trim() || '', it.qty]]), computed: it,
+        category: '', extraIds: [], breakdown: it.breakdown, manual: [], parts: new Map([[it.unit?.trim() || '', it.qty]]), computed: it,
       });
     }
     for (const [id, ex] of Object.entries(list.extras || {})) {
       const key = ingredientKey(ex.name, data.ingredientMappings);
       let r = map.get(key);
       if (!r) {
-        r = { key, name: ex.name, qtyText: '', sources: [], category: '', extraIds: [], parts: new Map(), extraCategory: ex.category };
+        r = { key, name: ex.name, qtyText: '', sources: [], category: '', extraIds: [], breakdown: [], manual: [], parts: new Map(), extraCategory: ex.category };
         map.set(key, r);
       }
       const unit = ex.unit?.trim() || '';
       r.parts.set(unit, (r.parts.get(unit) || 0) + (Number(ex.qty) || 0));
       r.extraIds.push(id);
+      r.manual.push({ label: ex.source || 'נוסף ידנית', qty: Number(ex.qty) || 0, unit });
       if (ex.source) r.sources.push(ex.source);
     }
     const out: Row[] = [];
@@ -510,7 +506,7 @@ function ListPanel({
       const category =
         data.itemCategories[r.key] ?? (r.computed ? data.itemCategories[r.computed.altKey] : undefined) ?? r.extraCategory ?? 'other';
       const qtyText = [...r.parts.entries()].filter(([, q]) => q > 0).map(([u, q]) => `${fmtQty(q)}${u ? ` ${u}` : ''}`).join(' + ') || '—';
-      out.push({ key: r.key, name: r.name, qtyText, sources: r.sources, category, extraIds: r.extraIds });
+      out.push({ key: r.key, name: r.name, qtyText, sources: r.sources, category, extraIds: r.extraIds, breakdown: r.breakdown, manual: r.manual });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name, 'he'));
   }, [data.items, data.itemCategories, data.ingredientMappings, list.extras]);
@@ -680,6 +676,20 @@ function ListPanel({
         </div>
       </div>
 
+      {data.dishes.some(d => d.status === 'missing') && (
+        <section aria-label="מנות שלא נספרות" className="flex flex-col gap-1 rounded-[20px] bg-[#FCEBE9] px-4 py-3.5">
+          <div className="text-[15px] font-bold text-[#8E1F18]">
+            {data.dishes.filter(d => d.status === 'missing').length === 1 ? 'מנה אחת מההזמנות לא נספרת' : `${data.dishes.filter(d => d.status === 'missing').length} מנות מההזמנות לא נספרות`}, כי אין להן מתכון או רכיבים
+          </div>
+          {data.dishes.filter(d => d.status === 'missing').map(d => (
+            <div key={d.dish} className="flex min-h-[48px] items-center justify-between gap-2 border-t border-[#F6D4D0]">
+              <span className="text-[15px]"><span className="font-semibold">{d.dish}</span> <span className="tabular-nums text-[#6E3A35]">{d.qty === 1 ? 'מנה אחת' : `${fmtQty(d.qty)} מנות`}</span></span>
+              <button onClick={() => onEditDish(d.dish)} className="h-10 rounded-xl bg-white px-3 text-sm font-bold">הגדרה</button>
+            </div>
+          ))}
+        </section>
+      )}
+
       {shortages.length > 0 && (
         <ShortagesBox
           shortages={shortages}
@@ -828,7 +838,14 @@ function ListPanel({
                             <span className={`text-[17px] ${on ? 'text-[#6E6260] line-through decoration-[#B8ABA8]' : 'font-semibold'}`}>{r.name}</span>
                             {r.sources.length > 0 && <span className="break-words text-[13px] leading-snug text-[#6E6260]">{r.sources.join('. ')}</span>}
                           </span>
-                          <span className={`${displayFont.className} flex-shrink-0 text-[19px] font-semibold tabular-nums ${on ? 'text-[#8C807E]' : ''}`}>{r.qtyText}</span>
+                        </button>
+                        <button
+                          onClick={() => setBreakdownFor(breakdownFor === r.key ? null : r.key)}
+                          aria-expanded={breakdownFor === r.key}
+                          aria-label={`${r.qtyText}. איך הגיעה הכמות של ${r.name}`}
+                          className={`${displayFont.className} flex min-h-[44px] flex-shrink-0 items-center rounded-xl px-2 text-[19px] font-semibold tabular-nums underline decoration-dotted decoration-[#C9BDBA] underline-offset-4 hover:bg-[#F2EAE7] ${on ? 'text-[#8C807E]' : ''}`}
+                        >
+                          {r.qtyText}
                         </button>
                         <button
                           onClick={() => setMenuFor(menuOpen ? null : r.key)}
@@ -839,6 +856,28 @@ function ListPanel({
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
                         </button>
                       </div>
+                      {breakdownFor === r.key && (
+                        <div className="mb-2 mt-0.5 flex flex-col gap-1 rounded-2xl bg-[#F7F3F1] p-3">
+                          <div className="text-[13px] font-semibold text-[#6E6260]">איך הגיעה הכמות</div>
+                          {r.breakdown.map(b => (
+                            <div key={b.dish + b.unit} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#EDE5E2] py-1.5 first:border-t-0">
+                              <span className="text-[15px]">
+                                <span className="font-semibold">{b.dish}</span>{' '}
+                                <span className="tabular-nums text-[#4D4342]">
+                                  {b.dishQty === 1 ? 'מנה אחת' : `${fmtQty(b.dishQty)} מנות`} × {fmtQty(b.perDish)} = {fmtQty(b.total)}{b.unit ? ` ${b.unit}` : ''}
+                                </span>
+                              </span>
+                              <button onClick={() => onEditDish(b.dish)} className="h-9 rounded-lg bg-white px-2.5 text-[13px] font-semibold text-[#4D4342]">עריכת המנה</button>
+                            </div>
+                          ))}
+                          {r.manual.map((m, i) => (
+                            <div key={`m${i}`} className="border-t border-[#EDE5E2] py-1.5 text-[15px] first:border-t-0">
+                              <span className="font-semibold">{m.label}</span>{' '}
+                              <span className="tabular-nums text-[#4D4342]">{fmtQty(m.qty)}{m.unit ? ` ${m.unit}` : ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {menuOpen && (
                         <div className="mb-2 mt-0.5 flex flex-col gap-2 rounded-2xl bg-[#F7F3F1] p-3">
                           <div className="text-[13px] text-[#6E6260]">העברה לקטגוריה (המערכת תזכור גם לרשימות הבאות)</div>
@@ -869,6 +908,14 @@ function ListPanel({
           </section>
         );
       })}
+
+      {data.ignoredInList.length > 0 && (
+        <p className="text-[14px] leading-relaxed text-[#6E6260]">
+          {data.ignoredInList.length === 1 ? 'רכיב אחד לא נקנה אף פעם' : `${data.ignoredInList.length} רכיבים לא נקנים אף פעם`}:{' '}
+          {data.ignoredInList.slice(0, 5).map(i => i.name).join(', ')}{data.ignoredInList.length > 5 ? ' ועוד' : ''}.{' '}
+          <button onClick={onOpenIngredients} className="font-semibold text-[#A3204A] underline underline-offset-2">ניהול</button>
+        </p>
+      )}
 
       {removedRows.length > 0 && (
         <div className="flex flex-col gap-1">
@@ -1179,72 +1226,6 @@ function AddItemForm({
         <button type="button" onClick={() => setOpen(false)} className="h-12 rounded-[14px] bg-white px-4 text-base font-semibold">סגירה</button>
       </div>
     </form>
-  );
-}
-
-// ─── Categories (עריכה, זמני עד עיצוב ההגדרות) ───────────────────────────────
-
-function CategoriesModal({
-  categories, itemCategories, onClose,
-}: {
-  categories: Category[];
-  itemCategories: Record<string, string>;
-  onClose: () => void;
-}) {
-  const ref = doc(db, 'orderSettings', 'shoppingCategories');
-  const save = (patch: Record<string, unknown>) =>
-    updateDoc(ref, { ...patch, updatedAt: new Date().toISOString() }).catch((e) => {
-      console.error(e);
-      toast.error(`השינוי בקטגוריות לא נשמר. ${RETRY}`);
-    });
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-6" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="עריכת קטגוריות"
-        dir="rtl"
-        className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[24px] bg-white md:max-w-3xl md:rounded-[24px]"
-        style={{ overscrollBehavior: 'contain' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-[#EAE1DE] px-4 py-3">
-          <h2 className="text-lg font-bold">עריכת קטגוריות</h2>
-          <button onClick={onClose} aria-label="סגירה" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-[#F2EAE7]">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-          </button>
-        </div>
-        <div className="overflow-y-auto p-3">
-          <CategoryManager
-            categories={categories}
-            selectedCategory="all"
-            onSelectCategory={() => {}}
-            onAddCategory={(cat) => save({ categories: [...categories, cat] })}
-            onUpdateCategory={(id, name, emoji) =>
-              save({ categories: categories.map(c => (c.id === id ? { ...c, name, emoji: emoji || c.emoji } : c)) })
-            }
-            onDeleteCategory={(id) => {
-              const nextItems = { ...itemCategories };
-              for (const k of Object.keys(nextItems)) if (nextItems[k] === id) nextItems[k] = 'other';
-              save({ categories: categories.filter(c => c.id !== id), itemCategories: nextItems });
-            }}
-            onReorderCategories={(reordered) => {
-              const real = reordered.filter(c => c.id !== 'all' && c.id !== '__shortages__');
-              if (real.length >= categories.length) save({ categories: real });
-            }}
-            itemCounts={{}}
-            totalItems={0}
-          />
-        </div>
-      </div>
-    </div>
   );
 }
 

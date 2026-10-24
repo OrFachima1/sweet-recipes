@@ -30,7 +30,15 @@
       "Bash(node debug-pdf.mjs)",
       "Bash(node -e \"const fs=require\\(''fs''\\); const files=fs.readdirSync\\(''.''\\).filter\\(f=>f.includes\\(''2352''\\)||f.includes\\(''2486''\\)\\); files.forEach\\(f=>console.log\\(JSON.stringify\\(f\\)\\)\\);\")",
       "Bash(node -e \"const fs=require\\(''fs''\\); const files=fs.readdirSync\\(''.''\\).filter\\(f=>f.includes\\(''2352''\\)||f.includes\\(''2486''\\)\\); files.forEach\\(f=>{ const buf=Buffer.from\\(f\\); console.log\\(buf.slice\\(0,6\\).toString\\(''hex''\\), JSON.stringify\\(f\\)\\); }\\);\")",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\ah118\\\\OneDrive\\\\Desktop\\\\Projects\\\\Recipe_Project\\\\sweet-recipes\\\\public\\\\\" | Where-Object { $_.Name -match 'logo-web|apple-touch' } | Select-Object Name, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}})",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\ah118\\\\OneDrive\\\\Desktop\\\\Projects\\\\Recipe_Project\\\\sweet-recipes\\\\public\\\\\" | Where-Object { $_.Name -match 'logo|png|jfif' } | Select-Object Name, @{N='KB';E={[math]::Round\\($_.Length/1KB,1\\)}}, LastWriteTime)",
+      "Bash(ls \"c:/Users/ah118/Downloads/\" | grep -i \"icon\\\\|apple\\\\|shub\\\\|logo\\\\|remove\\\\|png\" | head -20)",
+      "Read(//c/Users/ah118/Downloads/**)",
+      "Bash(git commit *)"
     ]
   }
 }
