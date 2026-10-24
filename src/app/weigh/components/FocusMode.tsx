@@ -123,14 +123,6 @@ export function FocusMode({
   
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex z-[80] overflow-hidden" dir="rtl">
-      {/* Floating particles background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-10 text-4xl opacity-20 animate-float">✨</div>
-        <div className="absolute top-32 right-20 text-3xl opacity-20 animate-float" style={{ animationDelay: '0.5s' }}>🌟</div>
-        <div className="absolute bottom-20 left-32 text-5xl opacity-20 animate-float" style={{ animationDelay: '1s' }}>⭐</div>
-        <div className="absolute bottom-40 right-40 text-3xl opacity-20 animate-float" style={{ animationDelay: '1.5s' }}>💫</div>
-        <div className="absolute top-1/2 left-20 text-4xl opacity-20 animate-float" style={{ animationDelay: '2s' }}>✨</div>
-      </div>
       {/* Sidebar Toggle Button - Mobile/Tablet - Adjusted position */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -263,7 +255,7 @@ export function FocusMode({
             <div className="flex items-center gap-3">
               {/* Streak indicator */}
               {streak >= 3 && (
-                <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1.5 rounded-full shadow-lg text-xs sm:text-sm font-bold animate-pulse flex items-center gap-1">
+                <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1.5 rounded-full shadow-lg text-xs sm:text-sm font-bold flex items-center gap-1">
                   <span>🔥</span>
                   <span>{streak} ברצף!</span>
                 </div>
@@ -278,22 +270,22 @@ export function FocusMode({
           {/* Dynamic encouragement - MOVED HERE */}
           <div className="text-center mt-2">
             {progress < 25 && (
-              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-full inline-block shadow-lg">
                 🚀 בואו נתחיל!
               </div>
             )}
             {progress >= 25 && progress < 50 && (
-              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 rounded-full inline-block shadow-lg">
                 💪 יופי! ממשיכים חזק!
               </div>
             )}
             {progress >= 50 && progress < 75 && (
-              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 rounded-full inline-block shadow-lg">
                 🔥 באמצע הדרך! אתה מדהים!
               </div>
             )}
             {progress >= 75 && progress < 100 && (
-              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-pink-500 to-purple-500 px-4 py-2 rounded-full inline-block animate-pulse shadow-lg">
+              <div className="text-lg sm:text-xl font-black text-white bg-gradient-to-r from-pink-500 to-purple-500 px-4 py-2 rounded-full inline-block shadow-lg">
                 ⭐ כמעט סיימת! עוד קצת!
               </div>
             )}
@@ -332,18 +324,18 @@ export function FocusMode({
               relative bg-white rounded-3xl shadow-2xl p-6 sm:p-10 text-center
               transform transition-all duration-500
               ${isWeighed ? 'ring-8 ring-green-400 scale-95' : 'hover:scale-105'}
-              ${willCompleteAll ? 'ring-8 ring-yellow-400 animate-pulse' : ''}
+              ${willCompleteAll ? 'ring-8 ring-yellow-400' : ''}
             `}>
               {/* Special badge for last item */}
               {willCompleteAll && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg animate-bounce">
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg">
                   🏆 מרכיב אחרון!
                 </div>
               )}
               
               {/* Confetti decoration */}
               {isWeighed && (
-                <div className="absolute -top-4 -right-4 text-6xl animate-bounce">
+                <div className="absolute -top-4 -right-4 text-6xl vf-tick">
                   ✓
                 </div>
               )}
@@ -352,7 +344,7 @@ export function FocusMode({
               <div className="mb-4 sm:mb-6">
                 <div className={`
                   text-6xl sm:text-8xl transition-all duration-500
-                  ${isWeighed ? 'grayscale-0 animate-bounce' : 'grayscale hover:grayscale-0'}
+                  ${isWeighed ? 'grayscale-0' : 'grayscale hover:grayscale-0'}
                 `}>
                   ⚖️
                 </div>
@@ -440,7 +432,7 @@ export function FocusMode({
                   ${isWeighed
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white'
                     : willCompleteAll
-                      ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white animate-pulse'
+                      ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white'
                       : 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white'
                   }
                 `}
@@ -457,7 +449,7 @@ export function FocusMode({
                   </span>
                 ) : willCompleteAll ? (
                   <span className="flex items-center justify-center gap-3">
-                    <span className="text-4xl animate-bounce">🏆</span>
+                    <span className="text-4xl">🏆</span>
                     <span>סיים שקילה!</span>
                   </span>
                 ) : (
@@ -514,13 +506,6 @@ export function FocusMode({
         }
         .animate-spin-slow {
           animation: spin-slow 3s linear infinite;
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
         }
       `}</style>
     </div>

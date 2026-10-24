@@ -10,6 +10,7 @@ import { invalidateRecipesCache } from "../../../../hooks/useShoppingList";
 import HomeButton from "../../../../components/HomeButton";
 import { useCategoryDict } from "../../../../hooks/useCategoryDict";
 import { useUnitDict } from "../../../../hooks/useUnitDict";
+import { toast } from '@/lib/toast';
 import {generateId} from  "@/utils/imageHelpers";
 
 type Ingredient = { id: string; name: string; qty: string; unit: string };
@@ -113,7 +114,7 @@ export default function EditRecipePage() {
   function setStepText(id2: string, v: string) { setSteps((s) => s.map((x) => (x.id === id2 ? { ...x, text: v } : x))); }
 
   async function saveChanges() {
-    if (!title.trim()) return alert("חסר שם מתכון");
+    if (!title.trim()) { toast.error("צריך לתת שם למתכון"); return; }
     await ensureAnonAuth();
 
     const patch: Record<string, any> = {
@@ -132,7 +133,7 @@ export default function EditRecipePage() {
         patch.imageUrl = imageUrl;
         patch.imageDataUrl = deleteField();
       } catch (err) {
-        alert("שגיאה בהעלאת תמונה. המתכון נשמר ללא תמונה.");
+        toast.error("התמונה לא הועלתה, והמתכון נשמר בלעדיה. אפשר לנסות להעלות אותה שוב.");
         patch.imageUrl = null;
         patch.imageDataUrl = deleteField();
       }

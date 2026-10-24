@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { toast } from '@/lib/toast';
 
 interface Recipe {
   id: string;
@@ -372,7 +373,7 @@ const handleSave = async () => {
     onClose();
   } catch (error) {
     console.error('שגיאה בשמירה:', error);
-    alert('שגיאה בשמירת ההגדרות. נסה שוב.');
+    toast.error('שמירת ההגדרות נכשלה. בדקו את החיבור ונסו שוב.');
   } finally {
     setIsSaving(false);
   }

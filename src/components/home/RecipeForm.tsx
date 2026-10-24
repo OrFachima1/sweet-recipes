@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import AutocompleteInput from "@/components/AutocompleteInput";
 import { fileToDataUrl, compressForRecipe, generateId } from "@/utils/imageHelpers";
+import { toast } from '@/lib/toast';
 
 type Ingredient = { id: string; name: string; qty: string; unit: string };
 type IngredientGroup = { id: string; groupName: string; items: Ingredient[] };
@@ -140,9 +141,9 @@ export default function RecipeForm({
   }
 
   async function handleSave() {
-    if (!title.trim()) return alert("חסר שם מתכון");
+    if (!title.trim()) { toast.error("צריך לתת שם למתכון"); return; }
     const hasAnyIng = groups.some((g) => g.items.some((i) => i.name.trim()));
-    if (!hasAnyIng) return alert("הוסף לפחות רכיב אחד");
+    if (!hasAnyIng) { toast.error("צריך להוסיף לפחות רכיב אחד"); return; }
 
     await onSave({
       title: title.trim(),

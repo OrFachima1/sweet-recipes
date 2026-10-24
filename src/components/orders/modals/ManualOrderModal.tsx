@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import type { DeliveryMethod } from "@/types/orders";
+import { toast } from '@/lib/toast';
 
 interface ManualOrderItem {
   title: string;
@@ -200,23 +201,23 @@ export default function ManualOrderModal({
     setItems(order.items.length > 0 ? order.items : [{ title: "", qty: 1, notes: "" }]);
     setSearchTerms(order.items.map(() => ""));
     setOrderNotes(order.orderNotes || "");
-    alert("✅ הזמנה קודמת נטעגה!");
+    toast.success("ההזמנה הקודמת נטענה");
   };
 
   const handleSave = () => {
     if (!clientName.trim()) {
-      alert("יש למלא שם לקוח");
+      toast.error("צריך למלא שם לקוח");
       return;
     }
     if (!eventDate) {
-      alert("יש לבחור תאריך אירוע");
+      toast.error("צריך לבחור תאריך אירוע");
       return;
     }
 
     const validItems = items.filter(item => item.title && item.title.trim() !== "");
     
     if (validItems.length === 0) {
-      alert("יש להוסיף לפחות פריט אחד מהתפריט");
+      toast.error("צריך להוסיף לפחות פריט אחד מהתפריט");
       return;
     }
 
@@ -224,7 +225,7 @@ export default function ManualOrderModal({
     const invalidItems = validItems.filter(item => !menuSet.has(item.title));
     
     if (invalidItems.length > 0) {
-      alert(`הפריטים הבאים לא קיימים בתפריט:\n${invalidItems.map(i => i.title).join(', ')}`);
+      toast.error(`הפריטים האלה לא קיימים בתפריט, צריך לבחור מהרשימה:\n${invalidItems.map(i => i.title).join(', ')}`);
       return;
     }
 

@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { canAddOrEdit, canDelete, canAccessSettings, canAccessRevenue } from "@/lib/permissions";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { toast } from '@/lib/toast';
 
 // ===== Custom Hooks =====
 import { useOrdersWithColors } from '@/hooks/useOrdersWithColors';
@@ -123,7 +124,7 @@ export default function OrdersCalendarPage({
 
   // ===== Add Item =====
   const confirmAddItem = useCallback(async (title: string) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   if (!state.addItemFor || !title) return;
 
   const order = ordersWithColors.find(o => o.__id === state.addItemFor);
@@ -132,7 +133,8 @@ export default function OrdersCalendarPage({
   try {
     await updateDoc(doc(db, 'orders', state.addItemFor), { items: newItems });
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
   state.setAddItemFor(null);
 }, [canEdit, state.addItemFor, ordersWithColors, state]);
@@ -148,20 +150,22 @@ export default function OrdersCalendarPage({
     firebase.saveSettings(settings.mapping, newIgnored);
   }, [settings, firebase]);
 const editOrderNotes = useCallback(async (orderId: string, notes: string) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   const cleanNotes = notes?.trim() || null;
   try {
     await updateDoc(doc(db, 'orders', orderId), { orderNotes: cleanNotes });
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
 }, [canEdit]);
 const editEventDate = useCallback(async (orderId: string, newDate: string) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   try {
     await updateDoc(doc(db, 'orders', orderId), { eventDate: newDate });
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
 }, [canEdit]);
 
@@ -174,7 +178,7 @@ const editDelivery = useCallback(async (orderId: string, delivery: {
   phone2Name?: string;
   address?: string;
 }) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   const patch: Record<string, any> = {};
   if (delivery.deliveryMethod !== undefined) patch.deliveryMethod = delivery.deliveryMethod;
   if (delivery.estimatedTime !== undefined) patch.estimatedTime = delivery.estimatedTime;
@@ -187,16 +191,18 @@ const editDelivery = useCallback(async (orderId: string, delivery: {
   try {
     await updateDoc(doc(db, 'orders', orderId), patch);
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
 }, [canEdit]);
 
 const editClientName = useCallback(async (orderId: string, newName: string) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   try {
     await updateDoc(doc(db, 'orders', orderId), { clientName: newName });
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
 }, [canEdit]);
 
@@ -205,7 +211,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
   deliveryFee?: number | null;
   deposit?: number | null;
 }) => {
-  if (!canEdit) { alert("אין לך הרשאה לערוך הזמנות"); return; }
+  if (!canEdit) { toast.error("אין לך הרשאה לערוך הזמנות"); return; }
   const patch: Record<string, any> = {};
   if (payment.totalSum !== undefined) patch.totalSum = payment.totalSum;
   if (payment.deliveryFee !== undefined) patch.deliveryFee = payment.deliveryFee;
@@ -214,7 +220,8 @@ const editPayment = useCallback(async (orderId: string, payment: {
   try {
     await updateDoc(doc(db, 'orders', orderId), patch);
   } catch (e: any) {
-    alert(`שגיאה בשמירה: ${e?.message || e?.code}`);
+    console.error(e);
+    toast.error("השינוי לא נשמר. בדקו את החיבור ונסו שוב.");
   }
 }, [canEdit]);
 
@@ -625,7 +632,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
               state.setMenuOptions(newMenu);
             } catch (e) {
               console.error("שגיאה:", e);
-              alert("שגיאה בשמירה");
+              toast.error("השמירה נכשלה. בדקו את החיבור ונסו שוב.");
             }
           }}
           mapping={settings.mapping}
@@ -639,7 +646,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
               settings.updateCategoryConfig(newConfig);
             } catch (e) {
               console.error("שגיאה:", e);
-              alert("שגיאה בשמירה");
+              toast.error("השמירה נכשלה. בדקו את החיבור ונסו שוב.");
             }
           }}
        recipeLinks={settings.recipeLinks}

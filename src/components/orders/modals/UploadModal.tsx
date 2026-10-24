@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
 import { ingestStrict } from "@/lib/ordersApi";
+import { toast } from '@/lib/toast';
 
 interface UploadModalProps {
   show: boolean;
@@ -325,7 +326,7 @@ export default function UploadModal({
                     onManualStart();
                   } else {
                     console.error("❌ onManualStart is not defined!");
-                    alert("שגיאה: onManualStart לא הוגדר!");
+                    toast.error("ההוספה הידנית לא זמינה כרגע. רעננו את הדף ונסו שוב.");
                   }
                   onClose();
                 }}

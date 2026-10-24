@@ -2,6 +2,7 @@
 "use client";
 import React, { useState } from "react";
 import { DEFAULT_CLIENT_COLORS, getTextColor } from "@/utils/colorHelpers";
+import { toast } from '@/lib/toast';
 
 interface ClientColorPickerProps {
   show: boolean;
@@ -30,7 +31,7 @@ export default function ClientColorPicker({
       await onSave(selectedColor);
       onClose();
     } catch (e) {
-      alert("שגיאה בשמירת הצבע");
+      toast.error("שמירת הצבע נכשלה. בדקו את החיבור ונסו שוב.");
     } finally {
       setSaving(false);
     }

@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import type { IngestJsonOrder } from '@/types/orders';
 import { addDays, fmtYMD, type DayRange } from '@/utils/orders';
+import { toast } from '@/lib/toast';
 
 interface UseOrdersFirebaseProps {
   user: any;
@@ -213,9 +214,7 @@ export function useOrdersFirebase({
       console.log('✅ Successfully persisted orders');
     } catch (e: any) {
       console.error('❌ Error persisting orders:', e);
-      alert(
-        `שגיאה בשמירה ל-Firebase: ${e?.message || e?.code || 'Unknown error'}`
-      );
+      toast.error('שמירת ההזמנות נכשלה. בדקו את החיבור ונסו שוב.');
     }
   },
   [user, isManager, orders]

@@ -361,20 +361,6 @@ export default function RecipePage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
         @keyframes shimmer {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
@@ -401,9 +387,9 @@ export default function RecipePage() {
       {/* Background with animated gradient */}
       <div className="fixed inset-0 bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 -z-10">
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-rose-200 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-40 right-20 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-20 left-40 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+          <div className="absolute top-20 left-20 w-72 h-72 bg-rose-200 rounded-full mix-blend-multiply filter blur-xl"></div>
+          <div className="absolute top-40 right-20 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl"></div>
+          <div className="absolute bottom-20 left-40 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl"></div>
         </div>
       </div>
 
@@ -705,7 +691,7 @@ export default function RecipePage() {
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-100 to-orange-100 opacity-50"></div>
                 <div className="absolute inset-0 border-4 border-dashed border-rose-300 rounded-xl"></div>
                 <div className="relative text-center">
-                  <div className="text-4xl sm:text-5xl mb-3 animate-bounce">🔒</div>
+                  <div className="text-4xl sm:text-5xl mb-3">🔒</div>
                   <div className="text-lg sm:text-xl font-bold text-rose-900 mb-2">כמעט שם!</div>
                   <div className="text-sm sm:text-base text-rose-700">
                     סמנו את כל המצרכים כדי לפתוח את השלבים ✨

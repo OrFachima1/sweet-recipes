@@ -9,6 +9,7 @@ import {
   fmtYMD 
 } from '@/utils/orders';
 import type { IngestJsonOrder, NormalizedOrder, NormalizedOrderItem } from '@/types/orders';
+import { toast } from '@/lib/toast';
 
 interface UseOrdersUploadProps {
   apiBase: string;
@@ -65,7 +66,7 @@ export function useOrdersUpload({
     dateOverrides?: Record<number, string>
   ) => {
     if (!isManager) {
-      alert("אין לך הרשאה לבצע פעולה זו");
+      toast.error("אין לך הרשאה לבצע פעולה זו");
       return;
     }
 
@@ -147,7 +148,7 @@ export function useOrdersUpload({
     previewOrders?: any[]
   ) => {
     if (!isManager) {
-      alert("אין לך הרשאה להעלות קבצים");
+      toast.error("אין לך הרשאה להעלות קבצים");
       return;
     }
     if (!files.length) return;

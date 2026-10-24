@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { IngestJsonOrder } from '@/types/orders';
 import { generateId } from '@/utils/imageHelpers';
 import { fmtYMD } from '@/utils/orders';
+import { toast } from '@/lib/toast';
 
 interface UseOrdersActionsProps {
   orders: IngestJsonOrder[];
@@ -15,11 +16,25 @@ export function useOrdersActions({ orders, setOrders }: UseOrdersActionsProps) {
   // מחיקת הזמנה
   const deleteOrder = useCallback(async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'orders', id));
+      const ref = doc(db, 'orders', id);
+      // גיבוי לפני מחיקה, כדי לאפשר "ביטול" מההודעה
+      const snap = await getDoc(ref);
+      const backup = snap.exists() ? snap.data() : null;
+      await deleteDoc(ref);
       setOrders(orders.filter(o => o.__id !== id));
+      toast.success('ההזמנה נמחקה', backup ? {
+        action: {
+          label: 'ביטול',
+          onClick: () => {
+            setDoc(ref, backup)
+              .then(() => toast.success('ההזמנה שוחזרה'))
+              .catch((e) => { console.error('Failed to restore order:', e); toast.error('השחזור נכשל. בדקו את החיבור ונסו שוב.'); });
+          },
+        },
+      } : undefined);
     } catch (error) {
       console.error('Failed to delete order:', error);
-      alert('שגיאה במחיקת הזמנה');
+      toast.error('מחיקת ההזמנה נכשלה. בדקו את החיבור ונסו שוב.');
     }
   }, [orders, setOrders]);
 
@@ -57,7 +72,7 @@ const editOrderItem = useCallback(async (
     ));
   } catch (error) {
     console.error('Failed to edit item:', error);
-    alert('שגיאה בעריכת פריט');
+    toast.error('עדכון הפריט נכשל. בדקו את החיבור ונסו שוב.');
   }
 }, [orders, setOrders]);
 
@@ -83,7 +98,7 @@ const editOrderItem = useCallback(async (
       ));
     } catch (error) {
       console.error('Failed to remove item:', error);
-      alert('שגיאה בהסרת פריט');
+      toast.error('הסרת הפריט נכשלה. בדקו את החיבור ונסו שוב.');
     }
   }, [orders, setOrders]);
 
@@ -118,9 +133,10 @@ const editOrderItem = useCallback(async (
       });
 
       setOrders([...orders, newOrder]);
+      toast.success('ההזמנה נשמרה');
     } catch (error) {
       console.error('Failed to save manual order:', error);
-      alert('שגיאה בשמירת הזמנה');
+      toast.error('שמירת ההזמנה נכשלה. בדקו את החיבור ונסו שוב.');
     }
   }, [orders, setOrders]);
   

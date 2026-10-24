@@ -5,6 +5,7 @@ import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from "@/util
 import { useClientsContext } from "@/contexts/ClientsContext";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
 import OrderCard from "./OrderCard";
+import { toast } from '@/lib/toast';
 
 interface ClientsViewProps {
   orders: any[];
@@ -215,7 +216,8 @@ export default function ClientsView({
       await updateClientColor(clientName, newColor);
       setRefreshKey(prev => prev + 1);
     } catch (e) {
-      alert("שגיאה בשמירת הצבע: " + (e as Error).message);
+      console.error(e);
+      toast.error("שמירת הצבע נכשלה. בדקו את החיבור ונסו שוב.");
     }
   };
 

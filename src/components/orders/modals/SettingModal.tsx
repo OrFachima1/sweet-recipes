@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { toast } from '@/lib/toast';
 
 interface SettingsModalProps {
   show: boolean;
@@ -235,11 +236,11 @@ export default function SettingsModal({
 
   const handleSaveDish = () => {
     if (!selectedDishName.trim()) {
-      alert('יש להזין שם מנה');
+      toast.error('צריך להזין שם מנה');
       return;
     }
     if (!selectedCategory) {
-      alert('יש לבחור קטגוריה');
+      toast.error('צריך לבחור קטגוריה');
       return;
     }
 
@@ -289,7 +290,7 @@ export default function SettingsModal({
       onUpdateDishAccessories(newAccessories);
     }
 
-    alert('המנה נשמרה בהצלחה!');
+    toast.success('המנה נשמרה');
     handleClearForm();
   };
 
@@ -322,7 +323,7 @@ export default function SettingsModal({
     delete newAccessories[selectedDishName];
     onUpdateDishAccessories(newAccessories);
 
-    alert('המנה נמחקה בהצלחה!');
+    toast.success('המנה נמחקה');
     handleClearForm();
   };
 
@@ -341,7 +342,7 @@ export default function SettingsModal({
     const accessory = newAccessoryInput.trim();
     if (!accessory) return;
     if (selectedAccessories.includes(accessory)) {
-      alert('הנלווה כבר קיים');
+      toast.info('הנלווה הזה כבר ברשימה');
       return;
     }
     setSelectedAccessories([...selectedAccessories, accessory]);
@@ -358,7 +359,7 @@ export default function SettingsModal({
     const value = newMappingValue.trim();
     if (!key || !value) return;
     if (mapping[key]) {
-      alert('המיפוי כבר קיים');
+      toast.info('המיפוי הזה כבר קיים');
       return;
     }
     onUpdateMapping({ ...mapping, [key]: value });
@@ -377,7 +378,7 @@ export default function SettingsModal({
     const v = newIgnoredItem.trim();
     if (!v) return;
     if (ignored.includes(v)) {
-      alert('הפריט כבר ברשימת ההתעלמויות');
+      toast.info('הפריט כבר ברשימת ההתעלמויות');
       return;
     }
     onUpdateIgnored([...ignored, v].sort());
@@ -393,7 +394,7 @@ export default function SettingsModal({
   const addCategory = (name: string, color: string) => {
     if (!categories) return;
     if (categories.items[name]) {
-      alert('הקטגוריה כבר קיימת');
+      toast.info('הקטגוריה הזו כבר קיימת');
       return;
     }
     const maxOrder = Math.max(...Object.values(categories.items).map((c) => c.order), -1);
