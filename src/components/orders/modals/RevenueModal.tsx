@@ -38,8 +38,20 @@ const PERIODS: Array<{ value: PeriodKind; label: string }> = [
 ];
 
 const ALL_CATEGORIES = 'הכל';
-const TOP_ROWS = 8;
-const PLOT_HEIGHT = 140;
+const LABEL_BAND = 36; // גובה שורת התוויות מתחת לעמודות
+
+// במחשב (lg ומעלה): פריסה בשני טורים, גרף גבוה יותר ויותר שורות ברשימה
+function useIsWide() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return wide;
+}
 const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 const money = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 });
@@ -219,6 +231,9 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
   const [showAll, setShowAll] = useState(false);
   const [showUnpriced, setShowUnpriced] = useState(false);
   const [selected, setSelected] = useState<{ key: string; idx: number } | null>(null);
+  const isWide = useIsWide();
+  const PLOT_HEIGHT = isWide ? 220 : 140;
+  const TOP_ROWS = isWide ? 12 : 8;
 
   const period = useMemo(
     () => buildPeriod(kind, offset, customStart, customEnd),
@@ -370,7 +385,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
         aria-modal="true"
         aria-labelledby="revenue-title"
         dir="rtl"
-        className="flex h-full w-full flex-col overflow-hidden bg-[#F6F1F2] text-[#1F1A1C] md:h-[90vh] md:max-w-2xl md:rounded-2xl md:shadow-2xl"
+        className="flex h-full w-full flex-col overflow-hidden bg-[#F6F1F2] text-[#1F1A1C] md:h-[90vh] md:max-w-2xl md:rounded-2xl md:shadow-2xl lg:max-w-6xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* כותרת */}
@@ -386,8 +401,8 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
         </header>
 
         {/* תקופה */}
-        <section aria-label="תקופה" className="flex flex-shrink-0 flex-col gap-3 border-b border-[#ECE3E6] bg-white px-4 pb-3.5 pt-3">
-          <div role="group" aria-label="סוג תקופה" className="grid grid-cols-5 gap-1 rounded-xl bg-[#F3ECEE] p-1">
+        <section aria-label="תקופה" className="flex flex-shrink-0 flex-col gap-3 border-b border-[#ECE3E6] bg-white px-4 pb-3.5 pt-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-6 lg:py-3">
+          <div role="group" aria-label="סוג תקופה" className="grid grid-cols-5 gap-1 rounded-xl bg-[#F3ECEE] p-1 lg:w-[480px] lg:flex-shrink-0">
             {PERIODS.map(p => (
               <button
                 key={p.value}
@@ -401,7 +416,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
           </div>
 
           {kind === 'custom' ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 lg:w-[420px]">
               <label className="flex flex-col gap-1 text-[13px] text-[#6E6569]">
                 מתאריך
                 <input
@@ -423,7 +438,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
             </div>
           ) : (
             period && (
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between lg:w-[420px]">
                 <button
                   onClick={() => setOffset(o => o - 1)}
                   aria-label={`${period.stepLabel} קודם`}
@@ -451,7 +466,8 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
           {!period || !data ? (
             <div className="px-6 py-16 text-center text-[15px] text-[#6E6569]">בחרו תאריך התחלה ותאריך סיום</div>
           ) : (
-            <main className="flex flex-col gap-3 p-4">
+            <main className="flex flex-col gap-3 p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-4 lg:p-6">
+              <div className="flex flex-col gap-3 lg:gap-4">
               {/* סיכום */}
               <section aria-label="סיכום" className="flex flex-col gap-3.5 rounded-2xl bg-white p-5">
                 <div className="flex flex-col gap-1">
@@ -545,7 +561,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
                     <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px] bg-[#E9BFCD]" />מתוכנן</span>
                   </div>
                 </div>
-                <div className="relative h-[176px]">
+                <div className="relative" style={{ height: PLOT_HEIGHT + LABEL_BAND }}>
                   {data.chart.ticks.map(t => (
                     <div
                       key={t}
@@ -562,16 +578,18 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
                     {data.chart.bars.map((b, i) => {
                       const isSel = i === selectedIdx;
                       const h = b.value > 0 ? Math.max(2, Math.round((b.value / data.chart.plotMax) * PLOT_HEIGHT)) : 0;
-                      const showLabel = data.chart.bars.length <= 7 || i % 2 === 0 || isSel;
+                      const showLabel = data.chart.bars.length <= (isWide ? 14 : 7) || i % 2 === 0 || isSel;
                       return (
                         <button
                           key={b.start}
                           onClick={() => setSelected({ key: rangeKey, idx: i })}
+                          onMouseEnter={() => setSelected({ key: rangeKey, idx: i })}
                           aria-label={`${b.aria}: ${fmtMoney(b.value)}${b.planned ? ' (מתוכנן)' : ''}`}
                           aria-pressed={isSel}
-                          className="flex h-[176px] min-w-0 flex-col items-center justify-end"
+                          className="flex min-w-0 flex-col items-center justify-end"
+                          style={{ height: PLOT_HEIGHT + LABEL_BAND }}
                         >
-                          <div className="flex h-[140px] w-full flex-col items-center justify-end gap-1">
+                          <div className="flex w-full flex-col items-center justify-end gap-1" style={{ height: PLOT_HEIGHT }}>
                             {isSel && (
                               <span className="whitespace-nowrap text-xs font-semibold tabular-nums">{fmtMoney(b.value)}</span>
                             )}
@@ -579,12 +597,12 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
                               className={`rounded-t ${b.planned ? 'bg-[#E9BFCD]' : 'bg-[#B0234F]'}`}
                               style={{
                                 height: h,
-                                width: 'min(24px, calc(100% - 6px))',
+                                width: `min(${isWide ? 32 : 24}px, calc(100% - 6px))`,
                                 boxShadow: isSel && h > 0 ? `0 0 0 2px #fff, 0 0 0 4px ${b.planned ? '#C98DA2' : '#7E1739'}` : undefined,
                               }}
                             />
                           </div>
-                          <div className={`flex h-9 items-center whitespace-nowrap text-[11px] ${isSel ? 'font-semibold text-[#1F1A1C]' : 'text-[#6E6569]'}`}>
+                          <div className={`flex h-9 items-center whitespace-nowrap text-[11px] lg:text-xs ${isSel ? 'font-semibold text-[#1F1A1C]' : 'text-[#6E6569]'}`}>
                             {showLabel ? b.label : ''}
                           </div>
                         </button>
@@ -593,6 +611,7 @@ export default function RevenueModal({ show, onClose, orders, prices, onRangeCha
                   </div>
                 </div>
               </section>
+              </div>
 
               {/* פירוט */}
               <section aria-label="פירוט" className="flex flex-col gap-1 rounded-2xl bg-white p-4">
