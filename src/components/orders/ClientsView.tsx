@@ -36,7 +36,7 @@ interface ClientsViewProps {
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
   isManager?: boolean;
-  showDeliveryDetails?: boolean;
+  showPaymentDetails?: boolean;
   menuOptions?: string[];
 }
 
@@ -59,7 +59,7 @@ export default function ClientsView({
   onEditClientName,
   toggleNote,
   isManager,
-  showDeliveryDetails,
+  showPaymentDetails,
   menuOptions = []
 }: ClientsViewProps) {
   const { updateClientColor, getClientColor } = useClientsContext();
@@ -812,7 +812,7 @@ export default function ClientsView({
                   noteOpen={noteOpen}
                   toggleNote={toggleNote}
                   isManager={isManager}
-                  showDeliveryDetails={showDeliveryDetails}
+                  showPaymentDetails={showPaymentDetails}
                   menuOptions={menuOptions}
                   recipeLinks={recipeLinks}
                   isCollapsible={true}

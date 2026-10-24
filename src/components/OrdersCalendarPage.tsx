@@ -431,7 +431,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
         dayKey={dayKey}
         daysMap={daysMap}
         isManager={canEdit}
-        showDeliveryDetails={isManager}
+        showPaymentDetails={isManager}
         menuOptions={state.menuOptions}
         deleteOrder={canDeleteItems ? actions.deleteOrder : undefined}
         editOrderItem={canEdit ? actions.editOrderItem : undefined}
@@ -483,7 +483,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
 
           // מידע נוסף
           isManager={canEdit}
-          showDeliveryDetails={isManager}
+          showPaymentDetails={isManager}
           menuOptions={state.menuOptions}
         />
       )}
@@ -503,7 +503,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
           noteOpen={modals.noteOpen}
           toggleNote={modals.toggleNote}
           isManager={canEdit}
-          showDeliveryDetails={isManager}
+          showPaymentDetails={isManager}
           onEditEventDate={canEdit ? editEventDate : undefined}
           onEditDelivery={canEdit ? editDelivery : undefined}
           onEditPayment={canEdit ? editPayment : undefined}

@@ -32,6 +32,26 @@ function getTextColor(hex: string): string {
   return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
 }
 
+// orderNotes נשמר כמחרוזת או כמערך שורות
+function getOrderNotes(order: IngestJsonOrder): string[] {
+  const raw = order.orderNotes;
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map(n => String(n).trim()).filter(Boolean);
+}
+
+function OrderNotes({ order }: { order: IngestJsonOrder }) {
+  const notes = getOrderNotes(order);
+  if (!notes.length) return null;
+  return (
+    <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200 text-sm text-gray-700">
+      <span className="font-bold block mb-1">📝 הערות להזמנה</span>
+      <div className="space-y-1 whitespace-pre-line">
+        {notes.map((n, i) => <p key={i}>{n}</p>)}
+      </div>
+    </div>
+  );
+}
+
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 
 function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose: () => void }) {
@@ -131,12 +151,7 @@ function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose:
           )}
 
           {/* Notes */}
-          {order.orderNotes && (
-            <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200 text-sm text-gray-700">
-              <span className="font-bold block mb-1">הערות:</span>
-              {order.orderNotes}
-            </div>
-          )}
+          <OrderNotes order={order} />
 
           {/* Items */}
           <div>
@@ -246,6 +261,9 @@ function CourierCard({ order, onDetails }: { order: IngestJsonOrder; onDetails: 
             <span className="text-gray-400 text-sm">אין טלפון</span>
           )}
         </div>
+
+        {/* Notes */}
+        <OrderNotes order={order} />
 
         {/* Balance */}
         {hasBalance && (

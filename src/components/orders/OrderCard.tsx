@@ -48,7 +48,7 @@ interface OrderCardProps {
   
   // גישה ותפריט
   isManager?: boolean;           // האם יש הרשאות עריכה (מנהל או עובד בכיר)
-  showDeliveryDetails?: boolean; // האם להציג פרטי אספקה (רק למנהל)
+  showPaymentDetails?: boolean; // האם להציג פרטי תשלום (רק למנהל). פרטי אספקה מוצגים לכולם
   menuOptions?: string[];
 }
 
@@ -84,7 +84,7 @@ export default function OrderCard({
   onToggle,
   externalExpanded,
   isManager = false,
-  showDeliveryDetails = false,
+  showPaymentDetails = false,
   menuOptions = []
 }: OrderCardProps) {
   // Tracking context
@@ -841,8 +841,8 @@ export default function OrderCard({
               </div>
             )}
 
-            {/* תצוגת פרטי אספקה - במצב צפייה (רק למנהלים) */}
-            {showDeliveryDetails && !editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
+            {/* תצוגת פרטי אספקה - במצב צפייה (לכל העובדים) */}
+            {!editingDelivery && (order.deliveryMethod || order.estimatedTime || order.phone1 || order.phone2 || order.address) && (
               <div className="mb-3 bg-purple-50 rounded-lg p-2 border border-purple-200">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-gray-700">🚚 פרטי אספקה</span>
@@ -966,7 +966,7 @@ export default function OrderCard({
             )}
 
             {/* תצוגת פרטי תשלום - במצב צפייה (רק למנהלים) */}
-            {showDeliveryDetails && !editingPayment && (order.totalSum != null || order.deposit != null) && (
+            {showPaymentDetails && !editingPayment && (order.totalSum != null || order.deposit != null) && (
               <div className="mb-3 bg-emerald-50 rounded-lg p-2 border border-emerald-200">
                 <span className="text-xs font-bold text-gray-700 block mb-1">💳 תשלום</span>
                 <div className="text-xs text-gray-600 space-y-1">

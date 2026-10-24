@@ -15,7 +15,7 @@ interface DayModalProps {
   noteOpen?: Record<string, boolean>;
   toggleNote?: (orderId: string, idx: number) => void;
   isManager?: boolean;
-  showDeliveryDetails?: boolean;
+  showPaymentDetails?: boolean;
   onEditEventDate?: (orderId: string, newDate: string) => void;  // 🔥 הוסף
   onEditDelivery?: (orderId: string, delivery: {
     deliveryMethod?: 'delivery' | 'pickup';
@@ -54,7 +54,7 @@ export default function DayModal({
   noteOpen: externalNoteOpen,
   toggleNote: externalToggleNote,
   isManager,
-  showDeliveryDetails,
+  showPaymentDetails,
   updateClientColor,
   getClientColor,
   recipeLinks,
@@ -358,7 +358,7 @@ export default function DayModal({
                       externalExpanded={isExpanded}
                       onToggle={(orderId, expanded) => toggleOrder(orderId, expanded)}
                       isManager={isManager}
-                      showDeliveryDetails={showDeliveryDetails}
+                      showPaymentDetails={showPaymentDetails}
                       menuOptions={menuOptions}
                     />
                   );
