@@ -675,6 +675,10 @@ const editPayment = useCallback(async (orderId: string, payment: {
           orders={ordersWithColors}
           prices={settings.prices}
           onRangeChange={setRevenueRange}
+          onOpenPrices={hasSettingsAccess ? () => {
+            modals.setShowRevenue(false);
+            modals.setShowSettings(true);
+          } : undefined}
         />
       )}
     </div>
