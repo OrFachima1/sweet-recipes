@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import { fmtYMD, addDays } from "@/utils/orders";
+import { fmtYMD, addDays, isOrderInRange, type DayRange } from "@/utils/orders";
 import { groupItemsByCategory, getCategoryColor, getCategoryOrder } from "@/utils/categoryMapping";
 import { useClientsContext } from "@/contexts/ClientsContext";
 import { useOrderTracking } from "./tracking/OrderTrackingContext";
@@ -8,6 +8,8 @@ import OrderCard from "./OrderCard";
 
 interface ClientsViewProps {
   orders: any[];
+  // מדווח לעמוד איזה טווח מוצג, כדי שההזמנות שלו ייטענו מ-Firebase
+  onRangeChange?: (range: DayRange | null) => void;
   onAddClient?: () => void;
   recipeLinks?: Record<string, string>;
   onEditItem?: (orderId: string, idx: number, patch: any) => void;
@@ -41,7 +43,8 @@ interface ClientsViewProps {
 type TimeRange = "today" | "weekend" | "twoweeks" | "custom";
 
 export default function ClientsView({ 
-  orders, 
+  orders,
+  onRangeChange,
   onAddClient,
   recipeLinks,
   onEditItem,
@@ -133,13 +136,20 @@ export default function ClientsView({
     return { startDate: start, endDate: end };
   }, [timeRange, customStart, customEnd]);
 
+  const rangeStart = timeRange === "custom" ? customStart : fmtYMD(startDate);
+  const rangeEnd = timeRange === "custom" ? customEnd : fmtYMD(endDate);
+
+  useEffect(() => {
+    const valid = /^\d{4}-\d{2}-\d{2}$/.test(rangeStart) && /^\d{4}-\d{2}-\d{2}$/.test(rangeEnd) && rangeStart <= rangeEnd;
+    onRangeChange?.(valid ? { start: rangeStart, end: rangeEnd } : null);
+  }, [onRangeChange, rangeStart, rangeEnd]);
+
+  useEffect(() => () => onRangeChange?.(null), [onRangeChange]);
+
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
-      if (!o.eventDate) return false;
-      const orderDate = new Date(o.eventDate);
-      return orderDate >= startDate && orderDate <= endDate;
-    });
-  }, [orders, startDate, endDate]);
+    const range = { start: rangeStart, end: rangeEnd };
+    return orders.filter(o => isOrderInRange(o.eventDate, range));
+  }, [orders, rangeStart, rangeEnd]);
 
   const { itemsByCategory, itemsSummary } = useMemo(() => {
     const summary: Record<string, number> = {};

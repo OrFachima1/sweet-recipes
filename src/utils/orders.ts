@@ -10,6 +10,23 @@ export const fmtYMD = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
+// טווח ימים כ-YYYY-MM-DD (כולל שני הקצוות)
+export type DayRange = { start: string; end: string };
+
+// היום של ההזמנה כ-YYYY-MM-DD.
+// eventDate נשמר כ-"YYYY-MM-DD" או "YYYY-MM-DDTHH:MM:SS" — משווים מחרוזות ולא Date,
+// כי new Date("YYYY-MM-DD") מתפרש כ-UTC וזז שעות לפי אזור הזמן.
+export function orderDay(eventDate?: string | null): string | null {
+  return typeof eventDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(eventDate)
+    ? eventDate.slice(0, 10)
+    : null;
+}
+
+export function isOrderInRange(eventDate: string | null | undefined, range: DayRange): boolean {
+  const day = orderDay(eventDate);
+  return !!day && day >= range.start && day <= range.end;
+}
+
 export const genId = () =>
   `ord_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 

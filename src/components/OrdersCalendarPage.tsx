@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useCallback } from "react";
-import { fmtYMD } from "@/utils/orders";
+import React, { useEffect, useMemo, useCallback, useState } from "react";
+import { fmtYMD, type DayRange } from "@/utils/orders";
 import ManualOrderModal from "@/components/orders/modals/ManualOrderModal";
 import Toolbar from "@/components/orders/Toolbar";
 import MappingModal from "@/components/orders/modals/MappingModal";
@@ -82,6 +82,10 @@ export default function OrdersCalendarPage({
   });
 
   // ===== Firebase =====
+  // טווחי התאריכים שתצוגת לקוחות ומסך ההכנסות מציגים — נטענים גם אם הם מחוץ לחלון של הלוח
+  const [clientsRange, setClientsRange] = useState<DayRange | null>(null);
+  const [revenueRange, setRevenueRange] = useState<DayRange | null>(null);
+
   const firebase = useOrdersFirebase({
     user,
     isManager: canEdit, // עובד בכיר יכול גם לשמור הזמנות
@@ -90,6 +94,7 @@ export default function OrdersCalendarPage({
     orders: state.orders,
     setMenuOptions: state.setMenuOptions,
     viewDate: state.viewDate,
+    extraRanges: [clientsRange, revenueRange],
   });
 
   // ===== ESC to close modal =====
@@ -457,6 +462,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
       {navigation.mainView === "clients" && (
         <ClientsView
           orders={ordersWithColors}
+          onRangeChange={setClientsRange}
           onAddClient={canEdit ? () => state.setShowUpload(true) : undefined}
           recipeLinks={settings.recipeLinks}
           onEditEventDate={canEdit ? editEventDate : undefined}
@@ -668,6 +674,7 @@ const editPayment = useCallback(async (orderId: string, payment: {
           onClose={() => modals.setShowRevenue(false)}
           orders={ordersWithColors}
           prices={settings.prices}
+          onRangeChange={setRevenueRange}
         />
       )}
     </div>

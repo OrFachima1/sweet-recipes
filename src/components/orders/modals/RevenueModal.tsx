@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { fmtYMD, isOrderInRange, type DayRange } from '@/utils/orders';
 
 interface Order {
   __id?: string;
@@ -17,59 +18,62 @@ interface RevenueModalProps {
   onClose: () => void;
   orders: Order[];
   prices: Record<string, number>;
+  // מדווח לעמוד איזה טווח נדרש, כדי שההזמנות שלו ייטענו מ-Firebase
+  onRangeChange?: (range: DayRange | null) => void;
 }
+
+// "הכל" — כל ההזמנות במסד
+const ALL_RANGE: DayRange = { start: '0000-01-01', end: '9999-12-31' };
 
 type DateFilter = 'today' | 'week' | 'month' | 'custom' | 'all';
 
-export default function RevenueModal({ show, onClose, orders, prices }: RevenueModalProps) {
+export default function RevenueModal({ show, onClose, orders, prices, onRangeChange }: RevenueModalProps) {
   const [dateFilter, setDateFilter] = useState<DateFilter>('month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [viewMode, setViewMode] = useState<'clients' | 'products'>('clients');
 
-  // חישוב טווח תאריכים
-  const dateRange = useMemo(() => {
+  // חישוב טווח תאריכים (YYYY-MM-DD, כולל שני הקצוות)
+  const dateRange = useMemo((): DayRange | null => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     switch (dateFilter) {
       case 'today':
-        return { start: today, end: today };
-      
-      case 'week':
+        return { start: fmtYMD(today), end: fmtYMD(today) };
+
+      case 'week': {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay());
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
-        return { start: weekStart, end: weekEnd };
-      
+        return { start: fmtYMD(weekStart), end: fmtYMD(weekEnd) };
+      }
+
       case 'month':
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return { start: monthStart, end: monthEnd };
-      
-      case 'custom':
-        if (!customStart || !customEnd) return null;
         return {
-          start: new Date(customStart),
-          end: new Date(customEnd)
+          start: fmtYMD(new Date(now.getFullYear(), now.getMonth(), 1)),
+          end: fmtYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
         };
-      
+
+      case 'custom':
+        if (!customStart || !customEnd || customStart > customEnd) return null;
+        return { start: customStart, end: customEnd };
+
       case 'all':
-        return null;
+        return ALL_RANGE;
     }
   }, [dateFilter, customStart, customEnd]);
 
+  // טעינת ההזמנות של הטווח מ-Firebase כל עוד החלון פתוח
+  useEffect(() => {
+    onRangeChange?.(show ? dateRange : null);
+  }, [onRangeChange, show, dateRange]);
+
   // סינון הזמנות לפי תאריך
   const filteredOrders = useMemo(() => {
-    if (!orders || !Array.isArray(orders)) return [];
-    if (!dateRange) return orders;
-    
-    return orders.filter(order => {
-      if (!order.eventDate) return false;
-      const orderDate = new Date(order.eventDate);
-      return orderDate >= dateRange.start && orderDate <= dateRange.end;
-    });
+    if (!orders || !Array.isArray(orders) || !dateRange) return [];
+    return orders.filter(order => isOrderInRange(order.eventDate, dateRange));
   }, [orders, dateRange]);
 
   // חישוב הכנסות

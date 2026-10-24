@@ -13,6 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import type { IngestJsonOrder } from '@/types/orders';
+import { addDays, fmtYMD, type DayRange } from '@/utils/orders';
 
 interface UseOrdersFirebaseProps {
   user: any;
@@ -22,6 +23,8 @@ interface UseOrdersFirebaseProps {
   orders: IngestJsonOrder[];
   setMenuOptions: (options: string[]) => void;
   viewDate: Date;
+  // טווחים נוספים שמסכים אחרים צריכים (תצוגת לקוחות, הכנסות) — החלון מורחב כדי לכלול אותם
+  extraRanges?: (DayRange | null)[];
 }
 
 export function useOrdersFirebase({
@@ -32,6 +35,7 @@ export function useOrdersFirebase({
   orders,
   setMenuOptions,
   viewDate,
+  extraRanges = [],
 }: UseOrdersFirebaseProps) {
   // נשמור רפרנס לפונקציה כדי לא לשים אותה בתלויות של useEffect
   const getClientColorRef = useRef(getClientColor);
@@ -39,19 +43,26 @@ export function useOrdersFirebase({
     getClientColorRef.current = getClientColor;
   }, [getClientColor]);
 
-  // ----- שאילתה דינאמית: ±3 חודשים מסביב ל-viewDate -----
+  // ----- שאילתה דינאמית: ±3 חודשים מסביב ל-viewDate, מורחבת לטווחים שמסכים אחרים ביקשו -----
+  let startStr = fmtYMD(new Date(viewDate.getFullYear(), viewDate.getMonth() - 3, 1));
+  let endStr = fmtYMD(new Date(viewDate.getFullYear(), viewDate.getMonth() + 4, 0));
+  for (const r of extraRanges) {
+    if (!r) continue;
+    if (r.start < startStr) startStr = r.start;
+    if (r.end > endStr) endStr = r.end;
+  }
+
   const ordersQuery = useMemo(() => {
-    const start = new Date(viewDate.getFullYear(), viewDate.getMonth() - 3, 1);
-    const end = new Date(viewDate.getFullYear(), viewDate.getMonth() + 4, 0);
-    const startStr = start.toISOString().slice(0, 10);
-    const endStr = end.toISOString().slice(0, 10);
+    // גבול עליון לא כולל של היום שאחרי — כדי לתפוס גם "YYYY-MM-DDTHH:MM:SS" ביום האחרון
+    const [y, m, d] = endStr.split('-').map(Number);
+    const endExclusive = y >= 9999 ? '9999-12-32' : fmtYMD(addDays(new Date(y, m - 1, d), 1));
     return query(
       collection(db, 'orders'),
       where('eventDate', '>=', startStr),
-      where('eventDate', '<=', endStr),
+      where('eventDate', '<', endExclusive),
       firestoreOrderBy('eventDate', 'asc')
     );
-  }, [viewDate.getFullYear(), viewDate.getMonth()]);
+  }, [startStr, endStr]);
 
   // ===== Load Orders from Firestore (מאזין יחיד) =====
   useEffect(() => {
