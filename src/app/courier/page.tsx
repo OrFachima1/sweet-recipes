@@ -1,36 +1,50 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Fredoka } from 'next/font/google';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import {
+  collection, query, where, onSnapshot, doc, setDoc, updateDoc, deleteField, FieldPath,
+} from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClientsContext } from '@/contexts/ClientsContext';
 import { logout } from '@/lib/auth';
+import { fmtYMD, addDays } from '@/utils/orders';
 import LoadingScreen from '@/components/LoadingScreen';
 import type { IngestJsonOrder } from '@/types/orders';
 
-function formatDateForInput(date: Date): string {
-  return date.toISOString().slice(0, 10);
+// פונט התצוגה של העצירה הנוכחית (שם הלקוח, שעה, סכום לגבייה)
+const display = Fredoka({ subsets: ['hebrew', 'latin'], weight: ['500', '600'] });
+
+const ROSE = '#A3204A';
+const GREEN = '#2E8B4E';
+const TRACK = '#E3D9D6';
+const UNDO_MS = 6000;
+
+// סימון "נמסר" — מסמך אחד ליום: orderStates/deliveries_YYYY-MM-DD
+// (לא orderStates/current: מסך ההכנה כותב אותו מחדש בשלמותו)
+interface DeliveryMark {
+  at: number;
+  by: string;
+  byName: string | null;
 }
+
+const parseYMD = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
 
 function formatDateHebrew(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('he-IL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  return parseYMD(dateStr).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-function getTextColor(hex: string): string {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.slice(0, 2), 16);
-  const g = parseInt(c.slice(2, 4), 16);
-  const b = parseInt(c.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
+function formatTime(ms: number) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+const money = (v: number) => `₪${Math.round(v).toLocaleString('he-IL')}`;
 
 // orderNotes נשמר כמחרוזת או כמערך שורות
 function getOrderNotes(order: IngestJsonOrder): string[] {
@@ -39,251 +53,177 @@ function getOrderNotes(order: IngestJsonOrder): string[] {
   return list.map(n => String(n).trim()).filter(Boolean);
 }
 
-function OrderNotes({ order }: { order: IngestJsonOrder }) {
-  const notes = getOrderNotes(order);
-  if (!notes.length) return null;
-  return (
-    <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200 text-sm text-gray-700">
-      <span className="font-bold block mb-1">📝 הערות להזמנה</span>
-      <div className="space-y-1 whitespace-pre-line">
-        {notes.map((n, i) => <p key={i}>{n}</p>)}
-      </div>
-    </div>
-  );
+// יתרה לגבייה: null כשאין סכום להזמנה
+function getBalance(order: IngestJsonOrder): number | null {
+  if (order.totalSum == null) return null;
+  return order.totalSum - (order.deposit ?? 0);
 }
 
-// ─── Order Detail Modal ───────────────────────────────────────────────────────
+function cityOf(address?: string | null) {
+  if (!address) return '';
+  const parts = address.split(',').map(s => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : address;
+}
 
-function OrderDetailModal({ order, onClose }: { order: IngestJsonOrder; onClose: () => void }) {
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
-
+// סימוני "הועמס לרכב" נשמרים במכשיר של השליח
+function useLoadedItems(orderId: string) {
+  const key = `courier.loaded.${orderId}`;
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+    try {
+      const raw = localStorage.getItem(key);
+      setLoaded(raw ? JSON.parse(raw) : {});
+    } catch {
+      setLoaded({});
+    }
+  }, [key]);
+  const toggle = (idx: number) => {
+    setLoaded(prev => {
+      const next = { ...prev, [idx]: !prev[idx] };
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  return { loaded, toggle };
+}
 
-  const bgColor = order.clientColor || '#73a1ec';
-  const textColor = getTextColor(bgColor);
-  const balance = (order.totalSum ?? 0) - (order.deposit ?? 0);
-
+function ItemsChecklist({ order }: { order: IngestJsonOrder }) {
+  const { loaded, toggle } = useLoadedItems(order.__id!);
+  const count = order.items.filter((_, i) => loaded[i]).length;
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col max-h-[90vh] rounded-t-2xl overflow-hidden shadow-2xl bg-white pointer-events-auto">
-        {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: bgColor }}>
-          <div>
-            <h2 className="text-xl font-bold" style={{ color: textColor }}>{order.clientName}</h2>
-            {order.estimatedTime && (
-              <span className="text-sm opacity-80" style={{ color: textColor }}>⏰ {order.estimatedTime}</span>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-black/20 flex items-center justify-center text-white text-lg"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" dir="rtl">
-          {/* Payment */}
-          {order.totalSum != null && (
-            <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200 space-y-1 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>סה״כ לתשלום:</span>
-                <span className="font-medium">{order.totalSum.toLocaleString()} ₪</span>
-              </div>
-              {order.deliveryFee != null && order.deliveryFee > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>דמי משלוח:</span>
-                  <span className="font-medium">{order.deliveryFee.toLocaleString()} ₪</span>
-                </div>
-              )}
-              {(order.deposit ?? 0) > 0 && (
-                <div className="flex justify-between text-blue-700">
-                  <span>מקדמה:</span>
-                  <span className="font-medium">{(order.deposit ?? 0).toLocaleString()} ₪</span>
-                </div>
-              )}
-              <div className={`flex justify-between font-bold text-base border-t border-emerald-200 pt-1 ${balance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                <span>יתרה לתשלום:</span>
-                <span>{balance.toLocaleString()} ₪</span>
-              </div>
-            </div>
-          )}
-
-          {/* Address & Phones */}
-          {(order.address || order.phone1 || order.phone2) && (
-            <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 space-y-2">
-              {order.address && (
-                <a
-                  href={`https://waze.com/ul?q=${encodeURIComponent(order.address)}&navigate=yes`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-2 text-blue-600"
-                >
-                  <span className="text-lg flex-shrink-0">📍</span>
-                  <span className="text-sm font-medium underline">{order.address}</span>
-                </a>
-              )}
-              {order.phone1 && (
-                <a href={`tel:${order.phone1}`} className="flex items-center gap-2 text-blue-600">
-                  <span className="text-lg flex-shrink-0">📞</span>
-                  <div className="flex flex-col leading-tight">
-                    {order.phone1Name && <span className="text-xs text-gray-500">{order.phone1Name}</span>}
-                    <span className="text-sm font-medium" dir="ltr">{order.phone1}</span>
-                  </div>
-                </a>
-              )}
-              {order.phone2 && (
-                <a href={`tel:${order.phone2}`} className="flex items-center gap-2 text-blue-600">
-                  <span className="text-lg flex-shrink-0">📞</span>
-                  <div className="flex flex-col leading-tight">
-                    {order.phone2Name && <span className="text-xs text-gray-500">{order.phone2Name}</span>}
-                    <span className="text-sm font-medium" dir="ltr">{order.phone2}</span>
-                  </div>
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Notes */}
-          <OrderNotes order={order} />
-
-          {/* Items */}
-          <div>
-            <h3 className="font-bold text-gray-700 mb-2 text-base">פריטים ({order.items.length})</h3>
-            <div className="space-y-2">
-              {order.items.map((item, idx) => {
-                const done = checked[idx];
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => setChecked(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                    className={`rounded-lg px-3 py-2 flex items-center justify-between border cursor-pointer transition-all ${
-                      done
-                        ? 'bg-green-50 border-green-300'
-                        : 'bg-gray-50 border-gray-200 active:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                        done ? 'bg-green-500 border-green-500' : 'border-gray-300'
-                      }`}>
-                        {done && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>}
-                      </div>
-                      <span className={`text-sm font-medium ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                        {item.title}
-                      </span>
-                    </div>
-                    <span className={`text-sm font-bold px-2 py-0.5 rounded-full border ${
-                      done ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-600'
-                    }`}>
-                      × {item.qty} {item.unit || ''}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col">
+      <div className="pb-1 text-sm tabular-nums text-[#6E6260]">
+        {count} מתוך {order.items.length} הועמסו לרכב
       </div>
+      {order.items.map((item, idx) => {
+        const on = !!loaded[idx];
+        return (
+          <button
+            key={idx}
+            onClick={() => toggle(idx)}
+            aria-pressed={on}
+            className="flex min-h-[50px] w-full items-center gap-3 border-t border-[#F0E8E5] text-right"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-lg border-2 ${
+                on ? 'border-[#1E6B37] bg-[#1E6B37]' : 'border-[#B8ABA8]'
+              }`}
+            >
+              {on && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+              )}
+            </span>
+            <span className={`flex-1 text-[17px] ${on ? 'text-[#8C807E] line-through' : 'font-medium text-[#231C1C]'}`}>
+              {item.title}
+              {item.notes && <span className="block text-sm text-[#6E6260] no-underline">{item.notes}</span>}
+            </span>
+            <span className="text-base font-bold tabular-nums text-[#4D4342]">
+              × {item.qty}{item.unit ? ` ${item.unit}` : ''}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// ─── Courier Card ─────────────────────────────────────────────────────────────
+// ─── Current / open stop ──────────────────────────────────────────────────────
 
-function CourierCard({ order, onDetails }: { order: IngestJsonOrder; onDetails: () => void }) {
-  const bgColor = order.clientColor || '#73a1ec';
-  const textColor = getTextColor(bgColor);
-  const balance = (order.totalSum ?? 0) - (order.deposit ?? 0);
-  const hasBalance = order.totalSum != null;
+function OpenStop({
+  order, color, onDelivered,
+}: { order: IngestJsonOrder; color: string; onDelivered: () => void }) {
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const notes = getOrderNotes(order);
+  const balance = getBalance(order);
+  const phones = [
+    order.phone1 && { number: order.phone1, name: order.phone1Name },
+    order.phone2 && { number: order.phone2, name: order.phone2Name },
+  ].filter(Boolean) as Array<{ number: string; name?: string | null }>;
+  const [mainPhone, ...otherPhones] = phones;
 
   return (
-    <div className="rounded-2xl shadow-md overflow-hidden border border-gray-100">
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: bgColor }}>
-        <span className="text-lg font-bold" style={{ color: textColor }}>{order.clientName}</span>
-        {order.estimatedTime && (
-          <span className="text-sm font-semibold px-3 py-1 rounded-full bg-black/20" style={{ color: textColor }}>
-            ⏰ {order.estimatedTime}
-          </span>
-        )}
+    <section aria-label={order.clientName} className="mt-0.5 flex flex-col gap-3.5 rounded-[22px] bg-white p-4 shadow-[0_1px_0_#E7DDDA]">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <h2 className={`${display.className} text-[27px] font-semibold leading-tight`}>{order.clientName}</h2>
+        </div>
+        <div className="text-[17px] leading-snug">{order.address || 'אין כתובת להזמנה'}</div>
+        <div className="text-[15px] text-[#6E6260]">{order.items.length} מנות בהזמנה</div>
       </div>
 
-      {/* Body */}
-      <div className="bg-white px-4 py-3 space-y-3">
-        {/* Address */}
+      {balance != null && balance > 0 && (
+        <div className="flex items-center justify-between rounded-2xl bg-[#FFF1DE] px-3.5 py-2.5">
+          <span className="text-base text-[#6B3A00]">לגבות מהלקוח</span>
+          <span className={`${display.className} text-2xl font-semibold tabular-nums text-[#8A4B00]`}>{money(balance)}</span>
+        </div>
+      )}
+      {balance != null && balance <= 0 && (
+        <div className="text-base font-semibold text-[#1E6B37]">שולם מראש, אין מה לגבות</div>
+      )}
+
+      {notes.length > 0 && (
+        <div className="rounded-2xl bg-[#FBF6E6] px-3.5 py-2.5 text-base leading-relaxed">
+          <div className="mb-0.5 text-[13px] font-bold text-[#6E5A1E]">הערה להזמנה</div>
+          <div className="whitespace-pre-line">{notes.join('\n')}</div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
         {order.address ? (
           <a
             href={`https://waze.com/ul?q=${encodeURIComponent(order.address)}&navigate=yes`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-start gap-2 text-blue-600 hover:text-blue-800"
+            aria-label={`ניווט אל ${order.address}`}
+            className="flex h-[54px] items-center justify-center gap-2 rounded-2xl text-[17px] font-semibold text-white"
+            style={{ backgroundColor: ROSE }}
           >
-            <span className="text-lg mt-0.5 flex-shrink-0">📍</span>
-            <span className="text-sm font-medium underline">{order.address}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z" /></svg>
+            ניווט
           </a>
         ) : (
-          <div className="flex items-center gap-2 text-gray-400 text-sm">
-            <span>📍</span>
-            <span>אין כתובת</span>
-          </div>
+          <span className="flex h-[54px] items-center justify-center rounded-2xl bg-[#F2EAE7] text-[15px] text-[#6E6260]">אין כתובת</span>
         )}
-
-        {/* Phones */}
-        <div className="space-y-2">
-          {order.phone1 && (
-            <a href={`tel:${order.phone1}`} className="flex items-center gap-2 text-blue-600">
-              <span className="text-lg flex-shrink-0">📞</span>
-              <div className="flex flex-col leading-tight">
-                {order.phone1Name && <span className="text-xs text-gray-500">{order.phone1Name}</span>}
-                <span className="text-sm font-medium" dir="ltr">{order.phone1}</span>
-              </div>
-            </a>
-          )}
-          {order.phone2 && (
-            <a href={`tel:${order.phone2}`} className="flex items-center gap-2 text-blue-600">
-              <span className="text-lg flex-shrink-0">📞</span>
-              <div className="flex flex-col leading-tight">
-                {order.phone2Name && <span className="text-xs text-gray-500">{order.phone2Name}</span>}
-                <span className="text-sm font-medium" dir="ltr">{order.phone2}</span>
-              </div>
-            </a>
-          )}
-          {!order.phone1 && !order.phone2 && (
-            <span className="text-gray-400 text-sm">אין טלפון</span>
-          )}
-        </div>
-
-        {/* Notes */}
-        <OrderNotes order={order} />
-
-        {/* Balance */}
-        {hasBalance && (
-          <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${balance > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
-            <span className="text-sm font-medium text-gray-700">יתרה לתשלום</span>
-            <span className={`text-base font-bold ${balance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              {balance.toLocaleString()} ₪
-            </span>
-          </div>
+        {mainPhone ? (
+          <a
+            href={`tel:${mainPhone.number}`}
+            aria-label={`חיוג אל ${mainPhone.name || mainPhone.number}`}
+            className="flex h-[54px] min-w-0 items-center justify-center gap-2 rounded-2xl bg-[#F2EAE7] px-2 text-[17px] font-semibold"
+          >
+            <svg className="flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 005 5L15 12l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z" /></svg>
+            <span className="truncate">{mainPhone.name || 'חיוג'}</span>
+          </a>
+        ) : (
+          <span className="flex h-[54px] items-center justify-center rounded-2xl bg-[#F2EAE7] text-[15px] text-[#6E6260]">אין טלפון</span>
         )}
+      </div>
+      {otherPhones.map(p => (
+        <a key={p.number} href={`tel:${p.number}`} className="-mt-1.5 flex min-h-[44px] items-center gap-2 text-base" style={{ color: ROSE }}>
+          טלפון נוסף{p.name ? `: ${p.name}` : ''} <span dir="ltr" className="tabular-nums">{p.number}</span>
+        </a>
+      ))}
 
-        {/* Details button */}
+      {itemsOpen && <ItemsChecklist order={order} />}
+
+      <div className="flex gap-2">
         <button
-          onClick={onDetails}
-          className="w-full py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+          onClick={() => setItemsOpen(v => !v)}
+          aria-expanded={itemsOpen}
+          className="h-14 rounded-2xl bg-[#F2EAE7] px-3.5 text-[15px] font-semibold text-[#4D4342]"
         >
-          פרטי הזמנה
+          {itemsOpen ? 'הסתרת פריטים' : 'פריטים'}
+        </button>
+        <button
+          onClick={onDelivered}
+          className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#1E6B37] text-lg font-bold text-white active:bg-[#17552B]"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+          נמסר ללקוח
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -294,15 +234,17 @@ export default function CourierPage() {
   const { user, loading: authLoading, role, displayName } = useAuth();
   const { getClientColor } = useClientsContext();
 
+  const today = fmtYMD(new Date());
+  const tomorrow = fmtYMD(addDays(new Date(), 1));
+
   const [orders, setOrders] = useState<IngestJsonOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<IngestJsonOrder | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => formatDateForInput(new Date()));
-
-  const today = formatDateForInput(new Date());
-  const isToday = selectedDate === today;
-  const getClientColorRef = useRef(getClientColor);
-  useEffect(() => { getClientColorRef.current = getClientColor; }, [getClientColor]);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [marks, setMarks] = useState<Record<string, DeliveryMark>>({});
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: string; name: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Auth guard
   useEffect(() => {
@@ -314,38 +256,19 @@ export default function CourierPage() {
     }
   }, [authLoading, user, role, router]);
 
-  // Load deliveries for selected date
+  // משלוחים של היום הנבחר.
+  // טווח ולא שוויון: eventDate נשמר גם כ-"YYYY-MM-DDTHH:MM:SS"
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+    const nextDay = fmtYMD(addDays(parseYMD(selectedDate), 1));
     const unsub = onSnapshot(
-      query(collection(db, 'orders'), where('eventDate', '==', selectedDate), where('deliveryMethod', '==', 'delivery')),
+      query(collection(db, 'orders'), where('eventDate', '>=', selectedDate), where('eventDate', '<', nextDay)),
       (snap) => {
-        const list = snap.docs.map((d) => {
-          const data: any = d.data();
-          return {
-            __id: d.id,
-            orderId: data.orderId,
-            clientName: data.clientName,
-            clientColor: getClientColorRef.current(data.clientName),
-            eventDate: data.eventDate,
-            status: data.status,
-            items: data.items || [],
-            orderNotes: data.orderNotes || null,
-            totalSum: data.totalSum ?? null,
-            deliveryFee: data.deliveryFee ?? null,
-            deposit: data.deposit ?? null,
-            currency: data.currency,
-            deliveryMethod: data.deliveryMethod,
-            estimatedTime: data.estimatedTime || null,
-            phone1: data.phone1 || null,
-            phone1Name: data.phone1Name || null,
-            phone2: data.phone2 || null,
-            phone2Name: data.phone2Name || null,
-            address: data.address || null,
-          } as IngestJsonOrder;
-        });
-        // Sort by time
+        const list = snap.docs
+          .map(d => ({ __id: d.id, ...(d.data() as Omit<IngestJsonOrder, '__id'>) }))
+          .filter(o => o.deliveryMethod === 'delivery')
+          .map(o => ({ ...o, items: o.items || [] }));
         list.sort((a, b) => {
           if (!a.estimatedTime) return 1;
           if (!b.estimatedTime) return -1;
@@ -359,125 +282,259 @@ export default function CourierPage() {
     return () => unsub();
   }, [user, selectedDate]);
 
+  // סימוני "נמסר" של היום הנבחר
+  const marksRef = useMemo(() => doc(db, 'orderStates', `deliveries_${selectedDate}`), [selectedDate]);
+  useEffect(() => {
+    if (!user) return;
+    setMarks({});
+    const unsub = onSnapshot(
+      marksRef,
+      (snap) => setMarks((snap.data()?.deliveries as Record<string, DeliveryMark>) || {}),
+      (err) => console.error('Failed loading delivery marks', err)
+    );
+    return () => unsub();
+  }, [user, marksRef]);
+
+  useEffect(() => {
+    setOpenId(null);
+    setToast(null);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), UNDO_MS);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const markDelivered = useCallback(async (order: IngestJsonOrder) => {
+    if (!user || !order.__id) return;
+    setError(null);
+    const mark: DeliveryMark = { at: Date.now(), by: user.uid, byName: displayName || user.email || null };
+    try {
+      await setDoc(marksRef, { deliveries: { [order.__id]: mark } }, { merge: true });
+      setOpenId(null);
+      setToast({ id: order.__id, name: order.clientName });
+    } catch (e) {
+      console.error(e);
+      setError('הסימון לא נשמר. בדקו את החיבור ונסו שוב.');
+    }
+  }, [user, displayName, marksRef]);
+
+  const unmark = useCallback(async (orderId: string) => {
+    setError(null);
+    try {
+      await updateDoc(marksRef, new FieldPath('deliveries', orderId), deleteField());
+      setToast(null);
+      setOpenId(orderId);
+    } catch (e) {
+      console.error(e);
+      setError('ביטול הסימון לא נשמר. בדקו את החיבור ונסו שוב.');
+    }
+  }, [marksRef]);
+
   if (authLoading || !user || role === null) return <LoadingScreen />;
 
+  const pending = orders.filter(o => !marks[o.__id!]);
+  const firstPending = pending[0];
+  const activeId = openId && orders.some(o => o.__id === openId) ? openId : firstPending?.__id ?? null;
+  const collectLeft = pending.reduce((sum, o) => sum + Math.max(0, getBalance(o) ?? 0), 0);
+  const total = orders.length;
+  const dayWord = selectedDate === today ? 'היום' : selectedDate === tomorrow ? 'מחר' : 'ביום הזה';
+
+  const headline =
+    total === 0 ? `אין משלוחים ${dayWord}`
+      : pending.length === 0 ? 'אין עוד עצירות'
+      : pending.length === 1 ? `עוד עצירה אחת, מתוך ${total}`
+      : `עוד ${pending.length} עצירות, מתוך ${total}`;
+
+  const tab = (on: boolean) =>
+    `h-10 rounded-[10px] px-[18px] text-base ${on ? 'bg-white font-bold text-[#231C1C]' : 'text-[#4D4342]'}`;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50" dir="rtl">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-800">משלוחים 🚚</h1>
-              {displayName && <span className="text-sm text-gray-500">| {displayName}</span>}
+    <div className="min-h-screen bg-[#F7F3F1] text-[#231C1C]" dir="rtl">
+      <div className="mx-auto max-w-lg">
+        {/* Header */}
+        <header className="flex flex-col gap-3.5 px-4 pb-4 pt-3">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1 rounded-[14px] bg-[#EDE5E2] p-1">
+              <button aria-pressed={selectedDate === today} onClick={() => setSelectedDate(today)} className={tab(selectedDate === today)}>היום</button>
+              <button aria-pressed={selectedDate === tomorrow} onClick={() => setSelectedDate(tomorrow)} className={tab(selectedDate === tomorrow)}>מחר</button>
+              <label
+                className={`relative flex h-10 w-11 cursor-pointer items-center justify-center rounded-[10px] ${
+                  selectedDate !== today && selectedDate !== tomorrow ? 'bg-white' : ''
+                } text-[#4D4342]`}
+              >
+                <span className="sr-only">תאריך אחר</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                  onClick={() => { try { dateInputRef.current?.showPicker(); } catch {} }}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                />
+              </label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {role !== 'courier' && (
                 <button
                   onClick={() => router.back()}
-                  className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all flex items-center justify-center shadow-sm"
-                  title="חזרה"
+                  aria-label="חזרה"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[#4D4342] hover:bg-[#EDE5E2]"
                 >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
                 </button>
               )}
               <button
                 onClick={() => logout()}
-                className="w-9 h-9 rounded-full bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center shadow-sm"
-                title="התנתקות"
+                aria-label="התנתקות"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#4D4342] hover:bg-[#EDE5E2]"
               >
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 17l5-5-5-5M20 12H9M12 21H6a2 2 0 01-2-2V5a2 2 0 012-2h6" /></svg>
               </button>
             </div>
           </div>
-          {/* Date navigation */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const d = new Date(selectedDate);
-                d.setDate(d.getDate() - 1);
-                setSelectedDate(formatDateForInput(d));
-              }}
-              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <div className="flex-1 text-center">
-              <span className="text-sm font-medium text-gray-700">{formatDateHebrew(selectedDate)}</span>
-            </div>
-            <button
-              onClick={() => {
-                const d = new Date(selectedDate);
-                d.setDate(d.getDate() + 1);
-                setSelectedDate(formatDateForInput(d));
-              }}
-              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setSelectedDate(today)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                isToday
-                  ? 'bg-blue-100 text-blue-400 cursor-default'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
-              disabled={isToday}
-            >
-              היום
-            </button>
+          <div className="flex flex-col gap-0.5">
+            <div className="text-[15px] text-[#6E6260]">{formatDateHebrew(selectedDate)}</div>
+            <h1 className="text-2xl font-bold leading-snug">{loading ? 'טוען משלוחים…' : headline}</h1>
+            {!loading && collectLeft > 0 && (
+              <div className="text-base text-[#4D4342]">
+                לגבות {dayWord} עוד <span className="font-bold tabular-nums text-[#8A4B00]">{money(collectLeft)}</span>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
-        {/* Summary */}
-        {!loading && (
-          <div className="mb-5 bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-3 flex items-center justify-between">
-            <span className="text-gray-600 font-medium">{orders.length} משלוחים</span>
-            <span className="text-2xl font-bold text-blue-600">{orders.length}</span>
+        {toast && (
+          <div role="status" className="mx-4 mb-3 flex items-center justify-between gap-2 rounded-[14px] bg-[#231C1C] py-1.5 pl-1.5 pr-4 text-white">
+            <span className="text-[15px]">{toast.name} סומן כנמסר</span>
+            <button onClick={() => unmark(toast.id)} className="h-11 rounded-[10px] px-3.5 text-[15px] font-bold text-[#FFB4C8]">ביטול</button>
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="mx-4 mb-3 rounded-[14px] bg-[#FBEAE8] px-4 py-3 text-[15px] text-[#8B1E16]">{error}</div>
+        )}
+
+        {/* Route */}
+        {!loading && total === 0 && selectedDate === today && (
+          <div className="px-4">
+            <button
+              onClick={() => setSelectedDate(tomorrow)}
+              className="h-12 w-full rounded-2xl bg-white text-base font-semibold"
+              style={{ color: ROSE }}
+            >
+              להצגת המשלוחים של מחר
+            </button>
           </div>
         )}
 
-        {/* List */}
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
-            <div className="text-5xl mb-4">🚚</div>
-            <p className="text-gray-500 text-lg font-medium">אין משלוחים היום</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <CourierCard
-                key={order.__id}
-                order={order}
-                onDetails={() => setSelectedOrder(order)}
-              />
-            ))}
+        {!loading && total > 0 && (
+          <ol aria-label="מסלול המשלוחים" className="flex flex-col pb-10 pl-3 pr-4">
+            {orders.map((o, i) => {
+              const id = o.__id!;
+              const mark = marks[id];
+              const done = !!mark;
+              const isOpen = id === activeId;
+              const isCurrent = id === firstPending?.__id;
+              const prevDone = i > 0 && !!marks[orders[i - 1].__id!];
+              const balance = getBalance(o);
+              const color = o.clientColor || getClientColor(o.clientName) || '#B8ABA8';
+              const nodeSize = done || isOpen ? 22 : 14;
+              const doneText = mark ? `נמסר בשעה ${formatTime(mark.at)}${mark.byName ? `, על ידי ${mark.byName}` : ''}` : '';
+
+              return (
+                <li key={id} className="grid grid-cols-[52px_28px_minmax(0,1fr)] gap-x-2">
+                  <div
+                    className={`text-left tabular-nums ${
+                      isOpen && !done ? `${display.className} pt-3.5 text-[22px] font-semibold` : 'pt-5 text-[15px] font-semibold'
+                    }`}
+                    style={{ color: isOpen && !done ? ROSE : done ? '#8C807E' : '#4D4342' }}
+                  >
+                    {o.estimatedTime || '—'}
+                  </div>
+
+                  <div aria-hidden="true" className="relative flex justify-center">
+                    <div
+                      className="absolute top-0 h-[26px] w-[3px] rounded-sm"
+                      style={{ backgroundColor: i === 0 ? 'transparent' : prevDone ? GREEN : TRACK }}
+                    />
+                    <div
+                      className="absolute bottom-0 top-[26px] w-[3px] rounded-sm"
+                      style={{ backgroundColor: i === orders.length - 1 ? 'transparent' : done ? GREEN : TRACK }}
+                    />
+                    <div
+                      className="relative box-border flex items-center justify-center rounded-full"
+                      style={{
+                        marginTop: 26 - nodeSize / 2,
+                        width: nodeSize,
+                        height: nodeSize,
+                        ...(done
+                          ? { backgroundColor: GREEN }
+                          : isCurrent || isOpen
+                            ? { backgroundColor: '#fff', border: `5px solid ${ROSE}` }
+                            : { backgroundColor: '#F7F3F1', border: '3px solid #B8ABA8' }),
+                      }}
+                    >
+                      {done && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 pb-3.5">
+                    {!isOpen && (
+                      <button
+                        onClick={() => setOpenId(id)}
+                        aria-label={`פתיחת ${o.clientName}`}
+                        className="flex min-h-[56px] w-full items-center justify-between gap-2 py-1.5 text-right"
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className={`truncate text-[17px] font-semibold ${done ? 'text-[#6E6260]' : ''}`}>{o.clientName}</span>
+                          <span className="text-sm text-[#6E6260]">
+                            {done ? `נמסר בשעה ${formatTime(mark.at)}` : cityOf(o.address) || 'אין כתובת'}
+                          </span>
+                        </div>
+                        {done ? (
+                          <span className="flex-shrink-0 text-sm font-semibold text-[#1E6B37]">נמסר</span>
+                        ) : balance != null && balance > 0 ? (
+                          <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#8A4B00]">{money(balance)}</span>
+                        ) : null}
+                      </button>
+                    )}
+
+                    {isOpen && !done && (
+                      <OpenStop order={o} color={color} onDelivered={() => markDelivered(o)} />
+                    )}
+
+                    {isOpen && done && (
+                      <div className="mt-0.5 flex items-center justify-between gap-2 rounded-[18px] bg-white px-3.5 py-3">
+                        <div className="flex min-w-0 flex-col">
+                          <span className="text-[17px] font-semibold">{o.clientName}</span>
+                          <span className="text-sm tabular-nums text-[#6E6260]">{doneText}</span>
+                        </div>
+                        <button
+                          onClick={() => unmark(id)}
+                          className="h-11 flex-shrink-0 rounded-xl bg-[#F2EAE7] px-3 text-[15px] font-semibold text-[#4D4342]"
+                        >
+                          ביטול סימון
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
+        {!loading && total > 0 && pending.length === 0 && (
+          <div className="mx-4 mb-10 rounded-[22px] bg-[#E8F4EC] p-5 text-center">
+            <div className={`${display.className} text-2xl font-semibold text-[#1E6B37]`}>המסלול הושלם</div>
+            <div className="mt-1 text-[15px] text-[#2F5E3D]">כל המשלוחים נמסרו</div>
           </div>
         )}
       </div>
-
-      {/* Detail Modal */}
-      {selectedOrder && (
-        <OrderDetailModal
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-        />
-      )}
     </div>
   );
 }
