@@ -6,7 +6,7 @@ import { collection, doc, getDocs, getDoc, query, where, setDoc, onSnapshot } fr
 let recipesCache: Recipe[] | null = null;
 let recipesCachePromise: Promise<Recipe[]> | null = null;
 
-async function getRecipesCached(): Promise<Recipe[]> {
+export async function getRecipesCached(): Promise<Recipe[]> {
   if (recipesCache) {
     return recipesCache;
   }
